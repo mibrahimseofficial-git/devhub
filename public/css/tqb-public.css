@@ -1,0 +1,632 @@
+/* ==========================================================================
+   Tavola Quote Builder — front-end styles
+
+   Token system:
+   --tqb-navy:      #1B2E4B  (primary — trust, weight)
+   --tqb-navy-deep: #12203A  (headings, high-contrast text)
+   --tqb-gold:      #B8964F  (accent — used sparingly: active states, the price)
+   --tqb-cream:     #FAF8F4  (card background — warm, not stark white)
+   --tqb-ink:       #2A2F38  (body text)
+   --tqb-line:      #E4DFD5  (hairline borders)
+   --tqb-error:     #B3261E
+
+   Type: inherits the host theme's sans-serif for body/UI (so it sits
+   naturally inside the existing Elementor site), but the final quote
+   number is set in a serif — the one deliberate "moment" in the flow.
+   ========================================================================== */
+
+.tqb-layout {
+	--tqb-navy: #1B2E4B;
+	--tqb-navy-deep: #12203A;
+	--tqb-gold: #B8964F;
+	--tqb-cream: #FAF8F4;
+	--tqb-ink: #2A2F38;
+	--tqb-line: #E4DFD5;
+	--tqb-error: #B3261E;
+
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+	gap: 24px;
+	width: 100%;
+	align-items: start;
+	font-size: 16px;
+	line-height: 1.5;
+	color: var(--tqb-ink);
+	box-sizing: border-box;
+}
+
+.tqb-layout *,
+.tqb-layout *::before,
+.tqb-layout *::after {
+	box-sizing: inherit;
+}
+
+@media (max-width: 860px) {
+	.tqb-layout {
+		grid-template-columns: 1fr;
+	}
+
+	.tqb-summary {
+		order: -1;
+	}
+}
+
+.tqb-wizard {
+	width: 100%;
+	background: var(--tqb-cream);
+	border: 1px solid var(--tqb-line);
+	border-radius: 6px;
+	padding: 40px;
+}
+
+.tqb-wizard__header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	margin-bottom: 20px;
+	padding-bottom: 20px;
+	border-bottom: 1px solid var(--tqb-line);
+}
+
+.tqb-wizard__header .tqb-progress {
+	flex: 1;
+	margin-bottom: 0;
+	padding-bottom: 0;
+	border-bottom: none;
+}
+
+.tqb-reset-link {
+	background: none !important;
+	border: none !important;
+	color: #8A8272 !important;
+	font-size: 13px !important;
+	font-weight: 600 !important;
+	text-decoration: underline !important;
+	cursor: pointer;
+	padding: 0 !important;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.tqb-reset-link:hover {
+	color: var(--tqb-navy) !important;
+}
+
+/* ---- Summary panel (right column) ---- */
+.tqb-summary {
+	position: sticky;
+	top: 20px;
+	background: #fff;
+	border: 1px solid var(--tqb-line);
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+.tqb-summary__inner {
+	padding: 24px;
+}
+
+.tqb-summary__title {
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--tqb-gold);
+	margin: 0 0 16px;
+}
+
+.tqb-summary__empty {
+	font-size: 14px;
+	color: #8A8272;
+	margin: 0;
+}
+
+.tqb-summary__type {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--tqb-navy-deep);
+	background: var(--tqb-cream);
+	display: inline-block;
+	padding: 4px 10px;
+	border-radius: 20px;
+	margin-bottom: 14px;
+}
+
+.tqb-summary__item {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+	font-size: 13px;
+	color: var(--tqb-ink);
+	padding: 8px 0;
+	border-bottom: 1px solid var(--tqb-line);
+}
+
+.tqb-summary__item:last-of-type {
+	border-bottom: none;
+}
+
+.tqb-summary__basics {
+	margin-bottom: 4px;
+	padding-bottom: 4px;
+	border-bottom: 1.5px solid var(--tqb-navy);
+}
+
+.tqb-summary__basics .tqb-summary__item:last-of-type {
+	border-bottom: none;
+}
+
+.tqb-summary__item-amount {
+	color: #8A8272;
+	white-space: nowrap;
+}
+
+.tqb-summary__total {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	margin-top: 16px;
+	padding-top: 16px;
+	border-top: 1.5px solid var(--tqb-navy);
+}
+
+.tqb-summary__total-label {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--tqb-navy-deep);
+}
+
+.tqb-summary__total-amount {
+	font-family: Georgia, 'Times New Roman', serif;
+	font-size: 24px;
+	color: var(--tqb-navy-deep);
+}
+
+.tqb-summary__custom-note {
+	margin-top: 14px;
+	padding: 10px 12px;
+	background: #FBF3E5;
+	border-left: 3px solid var(--tqb-gold);
+	border-radius: 4px;
+	font-size: 12px;
+	color: #6B5A2E;
+}
+
+.tqb-wizard *,
+.tqb-wizard *::before,
+.tqb-wizard *::after {
+	box-sizing: inherit;
+}
+
+/* ---- Defensive reset against host theme / Elementor global styles ----
+   Page builders and themes commonly apply broad rules like
+   `input, select, button { width: 100%; }` or `a { display: block; }`
+   globally. Since this widget is embedded inside someone else's site,
+   those rules can win against ours by specificity or !important even
+   when loaded after. Every property here is neutralized with !important
+   as a baseline, then re-applied deliberately below where width:100% is
+   actually wanted (e.g. text/email/select fields). This was the root
+   cause of the quantity inputs rendering full-width instead of compact —
+   confirmed via screenshot on the live site. */
+.tqb-wizard input,
+.tqb-wizard select,
+.tqb-wizard button,
+.tqb-wizard textarea {
+	all: revert;
+	box-sizing: border-box !important;
+	font-family: inherit !important;
+	margin: 0 !important;
+	max-width: none !important;
+	float: none !important;
+}
+
+/* NOTE: width/display are intentionally NOT set here. `.tqb-wizard button`
+   (class + element) has higher specificity than a single class like
+   `.tqb-type-card`, so a broad width rule here would silently beat that
+   button's own !important width and break its layout. Each button class
+   (.tqb-btn, .tqb-type-card) sets its own width explicitly below instead —
+   safer, since a single class always loses to this element-scoped rule if
+   we tried to centralize it here. */
+
+.tqb-wizard a {
+	text-decoration: none !important;
+}
+
+/* ---- Progress indicator ---- */
+.tqb-progress {
+	display: flex;
+	justify-content: space-between;
+	margin-bottom: 36px;
+	padding-bottom: 20px;
+	border-bottom: 1px solid var(--tqb-line);
+}
+
+.tqb-progress__step {
+	position: relative;
+	flex: 1;
+	text-align: center;
+	font-size: 13px;
+	font-weight: 600;
+	color: #A9A296;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
+	line-height: 22px;
+	font-variant-numeric: tabular-nums;
+}
+
+.tqb-progress__step::before {
+	content: "";
+	position: absolute;
+	top: 11px;
+	left: -50%;
+	width: 100%;
+	height: 1px;
+	background: var(--tqb-line);
+	z-index: 0;
+}
+
+.tqb-progress__step:first-child::before {
+	display: none;
+}
+
+.tqb-progress__step > em {
+	font-style: normal;
+	font-size: 11px;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	color: inherit;
+}
+
+.tqb-progress__step.is-active,
+.tqb-progress__step.is-complete {
+	color: var(--tqb-navy);
+}
+
+.tqb-progress__step.is-active > em,
+.tqb-progress__step.is-complete > em {
+	color: var(--tqb-navy);
+}
+
+/* ---- Step content ---- */
+.tqb-step__title {
+	font-size: 22px;
+	font-weight: 700;
+	color: var(--tqb-navy-deep);
+	margin: 0 0 6px;
+	letter-spacing: -0.01em;
+}
+
+.tqb-step__subtitle {
+	font-size: 14px;
+	color: #6B6455;
+	margin: 0 0 28px;
+}
+
+/* ---- Step 1: type choice cards ---- */
+.tqb-type-choice {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 16px;
+}
+
+@media (max-width: 480px) {
+	.tqb-type-choice {
+		grid-template-columns: 1fr;
+	}
+}
+
+.tqb-type-card {
+	display: flex !important;
+	flex-direction: column !important;
+	gap: 4px !important;
+	text-align: left !important;
+	background: #fff !important;
+	border: 1.5px solid var(--tqb-line) !important;
+	border-radius: 6px !important;
+	padding: 20px 18px !important;
+	cursor: pointer;
+	width: 100% !important;
+	transition: border-color 0.15s ease, transform 0.15s ease;
+	font-family: inherit;
+}
+
+.tqb-type-card:hover {
+	border-color: var(--tqb-gold);
+}
+
+.tqb-type-card:focus-visible {
+	outline: 2px solid var(--tqb-navy);
+	outline-offset: 2px;
+}
+
+.tqb-type-card__label {
+	font-size: 17px;
+	font-weight: 700;
+	color: var(--tqb-navy-deep);
+}
+
+.tqb-type-card__desc {
+	font-size: 13px;
+	color: #6B6455;
+}
+
+/* ---- Fields ---- */
+.tqb-field {
+	margin-bottom: 18px;
+}
+
+.tqb-field label {
+	display: block;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--tqb-navy-deep);
+	margin-bottom: 6px;
+}
+
+.tqb-field input[type="text"],
+.tqb-field input[type="email"],
+.tqb-field input[type="tel"],
+.tqb-field input[type="number"],
+.tqb-field select {
+	width: 100% !important;
+	padding: 11px 12px !important;
+	border: 1.5px solid var(--tqb-line) !important;
+	border-radius: 5px !important;
+	font-size: 15px !important;
+	font-family: inherit !important;
+	color: var(--tqb-ink) !important;
+	background: #fff !important;
+}
+
+.tqb-field input:focus-visible,
+.tqb-field select:focus-visible {
+	outline: 2px solid var(--tqb-navy);
+	outline-offset: 1px;
+	border-color: var(--tqb-navy);
+}
+
+/* ---- Question checklist rows ---- */
+.tqb-question-row {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 14px 0;
+	border-bottom: 1px solid var(--tqb-line);
+}
+
+.tqb-question-row:last-child {
+	border-bottom: none;
+}
+
+.tqb-question-row__main {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	flex: 1;
+}
+
+.tqb-question-row input[type="checkbox"] {
+	margin-top: 3px !important;
+	width: 18px !important;
+	height: 18px !important;
+	accent-color: var(--tqb-navy);
+	flex-shrink: 0 !important;
+}
+
+.tqb-question-row__label {
+	font-size: 15px;
+	font-weight: 500;
+	color: var(--tqb-ink);
+}
+
+.tqb-question-row__note {
+	font-size: 12px;
+	color: #8A8272;
+	margin-top: 2px;
+}
+
+.tqb-question-row__qty {
+	width: 64px !important;
+	min-width: 64px !important;
+	max-width: 64px !important;
+	flex: 0 0 64px !important;
+	padding: 6px 8px !important;
+	border: 1.5px solid var(--tqb-line) !important;
+	border-radius: 4px !important;
+	font-size: 14px !important;
+	text-align: center !important;
+	flex-shrink: 0 !important;
+}
+
+/* ---- Buttons ---- */
+.tqb-step__nav {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-top: 30px;
+}
+
+.tqb-btn {
+	font-family: inherit;
+	font-size: 15px !important;
+	font-weight: 600 !important;
+	padding: 12px 24px !important;
+	border-radius: 5px !important;
+	border: 1.5px solid transparent !important;
+	cursor: pointer !important;
+	display: inline-flex !important;
+	align-items: center !important;
+	gap: 8px !important;
+	width: auto !important;
+	transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.tqb-btn--primary {
+	background: var(--tqb-navy) !important;
+	color: #fff !important;
+}
+
+.tqb-btn--primary:hover {
+	background: var(--tqb-navy-deep) !important;
+}
+
+.tqb-btn--primary:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.tqb-btn--ghost {
+	background: transparent;
+	border-color: var(--tqb-line);
+	color: var(--tqb-ink);
+}
+
+.tqb-btn--ghost:hover {
+	border-color: var(--tqb-navy);
+}
+
+.tqb-btn:focus-visible {
+	outline: 2px solid var(--tqb-navy);
+	outline-offset: 2px;
+}
+
+.tqb-btn__spinner {
+	width: 14px;
+	height: 14px;
+	border: 2px solid rgba(255, 255, 255, 0.4);
+	border-top-color: #fff;
+	border-radius: 50%;
+	display: inline-block;
+	animation: tqb-spin 0.7s linear infinite;
+}
+
+@keyframes tqb-spin {
+	to { transform: rotate(360deg); }
+}
+
+/* ---- Error state ---- */
+.tqb-error {
+	margin-top: 16px;
+	padding: 12px 14px;
+	background: #FBEAE9;
+	border: 1px solid var(--tqb-error);
+	color: var(--tqb-error);
+	border-radius: 5px;
+	font-size: 14px;
+}
+
+/* ---- Review step ---- */
+.tqb-review-section {
+	margin-bottom: 24px;
+	padding-bottom: 20px;
+	border-bottom: 1px solid var(--tqb-line);
+}
+
+.tqb-review-section:last-child {
+	border-bottom: none;
+}
+
+.tqb-review-section__title {
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--tqb-gold);
+	margin: 0 0 10px;
+}
+
+.tqb-review-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	font-size: 14px;
+	padding: 6px 0;
+}
+
+.tqb-review-row__label {
+	color: #6B6455;
+}
+
+.tqb-review-row__value {
+	color: var(--tqb-ink);
+	font-weight: 500;
+	text-align: right;
+}
+
+.tqb-review-empty {
+	font-size: 14px;
+	color: #8A8272;
+	font-style: italic;
+}
+
+/* ---- Result: instant proposal ---- */
+.tqb-result {
+	text-align: center;
+}
+
+.tqb-result__eyebrow {
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--tqb-gold);
+	margin-bottom: 10px;
+}
+
+.tqb-result__amount {
+	font-family: Georgia, 'Times New Roman', serif;
+	font-size: 52px;
+	font-weight: 400;
+	color: var(--tqb-navy-deep);
+	line-height: 1;
+	margin: 0 0 24px;
+}
+
+.tqb-result__disclaimer {
+	text-align: left;
+	background: #fff;
+	border: 1px solid var(--tqb-line);
+	border-left: 3px solid var(--tqb-gold);
+	border-radius: 4px;
+	padding: 14px 16px;
+	font-size: 13px;
+	color: #6B6455;
+	margin-bottom: 24px;
+}
+
+.tqb-result__next {
+	font-size: 14px;
+	color: #6B6455;
+}
+
+/* ---- Result: custom quote required ---- */
+.tqb-result--custom .tqb-result__eyebrow {
+	color: var(--tqb-navy);
+}
+
+.tqb-result__custom-title {
+	font-size: 20px;
+	font-weight: 700;
+	color: var(--tqb-navy-deep);
+	margin: 0 0 12px;
+}
+
+.tqb-result__custom-body {
+	font-size: 15px;
+	color: var(--tqb-ink);
+	margin-bottom: 28px;
+}
+
+/* ---- Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+	.tqb-btn__spinner {
+		animation: none;
+	}
+	.tqb-step {
+		transition: none !important;
+	}
+}
