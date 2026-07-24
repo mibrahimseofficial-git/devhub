@@ -94,7 +94,7 @@ class TQB_Public {
 			$formatted[] = array(
 				'key'                  => $item['item_key'],
 				'label'                => $item['label'],
-				'notes'                => $item['notes'],
+				'tooltip'              => ! empty( $item['tooltip'] ) ? $item['tooltip'] : '',
 				'fee'                  => (float) $item['fee'],
 				'pricingPattern'       => $item['pricing_pattern'],
 				'hardcodedValue'       => null !== $item['hardcoded_value'] ? (float) $item['hardcoded_value'] : null,

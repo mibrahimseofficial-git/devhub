@@ -268,6 +268,7 @@
 			checkbox.setAttribute( 'data-item-key', item.key );
 
 			var textWrap = document.createElement( 'div' );
+			textWrap.className = 'tqb-question-row__text';
 
 			var label = document.createElement( 'label' );
 			label.className = 'tqb-question-row__label';
@@ -275,11 +276,23 @@
 			label.textContent = item.label;
 			textWrap.appendChild( label );
 
-			if ( item.notes ) {
-				var note = document.createElement( 'div' );
-				note.className = 'tqb-question-row__note';
-				note.textContent = item.notes;
-				textWrap.appendChild( note );
+			// Add tooltip icon if tooltip text exists
+			if ( item.tooltip ) {
+				var tooltipWrap = document.createElement( 'span' );
+				tooltipWrap.className = 'tqb-question-row__tooltip-wrap';
+
+				var tooltipIcon = document.createElement( 'span' );
+				tooltipIcon.className = 'tqb-tooltip-icon';
+				tooltipIcon.textContent = 'ℹ️';
+				tooltipIcon.setAttribute( 'aria-label', 'More information' );
+
+				var tooltipText = document.createElement( 'span' );
+				tooltipText.className = 'tqb-tooltip-text';
+				tooltipText.textContent = item.tooltip;
+
+				tooltipWrap.appendChild( tooltipIcon );
+				tooltipWrap.appendChild( tooltipText );
+				label.appendChild( tooltipWrap );
 			}
 
 			main.appendChild( checkbox );

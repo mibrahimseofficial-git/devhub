@@ -180,13 +180,14 @@ class TQB_DB {
 		$wpdb->update( $table, array( 'team_notified' => 1 ), array( 'id' => $id ), array( '%d' ), array( '%d' ) );
 	}
 	/**
-	 * Update a single line item's editable fields (used by the admin dashboard,
-	 * Phase 3). Only touches fee / pricing_pattern / hardcoded_value / is_active
-	 * — item_key, quote_type, and label stay fixed to avoid orphaning data tied
-	 * to the item_key elsewhere (e.g. past submissions reference these keys).
+	 * Update a single line item's editable fields (used by the admin dashboard).
+	 * Updates label, tooltip, fee, pricing_pattern, hardcoded_value, and is_active.
+	 * Note: item_key and quote_type stay fixed to avoid orphaning data tied to the
+	 * item_key elsewhere (e.g. past submissions reference these keys).
 	 *
 	 * @param int   $id    Row ID in wp_tqb_line_items
-	 * @param array $data  [ 'fee' => float, 'pricing_pattern' => string,
+	 * @param array $data  [ 'label' => string, 'tooltip' => string|null,
+	 *                       'fee' => float, 'pricing_pattern' => string,
 	 *                       'hardcoded_value' => float|null, 'is_active' => 0|1 ]
 	 * @return bool
 	 */
@@ -197,13 +198,15 @@ class TQB_DB {
 		$updated = $wpdb->update(
 			$table,
 			array(
+				'label'           => $data['label'],
+				'tooltip'         => $data['tooltip'],
 				'fee'             => $data['fee'],
 				'pricing_pattern' => $data['pricing_pattern'],
 				'hardcoded_value' => $data['hardcoded_value'],
 				'is_active'       => $data['is_active'],
 			),
 			array( 'id' => $id ),
-			array( '%f', '%s', '%f', '%d' ),
+			array( '%s', '%s', '%f', '%s', '%f', '%d' ),
 			array( '%d' )
 		);
 

@@ -106,7 +106,8 @@ class TQB_Activator {
 			is_custom_quote_trigger TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = any Yes answer routes to custom-quote path instead of pricing (e.g. crypto, FBAR)',
 			is_active TINYINT(1) NOT NULL DEFAULT 1 COMMENT '0 = hidden from public form (e.g. audit, meetings)',
 			sort_order INT NOT NULL DEFAULT 0,
-			notes TEXT NULL,
+			tooltip TEXT NULL COMMENT 'Customer-facing help text shown on hover',
+			notes TEXT NULL COMMENT 'Internal notes for admin reference',
 			PRIMARY KEY  (id),
 			UNIQUE KEY item_key_type (item_key, quote_type),
 			KEY quote_type (quote_type)
@@ -160,31 +161,22 @@ class TQB_Activator {
 		}
 
 		$individual_items = array(
-			array( 'w2_wages', 'W-2 wage income', 350, 'qty_times_fee', null, 0, 1, 0 ),
-			array( 'multi_state', 'Lived or worked in more than one state', 150, 'qty_times_fee', null, 0, 1, 10 ),
-			array( 'interest_dividends', 'Bank or investment account interest/dividend statements', 25, 'flat', null, 0, 1, 20 ),
-			array( 'brokerage_sales', 'Brokerage statement showing stock or investment sales', 25, 'qty_times_fee', null, 0, 1, 30 ),
-			array( 'rental_property', 'Owns rental property', 200, 'qty_times_fee', null, 0, 1, 40 ),
-			array( 'self_employed', 'Self-employed or owns a small business / single-member LLC', 200, 'qty_times_fee', null, 0, 1, 50 ),
-			array( 'farm_income', 'Farm income', 275, 'qty_times_fee', null, 0, 1, 60 ),
-			array( 'k1_received', 'Received a K-1', 50, 'qty_times_fee', null, 0, 1, 70 ),
-			array( 'foreign_accounts', 'Has foreign bank accounts or foreign income (FBAR)', 250, 'qty_times_fee', null, 1, 1, 80 ),
-			array( 'crypto', 'Bought, sold, or traded cryptocurrency', 250, 'qty_times_fee', null, 1, 1, 90 ),
-			array( 'tuition', 'Paid college tuition (1098-T)', 25, 'qty_times_fee', null, 0, 1, 100 ),
-			// NOTE: childcare pricing pattern is an OPEN QUESTION — see PROJECT_SPEC.md
-			// Section 6. Seeded as 'flat' to match the ACTUAL formula behavior observed
-			// in the client's sheet, not the note text. Change to 'qty_times_fee' in the
-			// admin dashboard if the client confirms it should be per-child.
-			array( 'childcare', 'Paid for childcare or dependent care', 25, 'flat', null, 0, 1, 110 ),
-			array( 'hsa', 'Has an HSA', 25, 'qty_times_fee', null, 0, 1, 120 ),
-			array( 'home_sale', 'Sold any home during the year (1099-S)', 150, 'qty_times_fee', null, 0, 1, 130 ),
-			// NOTE: retirement distributions is the OTHER open question — see
-			// PROJECT_SPEC.md Section 6. Fee column in the client's sheet displays
-			// $25 but the actual formula hardcodes $100. Seeded to match the formula.
-			array( 'retirement_distributions', 'Retirement Distributions (401K, IRA, ROTH IRA etc.)', 25, 'hardcoded', 100, 0, 1, 140 ),
-			// Excluded from public form per client confirmation — kept in DB as
-			// inactive so it's available for internal/admin use only if ever needed.
-			array( 'meetings', 'Meetings (end of year recap, tax return review, misc.)', 250, 'qty_times_fee', null, 0, 0, 150 ),
+			array( 'w2_wages', 'W-2 wage income', 350, 'qty_times_fee', null, 0, 1, 0, 'Your W-2 form shows wages you earned as an employee. This applies to everyone filing a personal return.' ),
+			array( 'multi_state', 'Lived or worked in more than one state', 150, 'qty_times_fee', null, 0, 1, 10, 'If you earned income or worked in a state other than your primary residence, additional state filings may be required.' ),
+			array( 'interest_dividends', 'Bank or investment account interest/dividend statements', 25, 'flat', null, 0, 1, 20, 'Look for 1099-INT (interest) and 1099-DIV (dividends) forms from your banks and investment accounts.' ),
+			array( 'brokerage_sales', 'Brokerage statement showing stock or investment sales', 25, 'qty_times_fee', null, 0, 1, 30, 'If you sold stocks, bonds, or other investments, you should receive a 1099-B form from your brokerage.' ),
+			array( 'rental_property', 'Owns rental property', 200, 'qty_times_fee', null, 0, 1, 40, 'Income and expenses from rental properties need to be reported on your tax return.' ),
+			array( 'self_employed', 'Self-employed or owns a small business / single-member LLC', 200, 'qty_times_fee', null, 0, 1, 50, 'If you run your own business or are a sole proprietor, your business income and expenses are reported on a Schedule C.' ),
+			array( 'farm_income', 'Farm income', 275, 'qty_times_fee', null, 0, 1, 60, 'Income from farming activities, including livestock, crops, and other agricultural products.' ),
+			array( 'k1_received', 'Received a K-1', 50, 'qty_times_fee', null, 0, 1, 70, 'A K-1 form reports income from partnerships, S-corporations, or estates/trusts.' ),
+			array( 'foreign_accounts', 'Has foreign bank accounts or foreign income (FBAR)', 250, 'qty_times_fee', null, 1, 1, 80, 'If you have foreign bank accounts exceeding $10,000 at any point during the year, you may need to file an FBAR (FinCEN Form 114).' ),
+			array( 'crypto', 'Bought, sold, or traded cryptocurrency', 250, 'qty_times_fee', null, 1, 1, 90, 'Cryptocurrency transactions (buying, selling, trading) are taxable and must be reported on your return.' ),
+			array( 'tuition', 'Paid college tuition (1098-T)', 25, 'qty_times_fee', null, 0, 1, 100, 'You should receive a 1098-T form from your educational institution showing tuition paid.' ),
+			array( 'childcare', 'Paid for childcare or dependent care', 25, 'flat', null, 0, 1, 110, 'Child and dependent care expenses may qualify for a tax credit. You will need the provider\'s name and tax ID.' ),
+			array( 'hsa', 'Has an HSA', 25, 'qty_times_fee', null, 0, 1, 120, 'Health Savings Account contributions and distributions are reported on Form 8889.' ),
+			array( 'home_sale', 'Sold any home during the year (1099-S)', 150, 'qty_times_fee', null, 0, 1, 130, 'If you sold a home, you should receive a 1099-S form. There may be capital gains implications.' ),
+			array( 'retirement_distributions', 'Retirement Distributions (401K, IRA, ROTH IRA etc.)', 25, 'hardcoded', 100, 0, 1, 140, 'Distributions from retirement accounts like 401(k)s, IRAs, and Roth IRAs are taxable.' ),
+			array( 'meetings', 'Meetings (end of year recap, tax return review, misc.)', 250, 'qty_times_fee', null, 0, 0, 150, 'Internal use only.' ),
 		);
 
 		foreach ( $individual_items as $item ) {
@@ -200,23 +192,19 @@ class TQB_Activator {
 					'is_custom_quote_trigger' => $item[5],
 					'is_active'               => $item[6],
 					'sort_order'              => $item[7],
+					'tooltip'                 => $item[8],
 				)
 			);
 		}
 
 		$business_items = array(
-			array( 'extra_k1s', 'Multiple partners/owners (extra K-1s to issue)', 25, 'qty_times_fee', null, 0, 1, 10 ),
-			array( 'multi_state', 'Business operates in more than one state', 250, 'qty_times_fee', null, 0, 1, 20 ),
-			array( 'depreciation_schedule', 'Need a fixed asset / depreciation schedule built or maintained', 250, 'qty_times_fee', null, 0, 1, 30 ),
-			array( 'foreign_partner', 'Has a foreign partner/owner', 350, 'qty_times_fee', null, 0, 1, 40 ),
-			// NOTE: "per hour charge" per sheet notes but priced as flat $250 —
-			// open question, not yet confirmed by client. Seeded as qty_times_fee
-			// so Qty can represent hours if that's confirmed; flag in admin UI.
-			array( 'books_dont_match', "Books don't match tax records (book-to-tax adjustments)", 250, 'qty_times_fee', null, 0, 1, 50 ),
-			array( 'excess_equipment', 'More than 25 pieces of equipment/fixed assets', 250, 'qty_times_fee', null, 0, 1, 60 ),
-			// Excluded from public form per explicit client confirmation (covered
-			// in ToS / Client Service Agreement — audit rep is out of engagement scope).
-			array( 'audit_support', 'Under IRS audit / needs audit support', 350, 'qty_times_fee', null, 0, 0, 70 ),
+			array( 'extra_k1s', 'Multiple partners/owners (extra K-1s to issue)', 25, 'qty_times_fee', null, 0, 1, 10, 'Each additional partner or owner requires a separate K-1 form to be issued.' ),
+			array( 'multi_state', 'Business operates in more than one state', 250, 'qty_times_fee', null, 0, 1, 20, 'If your business has income or activities in states other than your home state, additional state filings may be required.' ),
+			array( 'depreciation_schedule', 'Need a fixed asset / depreciation schedule built or maintained', 250, 'qty_times_fee', null, 0, 1, 30, 'A depreciation schedule tracks the cost of business assets over time. Required if you have significant equipment, vehicles, or property.' ),
+			array( 'foreign_partner', 'Has a foreign partner/owner', 350, 'qty_times_fee', null, 0, 1, 40, 'Foreign partner/owner interests require additional reporting and may have tax implications.' ),
+			array( 'books_dont_match', "Books don't match tax records (book-to-tax adjustments)", 250, 'qty_times_fee', null, 0, 1, 50, 'If your bookkeeping does not align with your tax filings, additional work is needed to reconcile the differences.' ),
+			array( 'excess_equipment', 'More than 25 pieces of equipment/fixed assets', 250, 'qty_times_fee', null, 0, 1, 60, 'Larger numbers of fixed assets require detailed depreciation calculations.' ),
+			array( 'audit_support', 'Under IRS audit / needs audit support', 350, 'qty_times_fee', null, 0, 0, 70, 'Audit representation is not included in standard engagement.' ),
 		);
 
 		foreach ( $business_items as $item ) {
@@ -232,6 +220,7 @@ class TQB_Activator {
 					'is_custom_quote_trigger' => $item[5],
 					'is_active'               => $item[6],
 					'sort_order'              => $item[7],
+					'tooltip'                 => $item[8],
 				)
 			);
 		}

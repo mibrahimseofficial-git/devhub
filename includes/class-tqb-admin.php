@@ -152,6 +152,8 @@ class TQB_Admin {
 
 		foreach ( $items as $item_id => $fields ) {
 			$item_id         = absint( $item_id );
+			$label          = isset( $fields['label'] ) ? sanitize_text_field( wp_unslash( $fields['label'] ) ) : '';
+			$tooltip        = isset( $fields['tooltip'] ) ? sanitize_textarea_field( wp_unslash( $fields['tooltip'] ) ) : '';
 			$fee             = isset( $fields['fee'] ) ? (float) $fields['fee'] : 0;
 			$pricing_pattern = isset( $fields['pricing_pattern'] ) ? sanitize_key( $fields['pricing_pattern'] ) : 'qty_times_fee';
 			$hardcoded_value = ( isset( $fields['hardcoded_value'] ) && '' !== $fields['hardcoded_value'] )
@@ -160,6 +162,8 @@ class TQB_Admin {
 			$is_active = isset( $fields['is_active'] ) ? 1 : 0;
 
 			TQB_DB::update_line_item( $item_id, array(
+				'label'           => $label,
+				'tooltip'        => $tooltip,
 				'fee'             => $fee,
 				'pricing_pattern' => $pricing_pattern,
 				'hardcoded_value' => $hardcoded_value,

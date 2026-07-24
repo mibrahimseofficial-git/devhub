@@ -12,9 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 ?>
 <h2><?php echo esc_html( $heading ); ?></h2>
 <p class="description">
-	Toggle "Active" to show/hide an item on the public form. "Pricing pattern" controls how the fee is applied:
-	<strong>Qty × Fee</strong> multiplies by the quantity entered, <strong>Flat</strong> charges the fee once regardless of quantity,
-	<strong>Hardcoded</strong> always charges the fixed amount shown (ignores the Fee column — used for one known pricing quirk, see notes column).
+	Toggle "Active" to show/hide an item on the public form. Edit the <strong>Label</strong> to change what users see, and add <strong>Tooltip</strong> text for help that appears on hover.
 </p>
 
 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -22,37 +20,45 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<input type="hidden" name="action" value="tqb_save_line_items" />
 	<input type="hidden" name="quote_type" value="<?php echo esc_attr( $quote_type ); ?>" />
 
-	<table class="widefat striped" style="max-width: 1100px;">
+	<table class="widefat striped" style="max-width: 1200px;">
 		<thead>
 			<tr>
-				<th style="width: 30%;">Item</th>
-				<th style="width: 15%;">Fee ($)</th>
-				<th style="width: 18%;">Pricing Pattern</th>
-				<th style="width: 15%;">Hardcoded Value ($)</th>
-				<th style="width: 10%;">Active</th>
-				<th style="width: 12%;">Custom-Quote Trigger?</th>
+				<th style="width: 25%;">Label (shown to users)</th>
+				<th style="width: 20%;">Tooltip (hover help text)</th>
+				<th style="width: 10%;">Fee ($)</th>
+				<th style="width: 12%;">Pricing Pattern</th>
+				<th style="width: 10%;">Hardcoded ($)</th>
+				<th style="width: 8%;">Active</th>
+				<th style="width: 15%;">Internal Info</th>
 			</tr>
 		</thead>
 		<tbody>
 			<?php foreach ( $items as $item ) : ?>
 				<tr>
 					<td>
-						<strong><?php echo esc_html( $item['label'] ); ?></strong><br />
-						<code style="color:#888;"><?php echo esc_html( $item['item_key'] ); ?></code>
-						<?php if ( ! empty( $item['notes'] ) ) : ?>
-							<p class="description"><?php echo esc_html( $item['notes'] ); ?></p>
-						<?php endif; ?>
+						<input type="text"
+							name="items[<?php echo esc_attr( $item['id'] ); ?>][label]"
+							value="<?php echo esc_attr( $item['label'] ); ?>"
+							style="width: 100%;" /><br />
+						<code style="color:#888; font-size:11px;"><?php echo esc_html( $item['item_key'] ); ?></code>
+					</td>
+					<td>
+						<textarea
+							name="items[<?php echo esc_attr( $item['id'] ); ?>][tooltip]"
+							rows="3"
+							style="width: 100%; font-size:12px;"
+							placeholder="Help text shown on hover..."><?php echo esc_textarea( $item['tooltip'] ); ?></textarea>
 					</td>
 					<td>
 						<input type="number" step="0.01" min="0"
 							name="items[<?php echo esc_attr( $item['id'] ); ?>][fee]"
 							value="<?php echo esc_attr( $item['fee'] ); ?>"
-							style="width: 100px;" />
+							style="width: 80px;" />
 					</td>
 					<td>
-						<select name="items[<?php echo esc_attr( $item['id'] ); ?>][pricing_pattern]">
+						<select name="items[<?php echo esc_attr( $item['id'] ); ?>][pricing_pattern]" style="width: 100px;">
 							<option value="qty_times_fee" <?php selected( $item['pricing_pattern'], 'qty_times_fee' ); ?>>Qty × Fee</option>
-							<option value="flat" <?php selected( $item['pricing_pattern'], 'flat' ); ?>>Flat (ignore Qty)</option>
+							<option value="flat" <?php selected( $item['pricing_pattern'], 'flat' ); ?>>Flat</option>
 							<option value="hardcoded" <?php selected( $item['pricing_pattern'], 'hardcoded' ); ?>>Hardcoded</option>
 						</select>
 					</td>
@@ -60,18 +66,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 						<input type="number" step="0.01" min="0"
 							name="items[<?php echo esc_attr( $item['id'] ); ?>][hardcoded_value]"
 							value="<?php echo esc_attr( $item['hardcoded_value'] ); ?>"
-							style="width: 100px;" />
+							style="width: 70px;" />
 					</td>
 					<td style="text-align:center;">
 						<input type="checkbox"
 							name="items[<?php echo esc_attr( $item['id'] ); ?>][is_active]"
 							value="1" <?php checked( (int) $item['is_active'], 1 ); ?> />
 					</td>
-					<td style="text-align:center;">
+					<td style="font-size:11px; color:#666;">
 						<?php if ( ! empty( $item['is_custom_quote_trigger'] ) ) : ?>
-							<span title="Any 'Yes' on this item routes the prospect to the custom-quote path instead of an auto-price. Not editable from this screen.">Yes 🔒</span>
-						<?php else : ?>
-							—
+							<span style="color:#b32d2e;">Custom quote trigger</span>
+						<?php endif; ?>
+						<?php if ( ! empty( $item['notes'] ) ) : ?>
+							<br /><small><em>Notes: <?php echo esc_html( $item['notes'] ); ?></em></small>
 						<?php endif; ?>
 					</td>
 				</tr>
