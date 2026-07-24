@@ -11,11 +11,39 @@ next session starts clean.
 
 ---
 
-## Current Status: Added rate limiting to AJAX submit endpoint (5 submissions/hour per IP). Code pushed to GitHub PR #1. Ready to merge and test.
+## Current Status: Added editable labels and tooltips feature. Label and tooltip fields are now editable from backend. Tooltip icon shows on hover in frontend. Ready to merge and test.
 
 ---
 
 ## Session Log
+
+### Session 16 — 2026-07-24 (editable labels + tooltips)
+**Done:**
+- Added `tooltip` column to `wp_tqb_line_items` table
+- **Label field is now editable** in admin dashboard — client can change question text
+- **Tooltip field added** for customer-facing help text (shown on hover)
+- Sample tooltip text added for all Individual and Business line items
+- Tooltip icon (ℹ️) appears next to questions that have tooltip text
+- CSS styling for tooltip popup (appears on hover)
+
+**Files modified:**
+- `includes/class-tqb-activator.php` — DB schema + seed data with tooltips
+- `includes/class-tqb-db.php` — `update_line_item()` now saves label + tooltip
+- `includes/class-tqb-admin.php` — save handler for new fields
+- `includes/class-tqb-public.php` — sends tooltip to frontend JS
+- `admin/views/line-items-tab.php` — editable label + tooltip fields
+- `public/js/tqb-public.js` — renders tooltip icon and popup
+- `public/css/tqb-public.css` — tooltip styling
+
+**Not done yet:**
+- Wording rewrite (can now be done from backend by editing labels)
+- Same remaining items from previous sessions
+
+**How to verify:**
+- Admin: Go to Quote Builder > Individual Pricing — labels and tooltips are now editable fields
+- Frontend: Questions with tooltip text show ℹ️ icon; hover to see tooltip popup
+
+---
 
 ### Session 15 — 2026-07-24 (rate limiting security fix)
 **Done:**
