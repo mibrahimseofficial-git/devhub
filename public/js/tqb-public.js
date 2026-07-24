@@ -182,10 +182,6 @@
 				var w2Checkbox = w2Row.querySelector( 'input[type="checkbox"]' );
 				w2Checkbox.checked = true;
 				w2Checkbox.disabled = true;
-				var w2Note = document.createElement( 'span' );
-				w2Note.className = 'tqb-question-row__note';
-				w2Note.textContent = 'Everyone starts here — included automatically.';
-				w2Row.querySelector( '.tqb-question-row__label' ).parentNode.appendChild( w2Note );
 			}
 		}
 
