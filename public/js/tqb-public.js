@@ -788,6 +788,12 @@
 		var phoneEl = document.getElementById( 'tqb-contact-phone' );
 
 		if ( nameEl && nameEl.value ) {
+			// Contact info header badge
+			var contactHeader = document.createElement( 'div' );
+			contactHeader.className = 'tqb-summary__type';
+			contactHeader.textContent = 'Your Info';
+			content.appendChild( contactHeader );
+
 			var contactSection = document.createElement( 'div' );
 			contactSection.className = 'tqb-summary__contact';
 
@@ -801,6 +807,13 @@
 				contactEmail.className = 'tqb-summary__contact-email';
 				contactEmail.textContent = emailEl.value;
 				contactSection.appendChild( contactEmail );
+			}
+
+			if ( phoneEl && phoneEl.value ) {
+				var contactPhone = document.createElement( 'div' );
+				contactPhone.className = 'tqb-summary__contact-phone';
+				contactPhone.textContent = phoneEl.value;
+				contactSection.appendChild( contactPhone );
 			}
 
 			content.appendChild( contactSection );
