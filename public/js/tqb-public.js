@@ -40,6 +40,7 @@
 		selectedTypes: [], // ['individual', 'business', 'business', ...]
 		businessCount: 0,  // Number of businesses selected
 		businessFieldsTouched: {}, // Track if business dropdowns have been interacted with
+		completedSteps: [], // Track which steps have been completed
 	};
 
 	var ENTITY_OPTIONS = [
@@ -78,6 +79,7 @@
 		state.selectedTypes = [];
 		state.businessCount = 0;
 		state.businessFieldsTouched = {};
+		state.completedSteps = [];
 
 		var nameEl = document.getElementById( 'tqb-contact-name' );
 		var emailEl = document.getElementById( 'tqb-contact-email' );
@@ -179,7 +181,10 @@
 
 	wizard.querySelectorAll( '[data-step="2"] [data-action="back"]' ).forEach( function ( btn ) {
 		btn.addEventListener( 'click', function () {
+			// Remove step 1 from completed (going back)
+			state.completedSteps = state.completedSteps.filter( function ( s ) { return s !== STEP.TYPE; } );
 			goToStep( STEP.TYPE );
+			updateSummaryPanel();
 		} );
 	} );
 
@@ -188,7 +193,12 @@
 			if ( ! validateContactFields() ) {
 				return;
 			}
+			// Mark contact step as completed
+			if ( ! state.completedSteps.includes( STEP.CONTACT ) ) {
+				state.completedSteps.push( STEP.CONTACT );
+			}
 			goToStep( STEP.QUESTIONS );
+			updateSummaryPanel();
 		} );
 	} );
 
@@ -491,20 +501,31 @@
 
 	wizard.querySelectorAll( '[data-step="3"] [data-action="back"]' ).forEach( function ( btn ) {
 		btn.addEventListener( 'click', function () {
+			// Remove contact step from completed (going back)
+			state.completedSteps = state.completedSteps.filter( function ( s ) { return s !== STEP.CONTACT; } );
 			goToStep( STEP.CONTACT );
+			updateSummaryPanel();
 		} );
 	} );
 
 	wizard.querySelectorAll( '[data-step="3"] [data-action="to-review"]' ).forEach( function ( btn ) {
 		btn.addEventListener( 'click', function () {
+			// Mark questions step as completed
+			if ( ! state.completedSteps.includes( STEP.QUESTIONS ) ) {
+				state.completedSteps.push( STEP.QUESTIONS );
+			}
 			buildReviewStep();
 			goToStep( STEP.REVIEW );
+			updateSummaryPanel();
 		} );
 	} );
 
 	wizard.querySelectorAll( '[data-step="4"] [data-action="back"]' ).forEach( function ( btn ) {
 		btn.addEventListener( 'click', function () {
+			// Remove questions step from completed (going back)
+			state.completedSteps = state.completedSteps.filter( function ( s ) { return s !== STEP.QUESTIONS; } );
 			goToStep( STEP.QUESTIONS );
+			updateSummaryPanel();
 		} );
 	} );
 
@@ -783,6 +804,8 @@
 		var content = document.getElementById( 'tqb-summary-content' );
 		content.innerHTML = '';
 
+		var currentStep = parseInt( wizard.getAttribute( 'data-step' ), 10 );
+
 		if ( ! state.selectedTypes.length ) {
 			var empty = document.createElement( 'p' );
 			empty.className = 'tqb-summary__empty';
@@ -791,41 +814,54 @@
 			return;
 		}
 
-		// Show contact info if available
-		var nameEl = document.getElementById( 'tqb-contact-name' );
-		var emailEl = document.getElementById( 'tqb-contact-email' );
-		var phoneEl = document.getElementById( 'tqb-contact-phone' );
+		// Helper to check if a step is completed or current
+		var isStepVisible = function ( stepNum ) {
+			return state.completedSteps.includes( stepNum ) || currentStep >= stepNum;
+		};
 
-		if ( nameEl && nameEl.value ) {
-			// Contact info header badge
-			var contactHeader = document.createElement( 'div' );
-			contactHeader.className = 'tqb-summary__type';
-			contactHeader.textContent = 'Your Info';
-			content.appendChild( contactHeader );
+		// Show contact info only if on step 2 or beyond
+		if ( isStepVisible( STEP.CONTACT ) ) {
+			var nameEl = document.getElementById( 'tqb-contact-name' );
+			var emailEl = document.getElementById( 'tqb-contact-email' );
+			var phoneEl = document.getElementById( 'tqb-contact-phone' );
 
-			var contactSection = document.createElement( 'div' );
-			contactSection.className = 'tqb-summary__contact';
+			if ( nameEl && nameEl.value ) {
+				// Contact info header badge
+				var contactHeader = document.createElement( 'div' );
+				contactHeader.className = 'tqb-summary__type';
+				contactHeader.textContent = 'Your Info';
+				content.appendChild( contactHeader );
 
-			var contactName = document.createElement( 'div' );
-			contactName.className = 'tqb-summary__contact-name';
-			contactName.textContent = nameEl.value;
-			contactSection.appendChild( contactName );
+				var contactSection = document.createElement( 'div' );
+				contactSection.className = 'tqb-summary__contact';
 
-			if ( emailEl && emailEl.value ) {
-				var contactEmail = document.createElement( 'div' );
-				contactEmail.className = 'tqb-summary__contact-email';
-				contactEmail.textContent = emailEl.value;
-				contactSection.appendChild( contactEmail );
+				var contactName = document.createElement( 'div' );
+				contactName.className = 'tqb-summary__contact-name';
+				contactName.textContent = nameEl.value;
+				contactSection.appendChild( contactName );
+
+				if ( emailEl && emailEl.value ) {
+					var contactEmail = document.createElement( 'div' );
+					contactEmail.className = 'tqb-summary__contact-email';
+					contactEmail.textContent = emailEl.value;
+					contactSection.appendChild( contactEmail );
+				}
+
+				if ( phoneEl && phoneEl.value ) {
+					var contactPhone = document.createElement( 'div' );
+					contactPhone.className = 'tqb-summary__contact-phone';
+					contactPhone.textContent = phoneEl.value;
+					contactSection.appendChild( contactPhone );
+				}
+
+				content.appendChild( contactSection );
 			}
+		}
 
-			if ( phoneEl && phoneEl.value ) {
-				var contactPhone = document.createElement( 'div' );
-				contactPhone.className = 'tqb-summary__contact-phone';
-				contactPhone.textContent = phoneEl.value;
-				contactSection.appendChild( contactPhone );
-			}
-
-			content.appendChild( contactSection );
+		// Only show question sections if on step 3 or beyond
+		if ( ! isStepVisible( STEP.QUESTIONS ) ) {
+			// Don't show question sections yet
+			return;
 		}
 
 		// Calculate combined total from all sections
