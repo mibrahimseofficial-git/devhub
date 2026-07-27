@@ -868,17 +868,22 @@
 		var answers = collectAnswers();
 		var grandTotal = 0;
 		var isCustomQuote = false;
-		var allLineItems = [];
 		var businessIndex = 0;
 
 		state.selectedTypes.forEach( function ( type ) {
 			var sectionIndex = type === 'business' ? businessIndex++ : 0;
 
+			// Section container
+			var sectionWrap = document.createElement( 'div' );
+			sectionWrap.className = 'tqb-summary__section';
+
 			// Section header
 			var sectionHeader = document.createElement( 'div' );
 			sectionHeader.className = 'tqb-summary__type';
 			sectionHeader.textContent = type === 'individual' ? 'Personal Tax Return' : 'Business #' + ( sectionIndex + 1 );
-			content.appendChild( sectionHeader );
+			sectionWrap.appendChild( sectionHeader );
+
+			var sectionTotal = 0;
 
 			if ( type === 'business' ) {
 				var bizId = 'tqb-business-' + sectionIndex;
@@ -914,7 +919,7 @@
 						row.appendChild( value );
 						basicsWrap.appendChild( row );
 					} );
-					content.appendChild( basicsWrap );
+					sectionWrap.appendChild( basicsWrap );
 
 					if ( result.baseFee !== null ) {
 						var baseRow = document.createElement( 'div' );
@@ -926,34 +931,61 @@
 						baseAmount.textContent = formatCurrency( result.baseFee );
 						baseRow.appendChild( baseLabel );
 						baseRow.appendChild( baseAmount );
-						content.appendChild( baseRow );
-						grandTotal += result.baseFee;
+						sectionWrap.appendChild( baseRow );
+						sectionTotal += result.baseFee;
 					}
 
-					grandTotal += result.total;
+					sectionTotal += result.total;
 					isCustomQuote = isCustomQuote || result.isCustomQuote;
-					allLineItems = allLineItems.concat( result.lineItems );
+
+					// Line items for this section
+					result.lineItems.forEach( function ( li ) {
+						var row = document.createElement( 'div' );
+						row.className = 'tqb-summary__item';
+						var label = document.createElement( 'span' );
+						label.textContent = li.label + ( li.qty && li.qty !== 1 ? ' (\u00d7' + li.qty + ')' : '' );
+						var amount = document.createElement( 'span' );
+						amount.className = 'tqb-summary__item-amount';
+						amount.textContent = formatCurrency( li.amount );
+						row.appendChild( label );
+						row.appendChild( amount );
+						sectionWrap.appendChild( row );
+					} );
 				}
 			} else {
 				var result = calculateIndividualPreviewForAnswers( answers, type, sectionIndex );
-				grandTotal += result.total;
+				sectionTotal += result.total;
 				isCustomQuote = isCustomQuote || result.isCustomQuote;
-				allLineItems = allLineItems.concat( result.lineItems );
-			}
-		} );
 
-		// Line items
-		allLineItems.forEach( function ( li ) {
-			var row = document.createElement( 'div' );
-			row.className = 'tqb-summary__item';
-			var label = document.createElement( 'span' );
-			label.textContent = li.label + ( li.qty && li.qty !== 1 ? ' (\u00d7' + li.qty + ')' : '' );
-			var amount = document.createElement( 'span' );
-			amount.className = 'tqb-summary__item-amount';
-			amount.textContent = formatCurrency( li.amount );
-			row.appendChild( label );
-			row.appendChild( amount );
-			content.appendChild( row );
+				// Line items for this section
+				result.lineItems.forEach( function ( li ) {
+					var row = document.createElement( 'div' );
+					row.className = 'tqb-summary__item';
+					var label = document.createElement( 'span' );
+					label.textContent = li.label + ( li.qty && li.qty !== 1 ? ' (\u00d7' + li.qty + ')' : '' );
+					var amount = document.createElement( 'span' );
+					amount.className = 'tqb-summary__item-amount';
+					amount.textContent = formatCurrency( li.amount );
+					row.appendChild( label );
+					row.appendChild( amount );
+					sectionWrap.appendChild( row );
+				} );
+			}
+
+			// Section subtotal
+			var sectionSubtotalRow = document.createElement( 'div' );
+			sectionSubtotalRow.className = 'tqb-summary__subtotal';
+			var subtotalLabel = document.createElement( 'span' );
+			subtotalLabel.textContent = 'Subtotal';
+			var subtotalAmount = document.createElement( 'span' );
+			subtotalAmount.className = 'tqb-summary__item-amount';
+			subtotalAmount.textContent = formatCurrency( sectionTotal );
+			sectionSubtotalRow.appendChild( subtotalLabel );
+			sectionSubtotalRow.appendChild( subtotalAmount );
+			sectionWrap.appendChild( sectionSubtotalRow );
+
+			grandTotal += sectionTotal;
+			content.appendChild( sectionWrap );
 		} );
 
 		// Grand total

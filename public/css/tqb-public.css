@@ -157,6 +157,28 @@
 	margin-bottom: 14px;
 }
 
+.tqb-summary__section {
+	margin-bottom: 20px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid var(--tqb-line);
+}
+
+.tqb-summary__section:last-of-type {
+	border-bottom: none;
+}
+
+.tqb-summary__subtotal {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--tqb-navy-deep);
+	padding: 10px 0 0;
+	margin-top: 4px;
+	border-top: 1px dashed var(--tqb-line);
+}
+
 .tqb-summary__item {
 	display: flex;
 	justify-content: space-between;
