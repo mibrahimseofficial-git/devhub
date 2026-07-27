@@ -39,6 +39,7 @@
 	var state = {
 		selectedTypes: [], // ['individual', 'business', 'business', ...]
 		businessCount: 0,  // Number of businesses selected
+		businessFieldsTouched: {}, // Track if business dropdowns have been interacted with
 	};
 
 	var ENTITY_OPTIONS = [
@@ -76,6 +77,7 @@
 	function resetAll() {
 		state.selectedTypes = [];
 		state.businessCount = 0;
+		state.businessFieldsTouched = {};
 
 		var nameEl = document.getElementById( 'tqb-contact-name' );
 		var emailEl = document.getElementById( 'tqb-contact-email' );
@@ -278,19 +280,26 @@
 
 			basicsDiv.appendChild(
 				buildSelectField( businessId + '-entity', 'Business type', ENTITY_OPTIONS, function () {
+					state.businessFieldsTouched[ businessId ] = true;
 					updateAssetBandOptionsForBusiness( businessId );
 					updateSummaryPanel();
 				} )
 			);
 
 			basicsDiv.appendChild(
-				buildSelectField( businessId + '-assets', 'Total business assets', [], updateSummaryPanel )
+				buildSelectField( businessId + '-assets', 'Total business assets', [], function () {
+					state.businessFieldsTouched[ businessId ] = true;
+					updateSummaryPanel();
+				} )
 			);
 
 			basicsDiv.appendChild(
 				buildSelectField( businessId + '-revenue', 'Annual revenue / total receipts', tqbData.revenueBands.map( function ( b ) {
 					return { value: b.label, label: b.label };
-				} ), updateSummaryPanel )
+				} ), function () {
+					state.businessFieldsTouched[ businessId ] = true;
+					updateSummaryPanel();
+				} )
 			);
 
 			section.appendChild( basicsDiv );
@@ -841,7 +850,8 @@
 				var assetEl = document.getElementById( bizId + '-assets' );
 				var revenueEl = document.getElementById( bizId + '-revenue' );
 
-				if ( entityEl && assetEl && revenueEl ) {
+				// Only show business details if fields have been interacted with
+				if ( entityEl && assetEl && revenueEl && state.businessFieldsTouched[ bizId ] ) {
 					var result = calculateBusinessPreview( entityEl.value, assetEl.value, revenueEl.value, answers, type, sectionIndex );
 
 					// Business basics summary
