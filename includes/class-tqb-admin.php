@@ -161,13 +161,24 @@ class TQB_Admin {
 				: null;
 			$is_active = isset( $fields['is_active'] ) ? 1 : 0;
 
+			// Threshold fields
+			$threshold_qty = ( isset( $fields['threshold_qty'] ) && '' !== $fields['threshold_qty'] )
+				? (float) $fields['threshold_qty']
+				: null;
+			$threshold_trigger = isset( $fields['threshold_trigger'] ) ? sanitize_key( $fields['threshold_trigger'] ) : null;
+			if ( empty( $threshold_trigger ) ) {
+				$threshold_trigger = null;
+			}
+
 			TQB_DB::update_line_item( $item_id, array(
-				'label'           => $label,
-				'tooltip'        => $tooltip,
-				'fee'             => $fee,
-				'pricing_pattern' => $pricing_pattern,
-				'hardcoded_value' => $hardcoded_value,
-				'is_active'       => $is_active,
+				'label'             => $label,
+				'tooltip'           => $tooltip,
+				'fee'               => $fee,
+				'pricing_pattern'   => $pricing_pattern,
+				'hardcoded_value'   => $hardcoded_value,
+				'is_active'         => $is_active,
+				'threshold_qty'     => $threshold_qty,
+				'threshold_trigger'  => $threshold_trigger,
 			) );
 		}
 

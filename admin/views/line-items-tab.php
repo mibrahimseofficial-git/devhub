@@ -13,6 +13,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 <h2><?php echo esc_html( $heading ); ?></h2>
 <p class="description">
 	Toggle "Active" to show/hide an item on the public form. Edit the <strong>Label</strong> to change what users see, and add <strong>Tooltip</strong> text for help that appears on hover.
+	<br /><br />
+	<strong>Threshold:</strong> Use this to create conditional custom quotes. For example, for Crypto with threshold_qty=100 and threshold_trigger=above: if the user enters a quantity greater than 100, it triggers a custom quote instead of calculating the fee.
 </p>
 
 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -20,16 +22,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<input type="hidden" name="action" value="tqb_save_line_items" />
 	<input type="hidden" name="quote_type" value="<?php echo esc_attr( $quote_type ); ?>" />
 
-	<table class="widefat striped" style="max-width: 1200px;">
+	<table class="widefat striped" style="max-width: 1400px;">
 		<thead>
 			<tr>
-				<th style="width: 25%;">Label (shown to users)</th>
-				<th style="width: 20%;">Tooltip (hover help text)</th>
-				<th style="width: 10%;">Fee ($)</th>
-				<th style="width: 12%;">Pricing Pattern</th>
-				<th style="width: 10%;">Hardcoded ($)</th>
-				<th style="width: 8%;">Active</th>
-				<th style="width: 15%;">Internal Info</th>
+				<th style="width: 22%;">Label (shown to users)</th>
+				<th style="width: 18%;">Tooltip (hover help text)</th>
+				<th style="width: 8%;">Fee ($)</th>
+				<th style="width: 10%;">Pricing Pattern</th>
+				<th style="width: 8%;">Hardcoded ($)</th>
+				<th style="width: 12%;">Threshold Qty</th>
+				<th style="width: 10%;">Threshold Trigger</th>
+				<th style="width: 5%;">Active</th>
+				<th style="width: 12%;">Internal Info</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -53,7 +57,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 						<input type="number" step="0.01" min="0"
 							name="items[<?php echo esc_attr( $item['id'] ); ?>][fee]"
 							value="<?php echo esc_attr( $item['fee'] ); ?>"
-							style="width: 80px;" />
+							style="width: 70px;" />
 					</td>
 					<td>
 						<select name="items[<?php echo esc_attr( $item['id'] ); ?>][pricing_pattern]" style="width: 100px;">
@@ -66,7 +70,26 @@ if ( ! defined( 'ABSPATH' ) ) {
 						<input type="number" step="0.01" min="0"
 							name="items[<?php echo esc_attr( $item['id'] ); ?>][hardcoded_value]"
 							value="<?php echo esc_attr( $item['hardcoded_value'] ); ?>"
-							style="width: 70px;" />
+							style="width: 65px;" />
+					</td>
+					<td>
+						<input type="number" step="1" min="0"
+							name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_qty]"
+							value="<?php echo esc_attr( $item['threshold_qty'] ); ?>"
+							style="width: 60px;"
+							placeholder="e.g. 100" />
+						<p style="margin: 4px 0 0; font-size:10px; color:#888;">Leave empty for no threshold</p>
+					</td>
+					<td>
+						<select name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_trigger]" style="width: 90px;">
+							<option value="">—</option>
+							<option value="above" <?php selected( $item['threshold_trigger'], 'above' ); ?>>Above</option>
+							<option value="below" <?php selected( $item['threshold_trigger'], 'below' ); ?>>Below</option>
+						</select>
+						<p style="margin: 4px 0 0; font-size:10px; color:#888;">
+							<strong>Above:</strong> qty > threshold = custom<br />
+							<strong>Below:</strong> qty < threshold = custom
+						</p>
 					</td>
 					<td style="text-align:center;">
 						<input type="checkbox"

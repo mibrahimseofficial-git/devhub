@@ -188,25 +188,41 @@ class TQB_DB {
 	 * @param int   $id    Row ID in wp_tqb_line_items
 	 * @param array $data  [ 'label' => string, 'tooltip' => string|null,
 	 *                       'fee' => float, 'pricing_pattern' => string,
-	 *                       'hardcoded_value' => float|null, 'is_active' => 0|1 ]
+	 *                       'hardcoded_value' => float|null, 'is_active' => 0|1,
+	 *                       'threshold_qty' => float|null, 'threshold_trigger' => string|null ]
 	 * @return bool
 	 */
 	public static function update_line_item( $id, array $data ) {
 		global $wpdb;
 		$table = $wpdb->prefix . TQB_TABLE_LINE_ITEMS;
 
+		$set = array(
+			'label'           => $data['label'],
+			'tooltip'         => $data['tooltip'],
+			'fee'             => $data['fee'],
+			'pricing_pattern' => $data['pricing_pattern'],
+			'hardcoded_value' => $data['hardcoded_value'],
+			'is_active'       => $data['is_active'],
+		);
+
+		$formats = array( '%s', '%s', '%f', '%s', '%f', '%d' );
+
+		// Add threshold fields if present
+		if ( array_key_exists( 'threshold_qty', $data ) ) {
+			$set['threshold_qty'] = $data['threshold_qty'];
+			$formats[] = $data['threshold_qty'] === null ? '%s' : '%f';
+		}
+
+		if ( array_key_exists( 'threshold_trigger', $data ) ) {
+			$set['threshold_trigger'] = $data['threshold_trigger'];
+			$formats[] = $data['threshold_trigger'] === null ? '%s' : '%s';
+		}
+
 		$updated = $wpdb->update(
 			$table,
-			array(
-				'label'           => $data['label'],
-				'tooltip'         => $data['tooltip'],
-				'fee'             => $data['fee'],
-				'pricing_pattern' => $data['pricing_pattern'],
-				'hardcoded_value' => $data['hardcoded_value'],
-				'is_active'       => $data['is_active'],
-			),
+			$set,
 			array( 'id' => $id ),
-			array( '%s', '%s', '%f', '%s', '%f', '%d' ),
+			$formats,
 			array( '%d' )
 		);
 
