@@ -27,6 +27,8 @@ class TQB_Public {
 		add_shortcode( 'tavola_quote_builder', array( $this, 'render_shortcode' ) );
 		add_action( 'wp_ajax_tqb_submit_quote', array( $this, 'handle_submit' ) );
 		add_action( 'wp_ajax_nopriv_tqb_submit_quote', array( $this, 'handle_submit' ) );
+		add_action( 'wp_ajax_tqb_save_partial', array( $this, 'handle_save_partial' ) );
+		add_action( 'wp_ajax_nopriv_tqb_save_partial', array( $this, 'handle_save_partial' ) );
 	}
 
 	/**
@@ -206,6 +208,49 @@ class TQB_Public {
 			'total'         => $engine_result['total'],
 			'disclaimer'    => get_option( 'tqb_disclaimer_text', '' ),
 			'schedulingLink'=> get_option( 'tqb_scheduling_link', '' ),
+		) );
+	}
+
+	/**
+	 * Saves partial form progress for abandoned quote follow-up.
+	 * Called via AJAX when user completes each step.
+	 */
+	public function handle_save_partial() {
+		// Don't check nonce for public users - we want to track even without login
+		// The submission is identified by email
+
+		$email = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
+
+		if ( empty( $email ) || ! is_email( $email ) ) {
+			wp_send_json_error( array( 'message' => 'Invalid email.' ), 400 );
+			return;
+		}
+
+		$step = isset( $_POST['step'] ) ? absint( $_POST['step'] ) : 1;
+		$quote_types = isset( $_POST['quote_types'] ) ? sanitize_text_field( wp_unslash( $_POST['quote_types'] ) ) : '';
+		$answers = isset( $_POST['answers'] ) ? (array) $_POST['answers'] : array();
+		$businesses = isset( $_POST['businesses'] ) ? (array) $_POST['businesses'] : array();
+		$contact_name = isset( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '';
+		$contact_phone = isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : '';
+
+		$result = TQB_Quote_Handler::save_partial_submission(
+			$email,
+			$step,
+			$quote_types,
+			$contact_name,
+			$contact_phone,
+			$answers,
+			$businesses
+		);
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 );
+			return;
+		}
+
+		wp_send_json_success( array(
+			'saved' => true,
+			'submission_id' => $result,
 		) );
 	}
 

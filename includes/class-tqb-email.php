@@ -147,4 +147,193 @@ class TQB_Email {
 	public static function set_html_content_type() {
 		return 'text/html';
 	}
+
+	/**
+	 * Send abandoned quote follow-up emails.
+	 * Called by the cron job.
+	 */
+	public static function send_abandoned_quote_emails() {
+		if ( ! get_option( 'tqb_enable_abandoned_emails', '1' ) ) {
+			return;
+		}
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'tqb_submissions';
+
+		$reminder_hours = (int) get_option( 'tqb_reminder_email_hours', 24 );
+		$followup_hours = (int) get_option( 'tqb_followup_email_hours', 72 );
+		$final_hours = (int) get_option( 'tqb_final_email_hours', 168 );
+
+		$now = current_time( 'mysql' );
+
+		// Find submissions eligible for reminder email
+		$reminder_cutoff = date( 'Y-m-d H:i:s', strtotime( "-{$reminder_hours} hours" ) );
+		$reminder_eligible = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$table} 
+				WHERE status = 'in_progress' 
+				AND created_at < %s 
+				AND reminder_email_sent = 0
+				AND status != 'abandoned'
+				LIMIT 50",
+				$reminder_cutoff
+			),
+			ARRAY_A
+		);
+
+		foreach ( $reminder_eligible as $submission ) {
+			if ( self::send_abandoned_reminder_email( $submission ) ) {
+				$wpdb->update(
+					$table,
+					array(
+						'reminder_email_sent' => 1,
+						'reminder_email_sent_at' => $now,
+					),
+					array( 'id' => $submission['id'] ),
+					array( '%d', '%s' ),
+					array( '%d' )
+				);
+			}
+		}
+
+		// Find submissions eligible for follow-up email (with call offer)
+		$followup_cutoff = date( 'Y-m-d H:i:s', strtotime( "-{$followup_hours} hours" ) );
+		$followup_eligible = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$table} 
+				WHERE status = 'in_progress' 
+				AND created_at < %s 
+				AND followup_email_sent = 0
+				AND reminder_email_sent = 1
+				LIMIT 50",
+				$followup_cutoff
+			),
+			ARRAY_A
+		);
+
+		foreach ( $followup_eligible as $submission ) {
+			if ( self::send_abandoned_followup_email( $submission ) ) {
+				$wpdb->update(
+					$table,
+					array(
+						'followup_email_sent' => 1,
+						'followup_email_sent_at' => $now,
+					),
+					array( 'id' => $submission['id'] ),
+					array( '%d', '%s' ),
+					array( '%d' )
+				);
+			}
+		}
+
+		// Find submissions eligible for final email
+		$final_cutoff = date( 'Y-m-d H:i:s', strtotime( "-{$final_hours} hours" ) );
+		$final_eligible = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$table} 
+				WHERE status = 'in_progress' 
+				AND created_at < %s 
+				AND final_email_sent = 0
+				AND followup_email_sent = 1
+				LIMIT 50",
+				$final_cutoff
+			),
+			ARRAY_A
+		);
+
+		foreach ( $final_eligible as $submission ) {
+			if ( self::send_abandoned_final_email( $submission ) ) {
+				$wpdb->update(
+					$table,
+					array(
+						'final_email_sent' => 1,
+						'final_email_sent_at' => $now,
+						'status' => 'abandoned',
+					),
+					array( 'id' => $submission['id'] ),
+					array( '%d', '%s', '%s' ),
+					array( '%d' )
+				);
+			}
+		}
+	}
+
+	/**
+	 * Reminder email: "You didn't finish your quote"
+	 */
+	private static function send_abandoned_reminder_email( array $submission ) {
+		$to = $submission['contact_email'];
+		$name = $submission['contact_name'];
+		$subject = "Complete your tax quote — we're still here to help";
+
+		$site_name = get_bloginfo( 'name' );
+		$quote_page_url = get_permalink( get_queried_object_id() );
+
+		$body  = '<p>Hi ' . esc_html( $name ) . ',</p>';
+		$body .= '<p>We noticed you started filling out our tax quote form but didn\'t finish. We get it — life gets busy!</p>';
+		$body .= '<p>When you\'re ready, you can pick up right where you left off:</p>';
+		$body .= '<p><a href="' . esc_url( $quote_page_url ) . '" style="background:#1e3a5f;color:#fff;padding:12px 24px;text-decoration:none;border-radius:4px;display:inline-block;">Continue Your Quote</a></p>';
+		$body .= '<p>If you have any questions, just reply to this email — we\'re happy to help.</p>';
+		$body .= '<p>Best,<br />' . esc_html( $site_name ) . '</p>';
+
+		return self::send( $to, $subject, $body );
+	}
+
+	/**
+	 * Follow-up email: "Need help? Schedule a call"
+	 */
+	private static function send_abandoned_followup_email( array $submission ) {
+		$to = $submission['contact_email'];
+		$name = $submission['contact_name'];
+		$subject = "Tax deadline reminders — let's chat";
+
+		$site_name = get_bloginfo( 'name' );
+		$quote_page_url = get_permalink( get_queried_object_id() );
+		$scheduling_link = get_option( 'tqb_scheduling_link', '' );
+		$office_address = nl2br( esc_html( get_option( 'tqb_office_address', '' ) ) );
+
+		$body  = '<p>Hi ' . esc_html( $name ) . ',</p>';
+		$body .= '<p>We wanted to check in on your tax quote. Tax season can be stressful, and we\'re here to make it easier.</p>';
+		$body .= '<p>If you\'d prefer to talk through your situation, we offer free consultations:</p>';
+		
+		if ( ! empty( $scheduling_link ) ) {
+			$body .= '<p><a href="' . esc_url( $scheduling_link ) . '" style="background:#c9a84c;color:#1e3a5f;padding:12px 24px;text-decoration:none;border-radius:4px;display:inline-block;font-weight:bold;">Schedule a Free Call</a></p>';
+		}
+
+		if ( ! empty( $office_address ) ) {
+			$body .= '<p>Or stop by our office:<br />' . $office_address . '</p>';
+		}
+
+		$body .= '<p>Of course, you can always <a href="' . esc_url( $quote_page_url ) . '">complete your quote online</a> when it\'s convenient.</p>';
+		$body .= '<p>Looking forward to hearing from you,<br />' . esc_html( $site_name ) . '</p>';
+
+		return self::send( $to, $subject, $body );
+	}
+
+	/**
+	 * Final email: "Last chance — tax deadlines are approaching"
+	 */
+	private static function send_abandoned_final_email( array $submission ) {
+		$to = $submission['contact_email'];
+		$name = $submission['contact_name'];
+		$subject = "Final reminder: Don't miss out on filing on time";
+
+		$site_name = get_bloginfo( 'name' );
+		$quote_page_url = get_permalink( get_queried_object_id() );
+		$scheduling_link = get_option( 'tqb_scheduling_link', '' );
+
+		$body  = '<p>Hi ' . esc_html( $name ) . ',</p>';
+		$body .= '<p>This is our final reminder about your tax quote. We don\'t want you to miss out on filing on time.</p>';
+		$body .= '<p>Take a few minutes to finish your quote:</p>';
+		$body .= '<p><a href="' . esc_url( $quote_page_url ) . '" style="background:#1e3a5f;color:#fff;padding:12px 24px;text-decoration:none;border-radius:4px;display:inline-block;">Complete Your Quote Now</a></p>';
+		
+		if ( ! empty( $scheduling_link ) ) {
+			$body .= '<p>Or <a href="' . esc_url( $scheduling_link ) . '">schedule a quick call</a> and we\'ll handle everything for you.</p>';
+		}
+
+		$body .= '<p>After today, we won\'t send any more reminders. But if you change your mind, you\'re always welcome back!</p>';
+		$body .= '<p>Best,<br />' . esc_html( $site_name ) . '</p>';
+
+		return self::send( $to, $subject, $body );
+	}
 }

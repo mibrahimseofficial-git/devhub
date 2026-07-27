@@ -41,6 +41,7 @@
 		businessCount: 0,  // Number of businesses selected
 		businessFieldsTouched: {}, // Track if business dropdowns have been interacted with
 		completedSteps: [], // Track which steps have been completed
+		partialSubmissionId: null, // ID from partial save
 	};
 
 	var ENTITY_OPTIONS = [
@@ -80,6 +81,7 @@
 		state.businessCount = 0;
 		state.businessFieldsTouched = {};
 		state.completedSteps = [];
+		state.partialSubmissionId = null;
 
 		var nameEl = document.getElementById( 'tqb-contact-name' );
 		var emailEl = document.getElementById( 'tqb-contact-email' );
@@ -113,6 +115,78 @@
 
 		updateSummaryPanel();
 		goToStep( STEP.TYPE );
+	}
+
+	/**
+	 * Save partial form progress for abandoned quote follow-up.
+	 * Called when user completes contact info (step 2+).
+	 */
+	function savePartialProgress( currentStep ) {
+		var emailEl = document.getElementById( 'tqb-contact-email' );
+		var nameEl = document.getElementById( 'tqb-contact-name' );
+		var phoneEl = document.getElementById( 'tqb-contact-phone' );
+
+		if ( ! emailEl || ! emailEl.value || ! isValidEmail( emailEl.value ) ) {
+			return; // Don't save without email
+		}
+
+		var data = new FormData();
+		data.append( 'action', 'tqb_save_partial' );
+		data.append( 'email', emailEl.value );
+		data.append( 'name', nameEl ? nameEl.value : '' );
+		data.append( 'phone', phoneEl ? phoneEl.value : '' );
+		data.append( 'step', currentStep );
+		data.append( 'quote_types', JSON.stringify( state.selectedTypes ) );
+		data.append( 'answers', JSON.stringify( collectAnswers() ) );
+		data.append( 'businesses', JSON.stringify( collectBusinessData() ) );
+
+		fetch( tqbData.ajaxUrl, {
+			method: 'POST',
+			body: data,
+		} )
+		.then( function ( response ) {
+			return response.json();
+		} )
+		.then( function ( result ) {
+			if ( result.success && result.data.submission_id ) {
+				state.partialSubmissionId = result.data.submission_id;
+			}
+		} )
+		.catch( function ( error ) {
+			// Silently fail - partial save is not critical
+			console.log( 'Partial save failed:', error );
+		} );
+	}
+
+	/**
+	 * Check if email is valid.
+	 */
+	function isValidEmail( email ) {
+		return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test( email );
+	}
+
+	/**
+	 * Collect business data for partial save.
+	 */
+	function collectBusinessData() {
+		var businesses = [];
+		var bizIndex = 0;
+		state.selectedTypes.forEach( function ( type ) {
+			if ( type === 'business' ) {
+				var bizId = 'tqb-business-' + bizIndex;
+				var entityEl = document.getElementById( bizId + '-entity' );
+				var assetEl = document.getElementById( bizId + '-assets' );
+				var revenueEl = document.getElementById( bizId + '-revenue' );
+
+				businesses.push( {
+					entity_type: entityEl ? entityEl.value : '',
+					asset_band: assetEl ? assetEl.value : '',
+					revenue_band: revenueEl ? revenueEl.value : '',
+				} );
+				bizIndex++;
+			}
+		} );
+		return businesses;
 	}
 
 	wizard.querySelectorAll( '[data-action="reset-all"]' ).forEach( function ( btn ) {
@@ -197,6 +271,8 @@
 			if ( ! state.completedSteps.includes( STEP.CONTACT ) ) {
 				state.completedSteps.push( STEP.CONTACT );
 			}
+			// Save partial progress for abandoned quote follow-up
+			savePartialProgress( STEP.CONTACT );
 			goToStep( STEP.QUESTIONS );
 			updateSummaryPanel();
 		} );
@@ -531,6 +607,8 @@
 			if ( ! state.completedSteps.includes( STEP.QUESTIONS ) ) {
 				state.completedSteps.push( STEP.QUESTIONS );
 			}
+			// Save partial progress for abandoned quote follow-up
+			savePartialProgress( STEP.QUESTIONS );
 			buildReviewStep();
 			goToStep( STEP.REVIEW );
 			updateSummaryPanel();

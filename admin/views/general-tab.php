@@ -100,6 +100,60 @@ if ( ! defined( 'ABSPATH' ) ) {
 		</tr>
 	</table>
 
+		<h2 style="margin-top: 30px;">Abandoned Quote Follow-Up</h2>
+		<p class="description">When someone starts a quote but doesn't finish, automated emails will encourage them to complete it.</p>
+
+		<table class="form-table" role="presentation" style="max-width: 800px;">
+				<tr>
+						<th scope="row">Enable Follow-Up Emails</th>
+						<td>
+								<label for="tqb_enable_abandoned_emails">
+										<input type="checkbox" id="tqb_enable_abandoned_emails" name="enable_abandoned_emails" value="1" <?php checked( $enable_abandoned_emails, '1' ); ?> />
+										Send follow-up emails to incomplete quotes
+								</label>
+								<p class="description">When enabled, incomplete quotes will receive reminder emails at the intervals below.</p>
+						</td>
+				</tr>
+				<tr>
+						<th scope="row"><label for="tqb_office_address">Office Address</label></th>
+						<td>
+								<textarea id="tqb_office_address" name="office_address" rows="3" class="large-text"><?php echo esc_textarea( $office_address ); ?></textarea>
+								<p class="description">Used in follow-up email templates.</p>
+						</td>
+				</tr>
+		</table>
+
+		<h3 style="margin-top: 20px;">Email Timing</h3>
+		<table class="form-table" role="presentation" style="max-width: 600px;">
+				<tr>
+						<th scope="row" style="width: 200px;"><label for="tqb_reminder_email_hours">Reminder Email</label></th>
+						<td>
+								<input type="number" id="tqb_reminder_email_hours" name="reminder_email_hours" 
+										value="<?php echo esc_attr( $reminder_email_hours ); ?>" min="1" max="720" style="width: 80px;" />
+								<span>hours after abandoning quote</span>
+								<p class="description">"You didn't finish your quote — here's a quick link to continue."</p>
+						</td>
+				</tr>
+				<tr>
+						<th scope="row"><label for="tqb_followup_email_hours">Follow-Up Email</label></th>
+						<td>
+								<input type="number" id="tqb_followup_email_hours" name="followup_email_hours" 
+										value="<?php echo esc_attr( $followup_email_hours ); ?>" min="1" max="720" style="width: 80px;" />
+								<span>hours after abandoning quote</span>
+								<p class="description">"Need help? Schedule a call with our team."</p>
+						</td>
+				</tr>
+				<tr>
+						<th scope="row"><label for="tqb_final_email_hours">Final Email</label></th>
+						<td>
+								<input type="number" id="tqb_final_email_hours" name="final_email_hours" 
+										value="<?php echo esc_attr( $final_email_hours ); ?>" min="1" max="720" style="width: 80px;" />
+								<span>hours after abandoning quote</span>
+								<p class="description">"Last chance — tax deadlines are approaching."</p>
+						</td>
+				</tr>
+		</table>
+
 	<p class="submit">
 		<button type="submit" class="button button-primary">Save Settings</button>
 	</p>

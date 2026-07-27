@@ -38,24 +38,22 @@ class TQB_Activator {
 	public static function upgrade() {
 		global $wpdb;
 
-		$table_name = $wpdb->prefix . 'tqb_line_items';
-
-		// Add threshold columns if they don't exist
-		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$table_name}", ARRAY_A );
+		// --- Line items table: add threshold columns ---
+		$line_items_table = $wpdb->prefix . 'tqb_line_items';
+		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$line_items_table}", ARRAY_A );
 		$column_names = wp_list_pluck( $columns, 'Field' );
 
 		if ( ! in_array( 'threshold_qty', $column_names, true ) ) {
-			$wpdb->query( "ALTER TABLE {$table_name} ADD COLUMN threshold_qty DECIMAL(14,2) NULL AFTER is_custom_quote_trigger" );
+			$wpdb->query( "ALTER TABLE {$line_items_table} ADD COLUMN threshold_qty DECIMAL(14,2) NULL AFTER is_custom_quote_trigger" );
 		}
 
 		if ( ! in_array( 'threshold_trigger', $column_names, true ) ) {
-			$wpdb->query( "ALTER TABLE {$table_name} ADD COLUMN threshold_trigger VARCHAR(10) NULL AFTER threshold_qty" );
+			$wpdb->query( "ALTER TABLE {$line_items_table} ADD COLUMN threshold_trigger VARCHAR(10) NULL AFTER threshold_qty" );
 		}
 
-		// Update crypto item: use qty_times_fee with threshold instead of always custom quote
-		// threshold_qty = 100 (=$100K), threshold_trigger = 'above' (above 100K = custom quote)
+		// Update crypto item: use qty_times_fee with threshold
 		$wpdb->update(
-			$table_name,
+			$line_items_table,
 			array(
 				'pricing_pattern'    => 'qty_times_fee',
 				'is_custom_quote_trigger' => 0,
@@ -69,12 +67,70 @@ class TQB_Activator {
 
 		// Update tuition item: change to flat pricing
 		$wpdb->update(
-			$table_name,
+			$line_items_table,
 			array( 'pricing_pattern' => 'flat' ),
 			array( 'item_key' => 'tuition' ),
 			array( '%s' ),
 			array( '%s' )
 		);
+
+		// --- Submissions table: add abandoned quote columns ---
+		$submissions_table = $wpdb->prefix . 'tqb_submissions';
+		$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
+		$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
+
+		if ( ! in_array( 'status', $sub_column_names, true ) ) {
+			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'completed' AFTER custom_quote_reason" );
+		}
+
+		if ( ! in_array( 'last_completed_step', $sub_column_names, true ) ) {
+			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN last_completed_step INT NOT NULL DEFAULT 0 AFTER status" );
+		}
+
+		if ( ! in_array( 'reminder_email_sent', $sub_column_names, true ) ) {
+			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN reminder_email_sent TINYINT(1) NOT NULL DEFAULT 0 AFTER confirmation_email_sent" );
+		}
+
+		if ( ! in_array( 'reminder_email_sent_at', $sub_column_names, true ) ) {
+			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN reminder_email_sent_at DATETIME NULL AFTER reminder_email_sent" );
+		}
+
+		if ( ! in_array( 'followup_email_sent', $sub_column_names, true ) ) {
+			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN followup_email_sent TINYINT(1) NOT NULL DEFAULT 0 AFTER reminder_email_sent_at" );
+		}
+
+		if ( ! in_array( 'followup_email_sent_at', $sub_column_names, true ) ) {
+			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN followup_email_sent_at DATETIME NULL AFTER followup_email_sent" );
+		}
+
+		if ( ! in_array( 'final_email_sent', $sub_column_names, true ) ) {
+			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN final_email_sent TINYINT(1) NOT NULL DEFAULT 0 AFTER followup_email_sent_at" );
+		}
+
+		if ( ! in_array( 'final_email_sent_at', $sub_column_names, true ) ) {
+			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN final_email_sent_at DATETIME NULL AFTER final_email_sent" );
+		}
+
+		if ( ! in_array( 'updated_at', $sub_column_names, true ) ) {
+			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at" );
+		}
+
+		// --- Add abandoned quote email settings ---
+		if ( false === get_option( 'tqb_enable_abandoned_emails', false ) ) {
+			add_option( 'tqb_enable_abandoned_emails', '1' );
+		}
+		if ( false === get_option( 'tqb_reminder_email_hours', false ) ) {
+			add_option( 'tqb_reminder_email_hours', '24' );
+		}
+		if ( false === get_option( 'tqb_followup_email_hours', false ) ) {
+			add_option( 'tqb_followup_email_hours', '72' );
+		}
+		if ( false === get_option( 'tqb_final_email_hours', false ) ) {
+			add_option( 'tqb_final_email_hours', '168' );
+		}
+		if ( false === get_option( 'tqb_office_address', false ) ) {
+			add_option( 'tqb_office_address', "939 W North Ave, Suite 750,\nChicago, IL 60642" );
+		}
 
 		update_option( 'tqb_db_version', TQB_VERSION );
 	}
@@ -93,6 +149,13 @@ class TQB_Activator {
 		add_option( 'tqb_hubspot_stage_new', '' ); // Stage for instant-quote submissions.
 		add_option( 'tqb_hubspot_stage_custom', '' ); // Stage for custom-quote-required submissions.
 		add_option( 'tqb_hubspot_deal_stage_id', '' ); // Legacy single-stage field, kept as a fallback for backward compatibility.
+
+		// Abandoned quote email settings
+		add_option( 'tqb_enable_abandoned_emails', '1' ); // 1 = enabled, 0 = disabled
+		add_option( 'tqb_reminder_email_hours', '24' ); // Hours after abandonment to send reminder
+		add_option( 'tqb_followup_email_hours', '72' ); // Hours after abandonment to send follow-up with call offer
+		add_option( 'tqb_final_email_hours', '168' ); // Hours after abandonment to send final email
+		add_option( 'tqb_office_address', "939 W North Ave, Suite 750,\nChicago, IL 60642" );
 	}
 
 	/**
@@ -113,16 +176,28 @@ class TQB_Activator {
 			calculated_total DECIMAL(10,2) NULL COMMENT 'NULL when is_custom_quote = 1',
 			is_custom_quote TINYINT(1) NOT NULL DEFAULT 0,
 			custom_quote_reason VARCHAR(255) NULL COMMENT 'e.g. crypto, foreign_accounts, assets_over_5m',
+			status VARCHAR(20) NOT NULL DEFAULT 'completed' COMMENT 'completed, in_progress, abandoned',
+			last_completed_step INT NOT NULL DEFAULT 0 COMMENT '1-5 for tracking partial submissions',
 			hubspot_synced TINYINT(1) NOT NULL DEFAULT 0,
 			hubspot_contact_id VARCHAR(100) NULL,
 			hubspot_deal_id VARCHAR(100) NULL,
 			confirmation_email_sent TINYINT(1) NOT NULL DEFAULT 0,
+			reminder_email_sent TINYINT(1) NOT NULL DEFAULT 0,
+			reminder_email_sent_at DATETIME NULL,
+			followup_email_sent TINYINT(1) NOT NULL DEFAULT 0,
+			followup_email_sent_at DATETIME NULL,
+			final_email_sent TINYINT(1) NOT NULL DEFAULT 0,
+			final_email_sent_at DATETIME NULL,
 			team_notified TINYINT(1) NOT NULL DEFAULT 0,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY quote_type (quote_type),
+			KEY status (status),
 			KEY created_at (created_at),
-			KEY is_custom_quote (is_custom_quote)
+			KEY is_custom_quote (is_custom_quote),
+			KEY reminder_email_sent (reminder_email_sent),
+			KEY followup_email_sent (followup_email_sent)
 		) {$charset_collate};";
 
 		dbDelta( $sql );

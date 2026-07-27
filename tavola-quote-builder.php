@@ -100,3 +100,36 @@ function tqb_check_upgrade() {
 	}
 }
 add_action( 'init', 'tqb_check_upgrade' );
+
+// Register cron schedule for abandoned quote emails
+add_filter( 'cron_schedules', 'tqb_add_cron_interval' );
+function tqb_add_cron_interval( $schedules ) {
+	$schedules['tqb_hourly'] = array(
+		'interval' => HOUR_IN_SECONDS,
+		'display'  => 'Every Hour (TQB)',
+	);
+	return $schedules;
+}
+
+// Schedule cron on plugin activation
+register_activation_hook( __FILE__, 'tqb_schedule_cron' );
+function tqb_schedule_cron() {
+	if ( ! wp_next_scheduled( 'tqb_send_abandoned_emails' ) ) {
+		wp_schedule_event( time(), 'tqb_hourly', 'tqb_send_abandoned_emails' );
+	}
+}
+
+// Clear cron on plugin deactivation
+register_deactivation_hook( __FILE__, 'tqb_clear_cron' );
+function tqb_clear_cron() {
+	wp_clear_scheduled_hook( 'tqb_send_abandoned_emails' );
+}
+
+// Cron job to send abandoned quote emails
+add_action( 'tqb_send_abandoned_emails', 'tqb_send_abandoned_quote_emails' );
+function tqb_send_abandoned_quote_emails() {
+	if ( ! get_option( 'tqb_enable_abandoned_emails', '1' ) ) {
+		return;
+	}
+	TQB_Email::send_abandoned_quote_emails();
+}

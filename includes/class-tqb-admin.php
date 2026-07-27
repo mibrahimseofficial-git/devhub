@@ -131,6 +131,11 @@ class TQB_Admin {
 		$hubspot_pipeline_id = get_option( 'tqb_hubspot_pipeline_id', '' );
 		$hubspot_stage_new = get_option( 'tqb_hubspot_stage_new', '' );
 		$hubspot_stage_custom = get_option( 'tqb_hubspot_stage_custom', '' );
+		$enable_abandoned_emails = get_option( 'tqb_enable_abandoned_emails', '1' );
+		$reminder_email_hours = get_option( 'tqb_reminder_email_hours', '24' );
+		$followup_email_hours = get_option( 'tqb_followup_email_hours', '72' );
+		$final_email_hours = get_option( 'tqb_final_email_hours', '168' );
+		$office_address = get_option( 'tqb_office_address', "939 W North Ave, Suite 750,\nChicago, IL 60642" );
 		include TQB_PLUGIN_DIR . 'admin/views/general-tab.php';
 	}
 
@@ -236,6 +241,13 @@ class TQB_Admin {
 		$hubspot_stage_new = isset( $_POST['hubspot_stage_new'] ) ? sanitize_text_field( wp_unslash( $_POST['hubspot_stage_new'] ) ) : '';
 		$hubspot_stage_custom = isset( $_POST['hubspot_stage_custom'] ) ? sanitize_text_field( wp_unslash( $_POST['hubspot_stage_custom'] ) ) : '';
 
+		// Abandoned quote email settings
+		$enable_abandoned_emails = isset( $_POST['enable_abandoned_emails'] ) ? '1' : '0';
+		$reminder_email_hours = isset( $_POST['reminder_email_hours'] ) ? absint( $_POST['reminder_email_hours'] ) : 24;
+		$followup_email_hours = isset( $_POST['followup_email_hours'] ) ? absint( $_POST['followup_email_hours'] ) : 72;
+		$final_email_hours = isset( $_POST['final_email_hours'] ) ? absint( $_POST['final_email_hours'] ) : 168;
+		$office_address = isset( $_POST['office_address'] ) ? sanitize_textarea_field( wp_unslash( $_POST['office_address'] ) ) : '';
+
 		update_option( 'tqb_disclaimer_text', $disclaimer_text );
 		update_option( 'tqb_scheduling_link', $scheduling_link );
 		update_option( 'tqb_team_notification_email', $notification_email );
@@ -243,6 +255,13 @@ class TQB_Admin {
 		update_option( 'tqb_hubspot_pipeline_id', $hubspot_pipeline_id );
 		update_option( 'tqb_hubspot_stage_new', $hubspot_stage_new );
 		update_option( 'tqb_hubspot_stage_custom', $hubspot_stage_custom );
+
+		// Save abandoned quote email settings
+		update_option( 'tqb_enable_abandoned_emails', $enable_abandoned_emails );
+		update_option( 'tqb_reminder_email_hours', $reminder_email_hours );
+		update_option( 'tqb_followup_email_hours', $followup_email_hours );
+		update_option( 'tqb_final_email_hours', $final_email_hours );
+		update_option( 'tqb_office_address', $office_address );
 
 		wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=general&tqb_saved=1' ) );
 		exit;
