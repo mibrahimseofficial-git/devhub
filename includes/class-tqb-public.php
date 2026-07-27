@@ -221,8 +221,8 @@ class TQB_Public {
 
 		$email = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
 
-		if ( empty( $email ) || ! is_email( $email ) ) {
-			wp_send_json_error( array( 'message' => 'Invalid email.' ), 400 );
+		if ( empty( $email ) ) {
+			wp_send_json_error( array( 'message' => 'Email is required.' ), 400 );
 			return;
 		}
 

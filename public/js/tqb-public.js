@@ -365,6 +365,22 @@
 
 		header.appendChild( title );
 		header.appendChild( badge );
+
+		// Add remove button for additional businesses (not the first one)
+		if ( type === 'business' && businessIndex > 0 ) {
+			var removeBtn = document.createElement( 'button' );
+			removeBtn.type = 'button';
+			removeBtn.className = 'button tqb-remove-business';
+			removeBtn.textContent = 'Remove';
+			removeBtn.setAttribute( 'data-business-index', businessIndex );
+			removeBtn.style.marginLeft = '10px';
+			removeBtn.style.color = '#b32d2e';
+			removeBtn.addEventListener( 'click', function () {
+				removeBusinessSection( businessIndex );
+			} );
+			header.appendChild( removeBtn );
+		}
+
 		section.appendChild( header );
 
 		// Business basics (entity type, assets, revenue) for business sections
@@ -462,6 +478,64 @@
 			opt.value = band.label;
 			opt.textContent = band.label + ( band.isCustom ? ' (requires custom quote)' : '' );
 			select.appendChild( opt );
+		} );
+	}
+
+	// Remove business section
+	function removeBusinessSection( indexToRemove ) {
+		// Find and remove the business section from the DOM
+		var sections = wizard.querySelectorAll( '.tqb-question-section[data-section-type="business"]' );
+		sections.forEach( function ( section ) {
+			var sectionIndex = parseInt( section.getAttribute( 'data-section-index' ), 10 );
+			if ( sectionIndex === indexToRemove ) {
+				section.remove();
+			}
+		} );
+
+		// Rebuild selected types array (remove one 'business')
+		var newTypes = [];
+		var businessCount = 0;
+		state.selectedTypes.forEach( function ( type ) {
+			if ( type === 'business' ) {
+				// Keep this business if it's before the removed one, or skip it if it's the removed one
+				if ( businessCount < indexToRemove ) {
+					newTypes.push( type );
+					businessCount++;
+				} else if ( businessCount > indexToRemove ) {
+					// This is after the removed one, add it
+					newTypes.push( type );
+					businessCount++;
+				} else {
+					// This is the one we're removing
+					businessCount++;
+				}
+			} else {
+				newTypes.push( type );
+			}
+		} );
+
+		state.selectedTypes = newTypes;
+		state.businessCount = businessCount - 1; // Adjust for the removed one
+
+		// Rebuild question sections with correct indices
+		rebuildQuestionSections();
+		updateSummaryPanel();
+	}
+
+	// Rebuild question sections with correct business indices
+	function rebuildQuestionSections() {
+		var container = document.getElementById( 'tqb-question-sections' );
+		container.innerHTML = '';
+
+		var businessIndex = 0;
+		state.selectedTypes.forEach( function ( type ) {
+			var sectionIndex = type === 'business' ? businessIndex++ : 0;
+			var section = createQuestionSection( type, sectionIndex );
+			container.appendChild( section );
+
+			if ( type === 'business' ) {
+				updateAssetBandOptionsForBusiness( 'tqb-business-' + sectionIndex );
+			}
 		} );
 	}
 
