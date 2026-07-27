@@ -230,6 +230,15 @@
 		// Show "Add Another Business" button if business is selected
 		addBusinessSection.hidden = ! state.selectedTypes.includes( 'business' );
 
+		// Populate asset dropdowns after all sections are in the DOM
+		businessIndex = 0;
+		state.selectedTypes.forEach( function ( type ) {
+			if ( type === 'business' ) {
+				updateAssetBandOptionsForBusiness( 'tqb-business-' + businessIndex );
+				businessIndex++;
+			}
+		} );
+
 		updateSummaryPanel();
 	}
 
@@ -285,7 +294,7 @@
 			);
 
 			section.appendChild( basicsDiv );
-			updateAssetBandOptionsForBusiness( businessId );
+			// Note: updateAssetBandOptionsForBusiness is called after sections are added to DOM
 		}
 
 		// Questions list
@@ -361,6 +370,9 @@
 			var container = document.getElementById( 'tqb-question-sections' );
 			var section = createQuestionSection( 'business', state.businessCount - 1 );
 			container.appendChild( section );
+
+			// Populate asset dropdown for the new section
+			updateAssetBandOptionsForBusiness( 'tqb-business-' + ( state.businessCount - 1 ) );
 
 			updateSummaryPanel();
 		} );
@@ -768,6 +780,30 @@
 			empty.textContent = 'Your selections will appear here as you go.';
 			content.appendChild( empty );
 			return;
+		}
+
+		// Show contact info if available
+		var nameEl = document.getElementById( 'tqb-contact-name' );
+		var emailEl = document.getElementById( 'tqb-contact-email' );
+		var phoneEl = document.getElementById( 'tqb-contact-phone' );
+
+		if ( nameEl && nameEl.value ) {
+			var contactSection = document.createElement( 'div' );
+			contactSection.className = 'tqb-summary__contact';
+
+			var contactName = document.createElement( 'div' );
+			contactName.className = 'tqb-summary__contact-name';
+			contactName.textContent = nameEl.value;
+			contactSection.appendChild( contactName );
+
+			if ( emailEl && emailEl.value ) {
+				var contactEmail = document.createElement( 'div' );
+				contactEmail.className = 'tqb-summary__contact-email';
+				contactEmail.textContent = emailEl.value;
+				contactSection.appendChild( contactEmail );
+			}
+
+			content.appendChild( contactSection );
 		}
 
 		// Calculate combined total from all sections

@@ -122,6 +122,24 @@
 	margin: 0;
 }
 
+.tqb-summary__contact {
+	padding-bottom: 14px;
+	margin-bottom: 14px;
+	border-bottom: 1px solid var(--tqb-line);
+}
+
+.tqb-summary__contact-name {
+	font-size: 15px;
+	font-weight: 600;
+	color: var(--tqb-navy-deep);
+}
+
+.tqb-summary__contact-email {
+	font-size: 13px;
+	color: #6B6455;
+	margin-top: 2px;
+}
+
 .tqb-summary__type {
 	font-size: 13px;
 	font-weight: 600;
