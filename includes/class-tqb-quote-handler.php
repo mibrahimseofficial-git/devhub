@@ -116,6 +116,129 @@ class TQB_Quote_Handler {
 		);
 	}
 
+	/**
+	 * Process a combined quote (multiple types: individual + business(es)).
+	 *
+	 * @param array $contact     [ 'name' => ..., 'email' => ..., 'phone' => ... ]
+	 * @param array $quote_types Array of quote types: ['individual', 'business', 'business', ...]
+	 * @param array $businesses  Array of business data for each business section
+	 * @param array $answers     Answers with composite keys: [type-sectionIndex-key => [selected, qty], ...]
+	 * @return array [ 'submission_id' => int, 'result' => combined result ]
+	 */
+	public static function process_combined_quote(
+		array $contact,
+		array $quote_types,
+		array $businesses,
+		array $answers
+	) {
+		$total = 0;
+		$is_custom_quote = false;
+		$all_results = array();
+		$business_index = 0;
+
+		foreach ( $quote_types as $type ) {
+			if ( 'individual' === $type ) {
+				// Filter answers for this individual section (type-0-itemkey)
+				$prefix = 'individual-0-';
+				$section_answers = self::filter_answers_with_prefix( $answers, $prefix );
+				$line_items = TQB_DB::get_line_items( 'individual', false );
+				$result = TQB_Pricing_Engine::calculate_individual( $line_items, $section_answers );
+
+				$all_results[] = array(
+					'type' => 'individual',
+					'result' => $result,
+				);
+
+				$total += $result['total'];
+				$is_custom_quote = $is_custom_quote || $result['is_custom_quote'];
+			} elseif ( 'business' === $type ) {
+				if ( ! isset( $businesses[ $business_index ] ) ) {
+					throw new InvalidArgumentException( 'Missing business data for business index: ' . $business_index );
+				}
+
+				$business = $businesses[ $business_index ];
+				$prefix = 'business-' . $business_index . '-';
+				$section_answers = self::filter_answers_with_prefix( $answers, $prefix );
+
+				$entity_group = ( 'partnership' === $business['entity_type'] ) ? 'partnership' : 'c_s_corp';
+				$asset_bands = TQB_DB::get_asset_bands( $entity_group );
+				$asset_band = self::find_band_by_label( $asset_bands, $business['asset_band'] );
+				$revenue_bands = TQB_DB::get_revenue_addons();
+				$revenue_band = self::find_band_by_label( $revenue_bands, $business['revenue_band'] );
+
+				if ( ! $asset_band || ! $revenue_band ) {
+					throw new InvalidArgumentException( 'Invalid asset or revenue band label for business ' . ( $business_index + 1 ) );
+				}
+
+				$extra_items = TQB_DB::get_line_items( 'business', false );
+				$result = TQB_Pricing_Engine::calculate_business(
+					$business['entity_type'],
+					$asset_band,
+					$revenue_band,
+					$extra_items,
+					$section_answers
+				);
+
+				$all_results[] = array(
+					'type' => 'business',
+					'index' => $business_index,
+					'business' => $business,
+					'result' => $result,
+				);
+
+				$total += $result['total'];
+				$is_custom_quote = $is_custom_quote || $result['is_custom_quote'];
+				$business_index++;
+			}
+		}
+
+		// Store combined answers
+		$answers_to_store = array(
+			'quote_types' => $quote_types,
+			'businesses' => $businesses,
+			'answers' => $answers,
+		);
+
+		$submission_id = TQB_DB::insert_submission( array(
+			'quote_type'          => 'combined',
+			'contact_name'        => $contact['name'],
+			'contact_email'       => $contact['email'],
+			'contact_phone'       => $contact['phone'],
+			'answers'             => $answers_to_store,
+			'calculated_total'    => $total,
+			'is_custom_quote'     => $is_custom_quote,
+			'custom_quote_reason' => $is_custom_quote ? 'Multiple items requiring custom quote' : null,
+		) );
+
+		return array(
+			'submission_id' => $submission_id,
+			'result' => array(
+				'total' => $total,
+				'is_custom_quote' => $is_custom_quote,
+				'results' => $all_results,
+			),
+		);
+	}
+
+	/**
+	 * Filter answers to only include those with a specific prefix.
+	 *
+	 * @param array  $answers Full answers array
+	 * @param string $prefix Key prefix to filter by (e.g., 'individual-0-' or 'business-1-')
+	 * @return array Filtered answers with prefix removed from keys
+	 */
+	private static function filter_answers_with_prefix( array $answers, string $prefix ) {
+		$filtered = array();
+		foreach ( $answers as $key => $value ) {
+			if ( strpos( $key, $prefix ) === 0 ) {
+				// Remove prefix from key
+				$new_key = substr( $key, strlen( $prefix ) );
+				$filtered[ $new_key ] = $value;
+			}
+		}
+		return $filtered;
+	}
+
 	private static function find_band_by_label( array $bands, string $label ) {
 		foreach ( $bands as $band ) {
 			if ( $band['band_label'] === $label ) {

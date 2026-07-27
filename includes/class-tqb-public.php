@@ -139,7 +139,13 @@ class TQB_Public {
 			return;
 		}
 
-		$quote_type = isset( $_POST['quote_type'] ) ? sanitize_key( $_POST['quote_type'] ) : '';
+		// Handle multi-select quote types (JSON array)
+		$quote_types_json = isset( $_POST['quote_types'] ) ? sanitize_text_field( wp_unslash( $_POST['quote_types'] ) ) : '[]';
+		$quote_types = json_decode( $quote_types_json, true );
+		if ( ! is_array( $quote_types ) || empty( $quote_types ) ) {
+			wp_send_json_error( array( 'message' => 'Please select at least one quote type.' ), 400 );
+			return;
+		}
 
 		$contact = array(
 			'name'  => isset( $_POST['contact_name'] ) ? sanitize_text_field( wp_unslash( $_POST['contact_name'] ) ) : '',
@@ -153,27 +159,31 @@ class TQB_Public {
 
 		$answers = $this->sanitize_answers( isset( $_POST['answers'] ) ? (array) $_POST['answers'] : array() ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
 
-		try {
-			if ( 'individual' === $quote_type ) {
-
-				$result = TQB_Quote_Handler::process_individual_quote( $contact, $answers );
-
-			} elseif ( 'business' === $quote_type ) {
-
-				$entity_type   = isset( $_POST['entity_type'] ) ? sanitize_key( $_POST['entity_type'] ) : '';
-				$asset_band    = isset( $_POST['asset_band'] ) ? sanitize_text_field( wp_unslash( $_POST['asset_band'] ) ) : '';
-				$revenue_band  = isset( $_POST['revenue_band'] ) ? sanitize_text_field( wp_unslash( $_POST['revenue_band'] ) ) : '';
+		// Get business data for each business section
+		$businesses = array();
+		$business_index = 0;
+		foreach ( $quote_types as $type ) {
+			if ( 'business' === $type ) {
+				$entity_type  = isset( $_POST['businesses'][ $business_index ]['entity_type'] ) ? sanitize_key( $_POST['businesses'][ $business_index ]['entity_type'] ) : '';
+				$asset_band   = isset( $_POST['businesses'][ $business_index ]['asset_band'] ) ? sanitize_text_field( wp_unslash( $_POST['businesses'][ $business_index ]['asset_band'] ) ) : '';
+				$revenue_band = isset( $_POST['businesses'][ $business_index ]['revenue_band'] ) ? sanitize_text_field( wp_unslash( $_POST['businesses'][ $business_index ]['revenue_band'] ) ) : '';
 
 				if ( empty( $entity_type ) || empty( $asset_band ) || empty( $revenue_band ) ) {
 					wp_send_json_error( array( 'message' => 'Please complete all business detail fields.' ), 400 );
+					return;
 				}
 
-				$result = TQB_Quote_Handler::process_business_quote( $contact, $entity_type, $asset_band, $revenue_band, $answers );
-
-			} else {
-				wp_send_json_error( array( 'message' => 'Invalid quote type.' ), 400 );
-				return;
+				$businesses[] = array(
+					'entity_type'  => $entity_type,
+					'asset_band'   => $asset_band,
+					'revenue_band' => $revenue_band,
+				);
+				$business_index++;
 			}
+		}
+
+		try {
+			$result = TQB_Quote_Handler::process_combined_quote( $contact, $quote_types, $businesses, $answers );
 		} catch ( InvalidArgumentException $e ) {
 			wp_send_json_error( array( 'message' => 'There was a problem with your submission. Please try again or contact us directly.' ), 400 );
 			return;

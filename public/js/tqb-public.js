@@ -35,8 +35,10 @@
 	var SCHEDULE_L_REVENUE_THRESHOLD = 250000;
 	var SCHEDULE_L_FLAT_FEE = 999;
 
+	// State for multi-select + multiple businesses
 	var state = {
-		quoteType: null,
+		selectedTypes: [], // ['individual', 'business', 'business', ...]
+		businessCount: 0,  // Number of businesses selected
 	};
 
 	var ENTITY_OPTIONS = [
@@ -72,7 +74,8 @@
 	// ---------------------------------------------------------------------
 
 	function resetAll() {
-		state.quoteType = null;
+		state.selectedTypes = [];
+		state.businessCount = 0;
 
 		var nameEl = document.getElementById( 'tqb-contact-name' );
 		var emailEl = document.getElementById( 'tqb-contact-email' );
@@ -82,11 +85,24 @@
 			field.style.borderColor = '';
 		} );
 
-		document.getElementById( 'tqb-questions-list' ).innerHTML = '';
-		document.getElementById( 'tqb-business-basics' ).innerHTML = '';
-		document.getElementById( 'tqb-business-basics' ).hidden = true;
+		document.getElementById( 'tqb-question-sections' ).innerHTML = '';
+		document.getElementById( 'tqb-add-business-section' ).hidden = true;
 		document.getElementById( 'tqb-review-content' ).innerHTML = '';
 		document.getElementById( 'tqb-result-content' ).innerHTML = '';
+
+		// Reset checkboxes
+		document.querySelectorAll( '.tqb-quote-type-checkbox' ).forEach( function ( cb ) {
+			cb.checked = false;
+		} );
+		document.querySelectorAll( '.tqb-type-card--checkbox' ).forEach( function ( card ) {
+			card.classList.remove( 'is-selected' );
+		} );
+
+		// Disable continue button
+		var continueBtn = wizard.querySelector( '[data-action="start-quote"]' );
+		if ( continueBtn ) {
+			continueBtn.disabled = true;
+		}
 
 		var errorEl = document.getElementById( 'tqb-form-error' );
 		errorEl.hidden = true;
@@ -102,12 +118,53 @@
 	} );
 
 	// ---------------------------------------------------------------------
-	// Step 1: quote type selection
+	// Step 1: multi-select quote type
 	// ---------------------------------------------------------------------
 
-	wizard.querySelectorAll( '.tqb-type-card' ).forEach( function ( card ) {
-		card.addEventListener( 'click', function () {
-			state.quoteType = card.getAttribute( 'data-quote-type' );
+	function updateTypeCardStyles() {
+		document.querySelectorAll( '.tqb-type-card--checkbox' ).forEach( function ( card ) {
+			var checkbox = card.querySelector( 'input[type="checkbox"]' );
+			if ( checkbox.checked ) {
+				card.classList.add( 'is-selected' );
+			} else {
+				card.classList.remove( 'is-selected' );
+			}
+		} );
+	}
+
+	function updateContinueButton() {
+		var continueBtn = wizard.querySelector( '[data-action="start-quote"]' );
+		if ( continueBtn ) {
+			var anyChecked = document.querySelector( '.tqb-quote-type-checkbox:checked' );
+			continueBtn.disabled = ! anyChecked;
+		}
+	}
+
+	document.querySelectorAll( '.tqb-quote-type-checkbox' ).forEach( function ( checkbox ) {
+		checkbox.addEventListener( 'change', function () {
+			updateTypeCardStyles();
+			updateContinueButton();
+		} );
+	} );
+
+	wizard.querySelectorAll( '[data-action="start-quote"]' ).forEach( function ( btn ) {
+		btn.addEventListener( 'click', function () {
+			if ( btn.disabled ) {
+				return;
+			}
+
+			// Build selected types array
+			state.selectedTypes = [];
+			state.businessCount = 0;
+
+			document.querySelectorAll( '.tqb-quote-type-checkbox:checked' ).forEach( function ( cb ) {
+				if ( cb.value === 'business' ) {
+					state.businessCount++;
+				}
+				state.selectedTypes.push( cb.value );
+			} );
+
+			// Build question sections
 			buildQuestionsStep();
 			updateSummaryPanel();
 			goToStep( STEP.CONTACT );
@@ -153,30 +210,95 @@
 	}
 
 	// ---------------------------------------------------------------------
-	// Step 3: build the dynamic questions list
+	// Step 3: build multiple question sections (multi-select support)
 	// ---------------------------------------------------------------------
 
 	function buildQuestionsStep() {
-		var businessBasics = document.getElementById( 'tqb-business-basics' );
-		var questionsList = document.getElementById( 'tqb-questions-list' );
-		var title = document.getElementById( 'tqb-questions-title' );
+		var container = document.getElementById( 'tqb-question-sections' );
+		var addBusinessSection = document.getElementById( 'tqb-add-business-section' );
 
-		questionsList.innerHTML = '';
-		businessBasics.innerHTML = '';
+		container.innerHTML = '';
 
-		if ( 'business' === state.quoteType ) {
-			title.textContent = 'Tell us about your business';
-			businessBasics.hidden = false;
-			buildBusinessBasics( businessBasics );
-			renderQuestionRows( questionsList, tqbData.businessItems );
+		// Build section for each selected type
+		var businessIndex = 0;
+		state.selectedTypes.forEach( function ( type ) {
+			var sectionIndex = type === 'business' ? businessIndex++ : 0;
+			var section = createQuestionSection( type, sectionIndex );
+			container.appendChild( section );
+		} );
+
+		// Show "Add Another Business" button if business is selected
+		addBusinessSection.hidden = ! state.selectedTypes.includes( 'business' );
+
+		updateSummaryPanel();
+	}
+
+	function createQuestionSection( type, businessIndex ) {
+		var section = document.createElement( 'div' );
+		section.className = 'tqb-question-section';
+		section.setAttribute( 'data-section-type', type );
+		section.setAttribute( 'data-section-index', businessIndex );
+
+		var header = document.createElement( 'div' );
+		header.className = 'tqb-question-section__header';
+
+		var title = document.createElement( 'h3' );
+		title.className = 'tqb-question-section__title';
+
+		var badge = document.createElement( 'span' );
+		badge.className = 'tqb-question-section__badge';
+
+		if ( type === 'individual' ) {
+			title.textContent = 'Personal Tax Return';
+			badge.textContent = 'Individual';
 		} else {
-			title.textContent = 'Tell us about your situation';
-			businessBasics.hidden = true;
-			renderQuestionRows( questionsList, tqbData.individualItems );
+			title.textContent = 'Business Tax Return #' + ( businessIndex + 1 );
+			badge.textContent = 'Business';
+		}
 
-			// W-2 wages is the mandatory Individual starting point — pre-select
-			// and disable its checkbox since it always applies (PROJECT_SPEC.md
-			// Section 3).
+		header.appendChild( title );
+		header.appendChild( badge );
+		section.appendChild( header );
+
+		// Business basics (entity type, assets, revenue) for business sections
+		if ( type === 'business' ) {
+			var businessId = 'tqb-business-' + businessIndex;
+			var basicsDiv = document.createElement( 'div' );
+			basicsDiv.id = businessId;
+			basicsDiv.className = 'tqb-business-basics';
+
+			basicsDiv.appendChild(
+				buildSelectField( businessId + '-entity', 'Business type', ENTITY_OPTIONS, function () {
+					updateAssetBandOptionsForBusiness( businessId );
+					updateSummaryPanel();
+				} )
+			);
+
+			basicsDiv.appendChild(
+				buildSelectField( businessId + '-assets', 'Total business assets', [], updateSummaryPanel )
+			);
+
+			basicsDiv.appendChild(
+				buildSelectField( businessId + '-revenue', 'Annual revenue / total receipts', tqbData.revenueBands.map( function ( b ) {
+					return { value: b.label, label: b.label };
+				} ), updateSummaryPanel )
+			);
+
+			section.appendChild( basicsDiv );
+			updateAssetBandOptionsForBusiness( businessId );
+		}
+
+		// Questions list
+		var questionsList = document.createElement( 'div' );
+		questionsList.className = 'tqb-questions-list';
+		section.appendChild( questionsList );
+
+		// Render items
+		var items = type === 'individual' ? tqbData.individualItems : tqbData.businessItems;
+		renderQuestionRows( questionsList, items, type, businessIndex );
+
+		// Pre-select W-2 for individual
+		if ( type === 'individual' ) {
 			var w2Row = questionsList.querySelector( '[data-item-key="w2_wages"]' );
 			if ( w2Row ) {
 				var w2Checkbox = w2Row.querySelector( 'input[type="checkbox"]' );
@@ -185,36 +307,41 @@
 			}
 		}
 
-		updateSummaryPanel();
+		return section;
 	}
 
-	function buildBusinessBasics( container ) {
+	function buildBusinessBasics( container, businessId ) {
 		container.appendChild(
-			buildSelectField( 'tqb-entity-type', 'Business type', ENTITY_OPTIONS, function () {
-				updateAssetBandOptions();
+			buildSelectField( businessId + '-entity', 'Business type', ENTITY_OPTIONS, function () {
+				updateAssetBandOptionsForBusiness( businessId );
 				updateSummaryPanel();
 			} )
 		);
 
 		container.appendChild(
-			buildSelectField( 'tqb-asset-band', 'Total business assets', [], updateSummaryPanel )
+			buildSelectField( businessId + '-assets', 'Total business assets', [], updateSummaryPanel )
 		);
 
 		container.appendChild(
-			buildSelectField( 'tqb-revenue-band', 'Annual revenue / total receipts', tqbData.revenueBands.map( function ( b ) {
+			buildSelectField( businessId + '-revenue', 'Annual revenue / total receipts', tqbData.revenueBands.map( function ( b ) {
 				return { value: b.label, label: b.label };
 			} ), updateSummaryPanel )
 		);
 
-		updateAssetBandOptions();
+		updateAssetBandOptionsForBusiness( businessId );
 	}
 
-	function updateAssetBandOptions() {
-		var entityType = document.getElementById( 'tqb-entity-type' ).value;
+	function updateAssetBandOptionsForBusiness( businessId ) {
+		var entitySelect = document.getElementById( businessId + '-entity' );
+		if ( ! entitySelect ) return;
+
+		var entityType = entitySelect.value;
 		var entityGroup = ( 'partnership' === entityType ) ? 'partnership' : 'c_s_corp';
 		var bands = tqbData.assetBands[ entityGroup ] || [];
 
-		var select = document.getElementById( 'tqb-asset-band' );
+		var select = document.getElementById( businessId + '-assets' );
+		if ( ! select ) return;
+
 		select.innerHTML = '';
 		bands.forEach( function ( band ) {
 			var opt = document.createElement( 'option' );
@@ -223,6 +350,21 @@
 			select.appendChild( opt );
 		} );
 	}
+
+	// Add Another Business button handler
+	wizard.querySelectorAll( '[data-action="add-business"]' ).forEach( function ( btn ) {
+		btn.addEventListener( 'click', function () {
+			state.selectedTypes.push( 'business' );
+			state.businessCount++;
+
+			// Add new business section
+			var container = document.getElementById( 'tqb-question-sections' );
+			var section = createQuestionSection( 'business', state.businessCount - 1 );
+			container.appendChild( section );
+
+			updateSummaryPanel();
+		} );
+	} );
 
 	function buildSelectField( id, labelText, options, onChange ) {
 		var wrapper = document.createElement( 'div' );
@@ -249,26 +391,31 @@
 		return wrapper;
 	}
 
-	function renderQuestionRows( container, items ) {
+	function renderQuestionRows( container, items, type, businessIndex ) {
+		var prefix = type + '-' + businessIndex;
 		items.forEach( function ( item ) {
 			var row = document.createElement( 'div' );
 			row.className = 'tqb-question-row';
 			row.setAttribute( 'data-item-key', item.key );
+			row.setAttribute( 'data-section-type', type );
+			row.setAttribute( 'data-section-index', businessIndex );
 
 			var main = document.createElement( 'div' );
 			main.className = 'tqb-question-row__main';
 
 			var checkbox = document.createElement( 'input' );
 			checkbox.type = 'checkbox';
-			checkbox.id = 'tqb-item-' + item.key;
+			checkbox.id = 'tqb-item-' + prefix + '-' + item.key;
 			checkbox.setAttribute( 'data-item-key', item.key );
+			checkbox.setAttribute( 'data-section-type', type );
+			checkbox.setAttribute( 'data-section-index', businessIndex );
 
 			var textWrap = document.createElement( 'div' );
 			textWrap.className = 'tqb-question-row__text';
 
 			var label = document.createElement( 'label' );
 			label.className = 'tqb-question-row__label';
-			label.setAttribute( 'for', 'tqb-item-' + item.key );
+			label.setAttribute( 'for', 'tqb-item-' + prefix + '-' + item.key );
 			label.textContent = item.label;
 			textWrap.appendChild( label );
 
@@ -346,10 +493,13 @@
 
 	function collectAnswers() {
 		var answers = {};
-		wizard.querySelectorAll( '#tqb-questions-list input[type="checkbox"]' ).forEach( function ( checkbox ) {
+		wizard.querySelectorAll( '.tqb-question-row input[type="checkbox"]' ).forEach( function ( checkbox ) {
+			var type = checkbox.getAttribute( 'data-section-type' );
+			var sectionIndex = checkbox.getAttribute( 'data-section-index' );
 			var key = checkbox.getAttribute( 'data-item-key' );
+			var compositeKey = type + '-' + sectionIndex + '-' + key;
 			var qtyField = wizard.querySelector( '[data-item-key-qty="' + key + '"]' );
-			answers[ key ] = {
+			answers[ compositeKey ] = {
 				selected: checkbox.checked,
 				qty: qtyField ? ( parseInt( qtyField.value, 10 ) || 1 ) : 1,
 			};
@@ -382,54 +532,66 @@
 		} );
 		container.appendChild( contactSection );
 
-		// Business basics, if applicable
-		if ( 'business' === state.quoteType ) {
-			var basicsSection = document.createElement( 'div' );
-			basicsSection.className = 'tqb-review-section';
-			var basicsTitle = document.createElement( 'div' );
-			basicsTitle.className = 'tqb-review-section__title';
-			basicsTitle.textContent = 'Business Details';
-			basicsSection.appendChild( basicsTitle );
+		// Business basics for each business section
+		var businessIndex = 0;
+		state.selectedTypes.forEach( function ( type ) {
+			if ( type === 'business' ) {
+				var bizId = 'tqb-business-' + businessIndex;
+				var basicsSection = document.createElement( 'div' );
+				basicsSection.className = 'tqb-review-section';
+				var basicsTitle = document.createElement( 'div' );
+				basicsTitle.className = 'tqb-review-section__title';
+				basicsTitle.textContent = 'Business #' + ( businessIndex + 1 ) + ' Details';
+				basicsSection.appendChild( basicsTitle );
 
-			var entitySelect = document.getElementById( 'tqb-entity-type' );
-			var entityLabel = entitySelect.options[ entitySelect.selectedIndex ].textContent;
-
-			basicsSection.appendChild( buildReviewRow( 'Business type', entityLabel ) );
-			basicsSection.appendChild( buildReviewRow( 'Total assets', document.getElementById( 'tqb-asset-band' ).value ) );
-			basicsSection.appendChild( buildReviewRow( 'Annual revenue', document.getElementById( 'tqb-revenue-band' ).value ) );
-			container.appendChild( basicsSection );
-		}
-
-		// Selected items
-		var itemsSection = document.createElement( 'div' );
-		itemsSection.className = 'tqb-review-section';
-		var itemsTitle = document.createElement( 'div' );
-		itemsTitle.className = 'tqb-review-section__title';
-		itemsTitle.textContent = 'Your Answers';
-		itemsSection.appendChild( itemsTitle );
-
-		var answers = collectAnswers();
-		var items = ( 'business' === state.quoteType ) ? tqbData.businessItems : tqbData.individualItems;
-		var anySelected = false;
-
-		items.forEach( function ( item ) {
-			var answer = answers[ item.key ];
-			if ( ! answer || ! answer.selected ) {
-				return;
+				var entitySelect = document.getElementById( bizId + '-entity' );
+				if ( entitySelect ) {
+					var entityLabel = entitySelect.options[ entitySelect.selectedIndex ].textContent;
+					basicsSection.appendChild( buildReviewRow( 'Business type', entityLabel ) );
+				}
+				basicsSection.appendChild( buildReviewRow( 'Total assets', document.getElementById( bizId + '-assets' ).value ) );
+				basicsSection.appendChild( buildReviewRow( 'Annual revenue', document.getElementById( bizId + '-revenue' ).value ) );
+				container.appendChild( basicsSection );
+				businessIndex++;
 			}
-			anySelected = true;
-			var valueText = item.showQty ? ( 'Yes (Qty: ' + answer.qty + ')' ) : 'Yes';
-			itemsSection.appendChild( buildReviewRow( item.label, valueText ) );
 		} );
 
-		if ( ! anySelected ) {
-			var empty = document.createElement( 'p' );
-			empty.className = 'tqb-review-empty';
-			empty.textContent = 'No additional items selected.';
-			itemsSection.appendChild( empty );
-		}
+		// Selected items for each section
+		var answers = collectAnswers();
+		businessIndex = 0;
+		state.selectedTypes.forEach( function ( type ) {
+			var items = type === 'business' ? tqbData.businessItems : tqbData.individualItems;
+			var sectionLabel = type === 'individual' ? 'Personal' : 'Business #' + ( businessIndex + 1 );
+			var sectionIndex = type === 'business' ? businessIndex++ : 0;
 
-		container.appendChild( itemsSection );
+			var itemsSection = document.createElement( 'div' );
+			itemsSection.className = 'tqb-review-section';
+			var itemsTitle = document.createElement( 'div' );
+			itemsTitle.className = 'tqb-review-section__title';
+			itemsTitle.textContent = sectionLabel + ' Tax Return';
+			itemsSection.appendChild( itemsTitle );
+
+			var anySelected = false;
+			items.forEach( function ( item ) {
+				var answerKey = type + '-' + sectionIndex + '-' + item.key;
+				var answer = answers[ answerKey ];
+				if ( ! answer || ! answer.selected ) {
+					return;
+				}
+				anySelected = true;
+				var valueText = item.showQty ? ( 'Yes (Qty: ' + answer.qty + ')' ) : 'Yes';
+				itemsSection.appendChild( buildReviewRow( item.label, valueText ) );
+			} );
+
+			if ( ! anySelected ) {
+				var empty = document.createElement( 'p' );
+				empty.className = 'tqb-review-empty';
+				empty.textContent = 'No additional items selected.';
+				itemsSection.appendChild( empty );
+			}
+
+			container.appendChild( itemsSection );
+		} );
 	}
 
 	function buildReviewRow( label, value ) {
@@ -467,7 +629,37 @@
 
 	/** Mirrors TQB_Pricing_Engine::calculate_individual(). */
 	function calculateIndividualPreview( answers ) {
-		return calculateIndividualPreviewForItems( tqbData.individualItems, answers );
+		return calculateIndividualPreviewForAnswers( answers, 'individual', 0 );
+	}
+
+	/** Calculate individual preview for a specific section (supports multi-select) */
+	function calculateIndividualPreviewForAnswers( answers, type, sectionIndex ) {
+		var prefix = type + '-' + sectionIndex;
+		var items = tqbData.individualItems;
+		var total = 0;
+		var lineItems = [];
+		var isCustomQuote = false;
+
+		items.forEach( function ( item ) {
+			var answer = answers[ prefix + '-' + item.key ];
+			if ( ! answer || ! answer.selected ) {
+				return;
+			}
+			if ( item.isCustomQuoteTrigger ) {
+				isCustomQuote = true;
+				return;
+			}
+			var qty = ( typeof answer.qty === 'number' ) ? answer.qty : 1;
+			var amount = calculateLineAmount( item, qty );
+			total += amount;
+			lineItems.push( {
+				label: item.label,
+				amount: amount,
+				qty: item.showQty ? qty : null,
+			} );
+		} );
+
+		return { total: total, lineItems: lineItems, isCustomQuote: isCustomQuote };
 	}
 
 	function findBandByLabel( bands, label ) {
@@ -477,12 +669,13 @@
 	}
 
 	/** Mirrors TQB_Pricing_Engine::calculate_business(). */
-	function calculateBusinessPreview( entityType, assetBandLabel, revenueBandLabel, answers ) {
+	function calculateBusinessPreview( entityType, assetBandLabel, revenueBandLabel, answers, type, sectionIndex ) {
+		var prefix = type + '-' + sectionIndex;
 		var entityGroup = ( 'partnership' === entityType ) ? 'partnership' : 'c_s_corp';
 		var assetBand = findBandByLabel( tqbData.assetBands[ entityGroup ] || [], assetBandLabel );
 		var revenueBand = findBandByLabel( tqbData.revenueBands, revenueBandLabel );
 
-		var extrasResult = calculateIndividualPreviewForItems( tqbData.businessItems, answers );
+		var extrasResult = calculateBusinessItemsForSection( tqbData.businessItems, answers, prefix );
 
 		if ( ! assetBand || ! revenueBand ) {
 			return { total: null, baseFee: null, lineItems: extrasResult.lineItems, isCustomQuote: false, incomplete: true };
@@ -509,6 +702,33 @@
 			lineItems: extrasResult.lineItems,
 			isCustomQuote: false,
 		};
+	}
+
+	function calculateBusinessItemsForSection( items, answers, prefix ) {
+		var total = 0;
+		var lineItems = [];
+		var isCustomQuote = false;
+
+		items.forEach( function ( item ) {
+			var answer = answers[ prefix + '-' + item.key ];
+			if ( ! answer || ! answer.selected ) {
+				return;
+			}
+			if ( item.isCustomQuoteTrigger ) {
+				isCustomQuote = true;
+				return;
+			}
+			var qty = ( typeof answer.qty === 'number' ) ? answer.qty : 1;
+			var amount = calculateLineAmount( item, qty );
+			total += amount;
+			lineItems.push( {
+				label: item.label,
+				amount: amount,
+				qty: item.showQty ? qty : null,
+			} );
+		} );
+
+		return { total: total, lineItems: lineItems, isCustomQuote: isCustomQuote };
 	}
 
 	function calculateIndividualPreviewForItems( items, answers ) {
@@ -542,7 +762,7 @@
 		var content = document.getElementById( 'tqb-summary-content' );
 		content.innerHTML = '';
 
-		if ( ! state.quoteType ) {
+		if ( ! state.selectedTypes.length ) {
 			var empty = document.createElement( 'p' );
 			empty.className = 'tqb-summary__empty';
 			empty.textContent = 'Your selections will appear here as you go.';
@@ -550,111 +770,108 @@
 			return;
 		}
 
-		var typeBadge = document.createElement( 'div' );
-		typeBadge.className = 'tqb-summary__type';
-		typeBadge.textContent = ( 'business' === state.quoteType ) ? 'Business Return' : 'Individual Return';
-		content.appendChild( typeBadge );
-
+		// Calculate combined total from all sections
 		var answers = collectAnswers();
-		var result;
+		var grandTotal = 0;
+		var isCustomQuote = false;
+		var allLineItems = [];
+		var businessIndex = 0;
 
-		if ( 'business' === state.quoteType ) {
-			var entityEl = document.getElementById( 'tqb-entity-type' );
-			var assetEl = document.getElementById( 'tqb-asset-band' );
-			var revenueEl = document.getElementById( 'tqb-revenue-band' );
+		state.selectedTypes.forEach( function ( type ) {
+			var sectionIndex = type === 'business' ? businessIndex++ : 0;
 
-			if ( entityEl && assetEl && revenueEl ) {
-				result = calculateBusinessPreview( entityEl.value, assetEl.value, revenueEl.value, answers );
+			// Section header
+			var sectionHeader = document.createElement( 'div' );
+			sectionHeader.className = 'tqb-summary__type';
+			sectionHeader.textContent = type === 'individual' ? 'Personal Tax Return' : 'Business #' + ( sectionIndex + 1 );
+			content.appendChild( sectionHeader );
 
-				// Business details block — the three dropdown selections at
-				// the top of Step 3, shown here so the user can confirm them
-				// without scrolling back up.
-				var basicsWrap = document.createElement( 'div' );
-				basicsWrap.className = 'tqb-summary__basics';
+			if ( type === 'business' ) {
+				var bizId = 'tqb-business-' + sectionIndex;
+				var entityEl = document.getElementById( bizId + '-entity' );
+				var assetEl = document.getElementById( bizId + '-assets' );
+				var revenueEl = document.getElementById( bizId + '-revenue' );
 
-				var entityLabel = entityEl.options[ entityEl.selectedIndex ] ? entityEl.options[ entityEl.selectedIndex ].textContent : '';
-				[
-					[ 'Business type', entityLabel ],
-					[ 'Total assets', assetEl.value ],
-					[ 'Annual revenue', revenueEl.value ],
-				].forEach( function ( pair ) {
-					if ( ! pair[ 1 ] ) {
-						return;
+				if ( entityEl && assetEl && revenueEl ) {
+					var result = calculateBusinessPreview( entityEl.value, assetEl.value, revenueEl.value, answers, type, sectionIndex );
+
+					// Business basics summary
+					var basicsWrap = document.createElement( 'div' );
+					basicsWrap.className = 'tqb-summary__basics';
+
+					var entityLabel = entityEl.options[ entityEl.selectedIndex ] ? entityEl.options[ entityEl.selectedIndex ].textContent : '';
+					[
+						[ 'Business type', entityLabel ],
+						[ 'Total assets', assetEl.value ],
+						[ 'Annual revenue', revenueEl.value ],
+					].forEach( function ( pair ) {
+						if ( ! pair[ 1 ] ) {
+							return;
+						}
+						var row = document.createElement( 'div' );
+						row.className = 'tqb-summary__item';
+						var label = document.createElement( 'span' );
+						label.textContent = pair[ 0 ];
+						var value = document.createElement( 'span' );
+						value.className = 'tqb-summary__item-amount';
+						value.textContent = pair[ 1 ];
+						row.appendChild( label );
+						row.appendChild( value );
+						basicsWrap.appendChild( row );
+					} );
+					content.appendChild( basicsWrap );
+
+					if ( result.baseFee !== null ) {
+						var baseRow = document.createElement( 'div' );
+						baseRow.className = 'tqb-summary__item';
+						var baseLabel = document.createElement( 'span' );
+						baseLabel.textContent = 'Base Return Fee';
+						var baseAmount = document.createElement( 'span' );
+						baseAmount.className = 'tqb-summary__item-amount';
+						baseAmount.textContent = formatCurrency( result.baseFee );
+						baseRow.appendChild( baseLabel );
+						baseRow.appendChild( baseAmount );
+						content.appendChild( baseRow );
+						grandTotal += result.baseFee;
 					}
-					var row = document.createElement( 'div' );
-					row.className = 'tqb-summary__item';
-					var label = document.createElement( 'span' );
-					label.textContent = pair[ 0 ];
-					var value = document.createElement( 'span' );
-					value.className = 'tqb-summary__item-amount';
-					value.textContent = pair[ 1 ];
-					row.appendChild( label );
-					row.appendChild( value );
-					basicsWrap.appendChild( row );
-				} );
-				content.appendChild( basicsWrap );
+
+					grandTotal += result.total;
+					isCustomQuote = isCustomQuote || result.isCustomQuote;
+					allLineItems = allLineItems.concat( result.lineItems );
+				}
 			} else {
-				result = { total: null, lineItems: [], isCustomQuote: false, incomplete: true };
+				var result = calculateIndividualPreviewForAnswers( answers, type, sectionIndex );
+				grandTotal += result.total;
+				isCustomQuote = isCustomQuote || result.isCustomQuote;
+				allLineItems = allLineItems.concat( result.lineItems );
 			}
-		} else {
-			result = calculateIndividualPreview( answers );
-		}
+		} );
 
-		// Base return fee — shown as its own line for Business so the total
-		// doesn't look like it's only adding up the extras (client feedback:
-		// summary was "missing" the base fee, i.e. it was implicit before).
-		if ( 'business' === state.quoteType && result.baseFee !== null && typeof result.baseFee !== 'undefined' ) {
-			var baseRow = document.createElement( 'div' );
-			baseRow.className = 'tqb-summary__item';
-			var baseLabel = document.createElement( 'span' );
-			baseLabel.textContent = 'Base Return Fee';
-			var baseAmount = document.createElement( 'span' );
-			baseAmount.className = 'tqb-summary__item-amount';
-			baseAmount.textContent = formatCurrency( result.baseFee );
-			baseRow.appendChild( baseLabel );
-			baseRow.appendChild( baseAmount );
-			content.appendChild( baseRow );
-		}
+		// Line items
+		allLineItems.forEach( function ( li ) {
+			var row = document.createElement( 'div' );
+			row.className = 'tqb-summary__item';
+			var label = document.createElement( 'span' );
+			label.textContent = li.label + ( li.qty && li.qty !== 1 ? ' (\u00d7' + li.qty + ')' : '' );
+			var amount = document.createElement( 'span' );
+			amount.className = 'tqb-summary__item-amount';
+			amount.textContent = formatCurrency( li.amount );
+			row.appendChild( label );
+			row.appendChild( amount );
+			content.appendChild( row );
+		} );
 
-		if ( result.lineItems && result.lineItems.length ) {
-			result.lineItems.forEach( function ( li ) {
-				var row = document.createElement( 'div' );
-				row.className = 'tqb-summary__item';
-
-				var label = document.createElement( 'span' );
-				label.textContent = li.label + ( li.qty && li.qty !== 1 ? ' (\u00d7' + li.qty + ')' : '' );
-
-				var amount = document.createElement( 'span' );
-				amount.className = 'tqb-summary__item-amount';
-				amount.textContent = formatCurrency( li.amount );
-
-				row.appendChild( label );
-				row.appendChild( amount );
-				content.appendChild( row );
-			} );
-		}
-
-		if ( result.isCustomQuote ) {
-			var note = document.createElement( 'div' );
-			note.className = 'tqb-summary__custom-note';
-			note.textContent = 'Based on your answers so far, this will likely need a custom quote rather than an instant price.';
-			content.appendChild( note );
-		} else if ( ! result.incomplete ) {
-			var totalRow = document.createElement( 'div' );
-			totalRow.className = 'tqb-summary__total';
-
-			var totalLabel = document.createElement( 'span' );
-			totalLabel.className = 'tqb-summary__total-label';
-			totalLabel.textContent = 'Estimated Total';
-
-			var totalAmount = document.createElement( 'span' );
-			totalAmount.className = 'tqb-summary__total-amount';
-			totalAmount.textContent = formatCurrency( result.total );
-
-			totalRow.appendChild( totalLabel );
-			totalRow.appendChild( totalAmount );
-			content.appendChild( totalRow );
-		}
+		// Grand total
+		var totalRow = document.createElement( 'div' );
+		totalRow.className = 'tqb-summary__total';
+		var totalLabel = document.createElement( 'span' );
+		totalLabel.textContent = 'Estimated Total';
+		var totalAmount = document.createElement( 'span' );
+		totalAmount.className = 'tqb-summary__total-amount';
+		totalAmount.textContent = formatCurrency( grandTotal );
+		totalRow.appendChild( totalLabel );
+		totalRow.appendChild( totalAmount );
+		content.appendChild( totalRow );
 	}
 
 	// ---------------------------------------------------------------------
@@ -677,21 +894,30 @@
 		var body = new URLSearchParams();
 		body.append( 'action', 'tqb_submit_quote' );
 		body.append( 'nonce', tqbData.nonce );
-		body.append( 'quote_type', state.quoteType );
+
+		// Send all selected types as JSON
+		body.append( 'quote_types', JSON.stringify( state.selectedTypes ) );
 		body.append( 'contact_name', document.getElementById( 'tqb-contact-name' ).value );
 		body.append( 'contact_email', document.getElementById( 'tqb-contact-email' ).value );
 		body.append( 'contact_phone', document.getElementById( 'tqb-contact-phone' ).value );
 
+		// Send answers
 		Object.keys( answers ).forEach( function ( itemKey ) {
 			body.append( 'answers[' + itemKey + '][selected]', answers[ itemKey ].selected ? '1' : '' );
 			body.append( 'answers[' + itemKey + '][qty]', answers[ itemKey ].qty );
 		} );
 
-		if ( 'business' === state.quoteType ) {
-			body.append( 'entity_type', document.getElementById( 'tqb-entity-type' ).value );
-			body.append( 'asset_band', document.getElementById( 'tqb-asset-band' ).value );
-			body.append( 'revenue_band', document.getElementById( 'tqb-revenue-band' ).value );
-		}
+		// Send business data for each business section
+		var businessIndex = 0;
+		state.selectedTypes.forEach( function ( type ) {
+			if ( type === 'business' ) {
+				var bizId = 'tqb-business-' + businessIndex;
+				body.append( 'businesses[' + businessIndex + '][entity_type]', document.getElementById( bizId + '-entity' ).value );
+				body.append( 'businesses[' + businessIndex + '][asset_band]', document.getElementById( bizId + '-assets' ).value );
+				body.append( 'businesses[' + businessIndex + '][revenue_band]', document.getElementById( bizId + '-revenue' ).value );
+				businessIndex++;
+			}
+		} );
 
 		fetch( tqbData.ajaxUrl, {
 			method: 'POST',

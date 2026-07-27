@@ -353,6 +353,92 @@
 	color: #6B6455;
 }
 
+/* Checkbox card styles (multi-select) */
+.tqb-type-card--checkbox {
+	position: relative;
+	padding-left: 48px !important;
+}
+
+.tqb-type-card--checkbox input[type="checkbox"] {
+	position: absolute;
+	left: 16px;
+	top: 50%;
+	transform: translateY( -50% );
+	width: 22px;
+	height: 22px;
+	accent-color: var(--tqb-navy);
+	cursor: pointer;
+}
+
+.tqb-type-card--checkbox.is-selected {
+	border-color: var(--tqb-navy) !important;
+	background: var(--tqb-cream) !important;
+}
+
+.tqb-type-card--checkbox.is-selected .tqb-type-card__label {
+	color: var(--tqb-navy);
+}
+
+.tqb-type-card--checkbox input[type="checkbox"]:disabled {
+	cursor: not-allowed;
+}
+
+/* ---- Add Another Business button ---- */
+.tqb-add-business {
+	margin-top: 20px;
+	padding-top: 20px;
+	border-top: 1px dashed var(--tqb-line);
+}
+
+.tqb-btn--outline {
+	background: transparent;
+	border: 2px solid var(--tqb-navy);
+	color: var(--tqb-navy);
+	padding: 10px 20px;
+	border-radius: 6px;
+	font-size: 15px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.tqb-btn--outline:hover {
+	background: var(--tqb-navy);
+	color: #fff;
+}
+
+/* ---- Question section (for multi-section) ---- */
+.tqb-question-section {
+	margin-bottom: 32px;
+	padding-bottom: 32px;
+	border-bottom: 1px solid var(--tqb-line);
+}
+
+.tqb-question-section:last-of-type {
+	border-bottom: none;
+}
+
+.tqb-question-section__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 16px;
+}
+
+.tqb-question-section__title {
+	font-size: 18px;
+	font-weight: 700;
+	color: var(--tqb-navy-deep);
+}
+
+.tqb-question-section__badge {
+	font-size: 12px;
+	background: var(--tqb-navy);
+	color: #fff;
+	padding: 4px 10px;
+	border-radius: 12px;
+}
+
 /* ---- Fields ---- */
 .tqb-field {
 	margin-bottom: 18px;

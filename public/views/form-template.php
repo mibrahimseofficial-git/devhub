@@ -27,20 +27,26 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<button type="button" class="tqb-reset-link" data-action="reset-all">Start Over</button>
 		</div>
 
-		<!-- Step 1: Individual vs Business -->
+		<!-- Step 1: Individual vs Business (multi-select) -->
 		<section class="tqb-step" data-step="1">
 			<h2 class="tqb-step__title">What kind of return do you need?</h2>
-			<p class="tqb-step__subtitle">This tells us which questions to ask next.</p>
+			<p class="tqb-step__subtitle">Select all that apply.</p>
 
 			<div class="tqb-type-choice">
-				<button type="button" class="tqb-type-card" data-quote-type="individual">
+				<label class="tqb-type-card tqb-type-card--checkbox" for="tqb-select-individual">
+					<input type="checkbox" id="tqb-select-individual" value="individual" class="tqb-quote-type-checkbox" />
 					<span class="tqb-type-card__label">Individual</span>
 					<span class="tqb-type-card__desc">Personal income tax return</span>
-				</button>
-				<button type="button" class="tqb-type-card" data-quote-type="business">
+				</label>
+				<label class="tqb-type-card tqb-type-card--checkbox" for="tqb-select-business">
+					<input type="checkbox" id="tqb-select-business" value="business" class="tqb-quote-type-checkbox" />
 					<span class="tqb-type-card__label">Business</span>
 					<span class="tqb-type-card__desc">C-Corp, S-Corp, or Partnership return</span>
-				</button>
+				</label>
+			</div>
+
+			<div class="tqb-step__nav">
+				<button type="button" class="tqb-btn tqb-btn--primary" data-action="start-quote" disabled>Continue</button>
 			</div>
 		</section>
 
@@ -68,17 +74,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</div>
 		</section>
 
-		<!-- Step 3: Questions (built by JS — different content for individual vs business) -->
+		<!-- Step 3: Questions (built by JS — supports personal + multiple businesses) -->
 		<section class="tqb-step" data-step="3" hidden>
-			<h2 class="tqb-step__title" id="tqb-questions-title">Tell us about your situation</h2>
-			<p class="tqb-step__subtitle">Select everything that applies.</p>
-
-			<div id="tqb-business-basics" hidden>
-				<!-- Populated by JS: entity type, asset band, revenue band dropdowns -->
+			<div id="tqb-question-sections">
+				<!-- Populated by JS: one section per selected type (personal, business 1, business 2, etc.) -->
 			</div>
 
-			<div id="tqb-questions-list">
-				<!-- Populated by JS: checklist of line items for the selected quote type -->
+			<div id="tqb-add-business-section" class="tqb-add-business" hidden>
+				<button type="button" class="tqb-btn tqb-btn--outline" data-action="add-business">
+					+ Add Another Business
+				</button>
 			</div>
 
 			<div class="tqb-step__nav">
