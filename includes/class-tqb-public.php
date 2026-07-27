@@ -226,6 +226,16 @@ class TQB_Public {
 			return;
 		}
 
+		// Check if this email already has a completed submission
+		$existing_completed = TQB_Quote_Handler::check_existing_submission( $email );
+		if ( $existing_completed ) {
+			wp_send_json_error( array( 
+				'message' => 'This email already has a completed quote submission.',
+				'duplicate' => true,
+			), 400 );
+			return;
+		}
+
 		$step = isset( $_POST['step'] ) ? absint( $_POST['step'] ) : 1;
 		$quote_types = isset( $_POST['quote_types'] ) ? sanitize_text_field( wp_unslash( $_POST['quote_types'] ) ) : '';
 		$answers = isset( $_POST['answers'] ) ? (array) $_POST['answers'] : array();

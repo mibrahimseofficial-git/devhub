@@ -249,6 +249,42 @@ class TQB_Quote_Handler {
 	}
 
 	/**
+	 * Check if email already has a completed submission.
+	 *
+	 * @param string $email Contact email
+	 * @return array|false Submission data if exists and completed, false otherwise
+	 */
+	public static function check_existing_submission( $email ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tqb_submissions';
+
+		// Check if status column exists
+		$column_exists = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'status'" );
+
+		if ( $column_exists ) {
+			// Check for completed submission with this email
+			$result = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT id, contact_name, calculated_total, created_at FROM {$table} WHERE contact_email = %s AND status = 'completed' ORDER BY created_at DESC LIMIT 1",
+					$email
+				),
+				ARRAY_A
+			);
+		} else {
+			// No status column - check if there's a submission with a calculated total (completed)
+			$result = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT id, contact_name, calculated_total, created_at FROM {$table} WHERE contact_email = %s AND calculated_total IS NOT NULL ORDER BY created_at DESC LIMIT 1",
+					$email
+				),
+				ARRAY_A
+			);
+		}
+
+		return $result;
+	}
+
+	/**
 	 * Save partial form progress for abandoned quote follow-up.
 	 * Creates a new partial submission or updates existing one by email.
 	 *

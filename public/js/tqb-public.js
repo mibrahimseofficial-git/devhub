@@ -150,12 +150,29 @@
 		.then( function ( result ) {
 			if ( result.success && result.data.submission_id ) {
 				state.partialSubmissionId = result.data.submission_id;
+			} else if ( result.data && result.data.duplicate ) {
+				// Show duplicate email warning
+				showDuplicateEmailWarning( emailEl.value );
 			}
 		} )
 		.catch( function ( error ) {
 			// Silently fail - partial save is not critical
 			console.log( 'Partial save failed:', error );
 		} );
+	}
+
+	/**
+	 * Show warning when email already has a completed submission.
+	 */
+	function showDuplicateEmailWarning( email ) {
+		var errorEl = document.getElementById( 'tqb-form-error' );
+		if ( errorEl ) {
+			errorEl.innerHTML = '<strong>Notice:</strong> This email (' + email + ') already has a completed quote submission. You can still continue, but a team member will be in touch regarding your previous quote.';
+			errorEl.style.background = '#fff3cd';
+			errorEl.style.borderColor = '#ffc107';
+			errorEl.style.color = '#856404';
+			errorEl.hidden = false;
+		}
 	}
 
 	/**
