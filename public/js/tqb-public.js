@@ -1142,8 +1142,9 @@
 				var assetEl = document.getElementById( bizId + '-assets' );
 				var revenueEl = document.getElementById( bizId + '-revenue' );
 
-				// Only show business details if fields have been interacted with
-				if ( entityEl && assetEl && revenueEl && state.businessFieldsTouched[ bizId ] ) {
+				// Show business details if fields have been interacted with OR if they have values
+				var hasBusinessValues = entityEl && entityEl.value && assetEl && assetEl.value && revenueEl && revenueEl.value;
+				if ( hasBusinessValues ) {
 					var result = calculateBusinessPreview( entityEl.value, assetEl.value, revenueEl.value, answers, type, sectionIndex );
 
 					// Business basics summary

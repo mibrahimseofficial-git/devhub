@@ -24,6 +24,8 @@ class TQB_Admin {
 		add_action( 'admin_post_tqb_save_line_items', array( $this, 'handle_save_line_items' ) );
 		add_action( 'admin_post_tqb_save_rate_bands', array( $this, 'handle_save_rate_bands' ) );
 		add_action( 'admin_post_tqb_save_general_settings', array( $this, 'handle_save_general_settings' ) );
+		add_action( 'admin_post_tqb_delete_submission', array( $this, 'handle_delete_submission' ) );
+		add_action( 'admin_post_tqb_delete_submissions', array( $this, 'handle_bulk_delete_submissions' ) );
 		add_action( 'wp_ajax_tqb_fetch_hubspot_pipelines', array( $this, 'handle_fetch_hubspot_pipelines' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_saved_notice' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
@@ -325,6 +327,51 @@ class TQB_Admin {
 		update_option( 'tqb_office_address', $office_address );
 
 		wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=general&tqb_saved=1' ) );
+		exit;
+	}
+
+	/**
+	 * Delete a single submission.
+	 */
+	public function handle_delete_submission() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Permission denied.' );
+		}
+
+		$id = isset( $_GET['id'] ) ? absint( $_GET['id'] ) : 0;
+
+		if ( ! $id || ! check_admin_referer( 'tqb_delete_sub_' . $id ) ) {
+			wp_die( 'Invalid request.' );
+		}
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'tqb_submissions';
+		$wpdb->delete( $table, array( 'id' => $id ), array( '%d' ) );
+
+		wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=submissions&deleted=1' ) );
+		exit;
+	}
+
+	/**
+	 * Bulk delete submissions.
+	 */
+	public function handle_bulk_delete_submissions() {
+		if ( ! current_user_can( 'manage_options' ) || ! isset( $_POST['tqb_delete_nonce'] ) ) {
+			wp_die( 'Permission denied.' );
+		}
+
+		check_admin_referer( 'tqb_delete_submissions', 'tqb_delete_nonce' );
+
+		$ids = isset( $_POST['delete_ids'] ) ? array_map( 'absint', (array) $_POST['delete_ids'] ) : array();
+
+		if ( ! empty( $ids ) && isset( $_POST['bulk_action'] ) && $_POST['bulk_action'] === 'delete' ) {
+			global $wpdb;
+			$table = $wpdb->prefix . 'tqb_submissions';
+			$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+			$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE id IN ($placeholders)", $ids ) );
+		}
+
+		wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=submissions&deleted=' . count( $ids ) ) );
 		exit;
 	}
 
