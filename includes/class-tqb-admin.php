@@ -75,7 +75,7 @@ class TQB_Admin {
 		}
 
 		$active_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'individual'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		if ( ! in_array( $active_tab, array( 'individual', 'business', 'general' ), true ) ) {
+		if ( ! in_array( $active_tab, array( 'individual', 'business', 'general', 'submissions' ), true ) ) {
 			$active_tab = 'individual';
 		}
 
@@ -89,6 +89,8 @@ class TQB_Admin {
 					class="nav-tab <?php echo 'individual' === $active_tab ? 'nav-tab-active' : ''; ?>">Individual Pricing</a>
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=business' ) ); ?>"
 					class="nav-tab <?php echo 'business' === $active_tab ? 'nav-tab-active' : ''; ?>">Business Pricing</a>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=submissions' ) ); ?>"
+					class="nav-tab <?php echo 'submissions' === $active_tab ? 'nav-tab-active' : ''; ?>">Submissions</a>
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=general' ) ); ?>"
 					class="nav-tab <?php echo 'general' === $active_tab ? 'nav-tab-active' : ''; ?>">General Settings</a>
 			</h2>
@@ -99,6 +101,8 @@ class TQB_Admin {
 					$this->render_individual_tab();
 				} elseif ( 'business' === $active_tab ) {
 					$this->render_business_tab();
+				} elseif ( 'submissions' === $active_tab ) {
+					$this->render_submissions_tab();
 				} else {
 					$this->render_general_tab();
 				}
@@ -137,6 +141,63 @@ class TQB_Admin {
 		$final_email_hours = get_option( 'tqb_final_email_hours', '168' );
 		$office_address = get_option( 'tqb_office_address', "939 W North Ave, Suite 750,\nChicago, IL 60642" );
 		include TQB_PLUGIN_DIR . 'admin/views/general-tab.php';
+	}
+
+	private function render_submissions_tab() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tqb_submissions';
+
+		// Pagination
+		$per_page = 20;
+		$current_page = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
+		$offset = ( $current_page - 1 ) * $per_page;
+
+		// Filters
+		$status_filter = isset( $_GET['status'] ) ? sanitize_key( $_GET['status'] ) : '';
+		$type_filter = isset( $_GET['type'] ) ? sanitize_key( $_GET['type'] ) : '';
+
+		// Build query
+		$where = array( '1=1' );
+		$where_args = array();
+
+		if ( ! empty( $status_filter ) ) {
+			$where[] = 'status = %s';
+			$where_args[] = $status_filter;
+		}
+
+		if ( ! empty( $type_filter ) ) {
+			$where[] = 'quote_type = %s';
+			$where_args[] = $type_filter;
+		}
+
+		$where_clause = implode( ' AND ', $where );
+
+		// Get total count
+		$total_count = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$table} WHERE {$where_clause}",
+				$where_args
+			)
+		);
+
+		// Get submissions
+		$submissions = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$table} WHERE {$where_clause} ORDER BY created_at DESC LIMIT %d OFFSET %d",
+				array_merge( $where_args, array( $per_page, $offset ) )
+			),
+			ARRAY_A
+		);
+
+		// Get counts by status
+		$counts = array(
+			'all' => $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" ),
+			'completed' => $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'completed'" ),
+			'in_progress' => $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'in_progress'" ),
+			'abandoned' => $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'abandoned'" ),
+		);
+
+		include TQB_PLUGIN_DIR . 'admin/views/submissions-tab.php';
 	}
 
 	/**

@@ -151,6 +151,7 @@ class TQB_Email {
 	/**
 	 * Send abandoned quote follow-up emails.
 	 * Called by the cron job.
+	 * Uses Chicago (Central) timezone for all time calculations.
 	 */
 	public static function send_abandoned_quote_emails() {
 		if ( ! get_option( 'tqb_enable_abandoned_emails', '1' ) ) {
@@ -164,10 +165,14 @@ class TQB_Email {
 		$followup_hours = (int) get_option( 'tqb_followup_email_hours', 72 );
 		$final_hours = (int) get_option( 'tqb_final_email_hours', 168 );
 
-		$now = current_time( 'mysql' );
+		// Use Chicago (Central) timezone
+		$chicago_tz = new DateTimeZone( 'America/Chicago' );
+		$now = new DateTime( 'now', $chicago_tz );
+		$now_mysql = $now->format( 'Y-m-d H:i:s' );
 
 		// Find submissions eligible for reminder email
-		$reminder_cutoff = date( 'Y-m-d H:i:s', strtotime( "-{$reminder_hours} hours" ) );
+		$reminder_cutoff = clone $now;
+		$reminder_cutoff->modify( "-{$reminder_hours} hours" );
 		$reminder_eligible = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$table} 
@@ -176,7 +181,7 @@ class TQB_Email {
 				AND reminder_email_sent = 0
 				AND status != 'abandoned'
 				LIMIT 50",
-				$reminder_cutoff
+				$reminder_cutoff->format( 'Y-m-d H:i:s' )
 			),
 			ARRAY_A
 		);
@@ -187,7 +192,7 @@ class TQB_Email {
 					$table,
 					array(
 						'reminder_email_sent' => 1,
-						'reminder_email_sent_at' => $now,
+						'reminder_email_sent_at' => $now_mysql,
 					),
 					array( 'id' => $submission['id'] ),
 					array( '%d', '%s' ),
@@ -197,7 +202,8 @@ class TQB_Email {
 		}
 
 		// Find submissions eligible for follow-up email (with call offer)
-		$followup_cutoff = date( 'Y-m-d H:i:s', strtotime( "-{$followup_hours} hours" ) );
+		$followup_cutoff = clone $now;
+		$followup_cutoff->modify( "-{$followup_hours} hours" );
 		$followup_eligible = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$table} 
@@ -206,7 +212,7 @@ class TQB_Email {
 				AND followup_email_sent = 0
 				AND reminder_email_sent = 1
 				LIMIT 50",
-				$followup_cutoff
+				$followup_cutoff->format( 'Y-m-d H:i:s' )
 			),
 			ARRAY_A
 		);
@@ -217,7 +223,7 @@ class TQB_Email {
 					$table,
 					array(
 						'followup_email_sent' => 1,
-						'followup_email_sent_at' => $now,
+						'followup_email_sent_at' => $now_mysql,
 					),
 					array( 'id' => $submission['id'] ),
 					array( '%d', '%s' ),
@@ -227,7 +233,8 @@ class TQB_Email {
 		}
 
 		// Find submissions eligible for final email
-		$final_cutoff = date( 'Y-m-d H:i:s', strtotime( "-{$final_hours} hours" ) );
+		$final_cutoff = clone $now;
+		$final_cutoff->modify( "-{$final_hours} hours" );
 		$final_eligible = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$table} 
@@ -236,7 +243,7 @@ class TQB_Email {
 				AND final_email_sent = 0
 				AND followup_email_sent = 1
 				LIMIT 50",
-				$final_cutoff
+				$final_cutoff->format( 'Y-m-d H:i:s' )
 			),
 			ARRAY_A
 		);
@@ -247,7 +254,7 @@ class TQB_Email {
 					$table,
 					array(
 						'final_email_sent' => 1,
-						'final_email_sent_at' => $now,
+						'final_email_sent_at' => $now_mysql,
 						'status' => 'abandoned',
 					),
 					array( 'id' => $submission['id'] ),
