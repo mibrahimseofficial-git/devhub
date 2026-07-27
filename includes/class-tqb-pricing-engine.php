@@ -27,6 +27,8 @@ class TQB_Pricing_Engine {
 	 *     'pricing_pattern' => 'qty_times_fee' | 'flat' | 'hardcoded',
 	 *     'hardcoded_value' => 100.0 | null,
 	 *     'is_custom_quote_trigger' => 0 | 1,
+	 *     'threshold_qty' => 100.0 | null,        // Quantity threshold (e.g. 100 = $100K)
+	 *     'threshold_trigger' => 'above' | null,  // 'above' = qty > threshold triggers custom; 'below' = qty < threshold triggers custom
 	 *   ]
 	 * @param array $answers  Keyed by item_key:
 	 *   [ 'rental_property' => [ 'selected' => true, 'qty' => 2 ], ... ]
@@ -52,7 +54,15 @@ class TQB_Pricing_Engine {
 				continue;
 			}
 
-			// A custom-quote trigger (crypto, foreign accounts) short-circuits
+			// Check if this item has a threshold-based custom quote trigger
+			$qty = isset( $answers[ $key ]['qty'] ) ? (int) $answers[ $key ]['qty'] : 1;
+			if ( self::should_trigger_custom_quote( $item, $qty ) ) {
+				$is_custom_quote = true;
+				$custom_reason   = $key;
+				continue;
+			}
+
+			// A hard custom-quote trigger (crypto, foreign accounts) short-circuits
 			// pricing entirely — per PROJECT_SPEC.md Section 3, these never
 			// get an auto-calculated number.
 			if ( ! empty( $item['is_custom_quote_trigger'] ) ) {
@@ -61,7 +71,6 @@ class TQB_Pricing_Engine {
 				continue;
 			}
 
-			$qty    = isset( $answers[ $key ]['qty'] ) ? (int) $answers[ $key ]['qty'] : 1;
 			$amount = self::calculate_line_amount( $item, $qty );
 
 			$breakdown[ $key ] = $amount;
@@ -74,6 +83,31 @@ class TQB_Pricing_Engine {
 			'custom_quote_reason'  => $custom_reason,
 			'line_item_breakdown'  => $breakdown,
 		);
+	}
+
+	/**
+	 * Check if an item should trigger a custom quote based on quantity threshold.
+	 *
+	 * @param array $item  Line item config
+	 * @param int   $qty   User-selected quantity
+	 *
+	 * @return bool True if custom quote should be triggered
+	 */
+	private static function should_trigger_custom_quote( $item, $qty ) {
+		if ( empty( $item['threshold_trigger'] ) || empty( $item['threshold_qty'] ) ) {
+			return false;
+		}
+
+		$threshold = (float) $item['threshold_qty'];
+		$trigger   = $item['threshold_trigger'];
+
+		if ( $trigger === 'above' ) {
+			return $qty > $threshold;
+		} elseif ( $trigger === 'below' ) {
+			return $qty < $threshold;
+		}
+
+		return false;
 	}
 
 	/**
