@@ -283,6 +283,16 @@
 		field.addEventListener( 'input', updateSummaryPanel );
 	} );
 
+	// Save partial progress when email is entered (capture leads who leave without clicking Continue)
+	var emailField = document.getElementById( 'tqb-contact-email' );
+	if ( emailField ) {
+		emailField.addEventListener( 'blur', function () {
+			if ( isValidEmail( emailField.value ) ) {
+				savePartialProgress( 1 ); // Step 1 = type selected, contact info entered
+			}
+		} );
+	}
+
 	function validateContactFields() {
 		var name = document.getElementById( 'tqb-contact-name' );
 		var email = document.getElementById( 'tqb-contact-email' );
