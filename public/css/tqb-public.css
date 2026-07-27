@@ -602,6 +602,19 @@
 	line-height: 1.4;
 }
 
+.tqb-question-row__qty-wrap {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 4px;
+}
+
+.tqb-question-row__qty-label {
+	font-size: 11px;
+	color: #8A8272;
+	white-space: nowrap;
+}
+
 .tqb-question-row__qty {
 	width: 64px !important;
 	min-width: 64px !important;

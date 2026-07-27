@@ -476,6 +476,20 @@
 			checkbox.addEventListener( 'change', updateSummaryPanel );
 
 			if ( item.showQty ) {
+				var qtyWrap = document.createElement( 'div' );
+				qtyWrap.className = 'tqb-question-row__qty-wrap';
+
+				// Add threshold label if applicable
+				if ( item.thresholdQty && item.thresholdTrigger ) {
+					var thresholdLabel = document.createElement( 'span' );
+					thresholdLabel.className = 'tqb-question-row__qty-label';
+					var thresholdText = item.thresholdTrigger === 'above'
+						? 'Trading volume (above ' + item.thresholdQty + ' = custom quote)'
+						: 'Trading volume (below ' + item.thresholdQty + ' = custom quote)';
+					thresholdLabel.textContent = thresholdText;
+					qtyWrap.appendChild( thresholdLabel );
+				}
+
 				var qty = document.createElement( 'input' );
 				qty.type = 'number';
 				qty.className = 'tqb-question-row__qty';
@@ -485,7 +499,8 @@
 				qty.setAttribute( 'data-section-type', type );
 				qty.setAttribute( 'data-section-index', businessIndex );
 				qty.disabled = true;
-				row.appendChild( qty );
+				qtyWrap.appendChild( qty );
+				row.appendChild( qtyWrap );
 
 				checkbox.addEventListener( 'change', function () {
 					qty.disabled = ! checkbox.checked;
@@ -683,17 +698,42 @@
 		var total = 0;
 		var lineItems = [];
 		var isCustomQuote = false;
+		var customReason = null;
 
 		items.forEach( function ( item ) {
 			var answer = answers[ prefix + '-' + item.key ];
 			if ( ! answer || ! answer.selected ) {
 				return;
 			}
-			if ( item.isCustomQuoteTrigger ) {
+
+			// Check threshold-based custom quote trigger
+			var qty = ( typeof answer.qty === 'number' ) ? answer.qty : 1;
+			if ( shouldTriggerCustomQuote( item, qty ) ) {
 				isCustomQuote = true;
+				customReason = item.key;
+				lineItems.push( {
+					label: item.label,
+					amount: null,
+					qty: item.showQty ? qty : null,
+					isCustomQuote: true,
+					thresholdNote: getThresholdNote( item, qty ),
+				} );
 				return;
 			}
-			var qty = ( typeof answer.qty === 'number' ) ? answer.qty : 1;
+
+			// Hard custom quote trigger (e.g. foreign accounts)
+			if ( item.isCustomQuoteTrigger ) {
+				isCustomQuote = true;
+				customReason = item.key;
+				lineItems.push( {
+					label: item.label,
+					amount: null,
+					qty: null,
+					isCustomQuote: true,
+				} );
+				return;
+			}
+
 			var amount = calculateLineAmount( item, qty );
 			total += amount;
 			lineItems.push( {
@@ -703,7 +743,37 @@
 			} );
 		} );
 
-		return { total: total, lineItems: lineItems, isCustomQuote: isCustomQuote };
+		return { total: total, lineItems: lineItems, isCustomQuote: isCustomQuote, customReason: customReason };
+	}
+
+	/**
+	 * Check if an item should trigger a custom quote based on threshold.
+	 */
+	function shouldTriggerCustomQuote( item, qty ) {
+		if ( ! item.thresholdQty || ! item.thresholdTrigger ) {
+			return false;
+		}
+		var threshold = item.thresholdQty;
+		if ( item.thresholdTrigger === 'above' ) {
+			return qty > threshold;
+		} else if ( item.thresholdTrigger === 'below' ) {
+			return qty < threshold;
+		}
+		return false;
+	}
+
+	/**
+	 * Get a human-readable note about the threshold.
+	 */
+	function getThresholdNote( item, qty ) {
+		if ( ! item.thresholdQty || ! item.thresholdTrigger ) {
+			return '';
+		}
+		if ( item.thresholdTrigger === 'above' ) {
+			return 'Custom quote (trading above ' + item.thresholdQty + ')';
+		} else {
+			return 'Custom quote (trading below ' + item.thresholdQty + ')';
+		}
 	}
 
 	function findBandByLabel( bands, label ) {
@@ -959,7 +1029,9 @@
 				}
 			} else {
 				var result = calculateIndividualPreviewForAnswers( answers, type, sectionIndex );
-				sectionTotal += result.total;
+				if ( result.total !== null ) {
+					sectionTotal += result.total;
+				}
 				isCustomQuote = isCustomQuote || result.isCustomQuote;
 
 				// Line items for this section
@@ -967,10 +1039,23 @@
 					var row = document.createElement( 'div' );
 					row.className = 'tqb-summary__item';
 					var label = document.createElement( 'span' );
-					label.textContent = li.label + ( li.qty && li.qty !== 1 ? ' (\u00d7' + li.qty + ')' : '' );
+					var labelText = li.label;
+					if ( li.qty && li.qty !== 1 ) {
+						labelText += ' (\u00d7' + li.qty + ')';
+					}
+					if ( li.thresholdNote ) {
+						labelText += ' - ' + li.thresholdNote;
+					}
+					label.textContent = labelText;
 					var amount = document.createElement( 'span' );
 					amount.className = 'tqb-summary__item-amount';
-					amount.textContent = formatCurrency( li.amount );
+					if ( li.isCustomQuote ) {
+						amount.textContent = 'Custom quote';
+						amount.style.fontWeight = '600';
+						amount.style.color = 'var(--tqb-gold)';
+					} else {
+						amount.textContent = formatCurrency( li.amount );
+					}
 					row.appendChild( label );
 					row.appendChild( amount );
 					sectionWrap.appendChild( row );

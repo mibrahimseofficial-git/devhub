@@ -100,6 +100,8 @@ class TQB_Public {
 				'hardcodedValue'       => null !== $item['hardcoded_value'] ? (float) $item['hardcoded_value'] : null,
 				'showQty'              => ( 'qty_times_fee' === $item['pricing_pattern'] ),
 				'isCustomQuoteTrigger' => (bool) $item['is_custom_quote_trigger'],
+				'thresholdQty'         => null !== $item['threshold_qty'] ? (float) $item['threshold_qty'] : null,
+				'thresholdTrigger'     => ! empty( $item['threshold_trigger'] ) ? $item['threshold_trigger'] : null,
 			);
 		}
 		return $formatted;
