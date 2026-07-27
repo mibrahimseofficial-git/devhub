@@ -274,71 +274,116 @@ class TQB_Quote_Handler {
 		global $wpdb;
 		$table = $wpdb->prefix . 'tqb_submissions';
 
+		// Check if status column exists
+		$column_exists = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'status'" );
+
+		// Build answers JSON
+		$answers_json = wp_json_encode( array(
+			'quote_types' => $quote_types,
+			'answers'     => $answers,
+			'businesses'  => $businesses,
+		) );
+
+		// Determine quote type
+		$quote_type = 'individual';
+		if ( ! empty( $quote_types ) ) {
+			$types = json_decode( $quote_types, true );
+			if ( is_array( $types ) && ! empty( $types ) ) {
+				$quote_type = $types[0];
+			}
+		}
+
 		// Check for existing partial submission by email
-		$existing = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT id FROM {$table} WHERE contact_email = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
-				$email
-			),
-			ARRAY_A
-		);
+		if ( $column_exists ) {
+			$existing = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT id FROM {$table} WHERE contact_email = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
+					$email
+				),
+				ARRAY_A
+			);
+		} else {
+			// No status column yet - just get the most recent by email
+			$existing = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT id FROM {$table} WHERE contact_email = %s ORDER BY created_at DESC LIMIT 1",
+					$email
+				),
+				ARRAY_A
+			);
+		}
 
 		if ( $existing ) {
 			// Update existing partial submission
 			$submission_id = $existing['id'];
 
-			$wpdb->update(
-				$table,
-				array(
-					'contact_name'   => $name,
-					'contact_phone'  => $phone,
-					'answers'        => wp_json_encode( array(
-						'quote_types' => $quote_types,
-						'answers'     => $answers,
-						'businesses'  => $businesses,
-					) ),
-					'last_completed_step' => $step,
-					'updated_at' => current_time( 'mysql' ),
-				),
-				array( 'id' => $submission_id ),
-				array( '%s', '%s', '%s', '%d', '%s' ),
-				array( '%d' )
-			);
+			if ( $column_exists ) {
+				$wpdb->update(
+					$table,
+					array(
+						'contact_name'   => $name,
+						'contact_phone'  => $phone,
+						'answers'        => $answers_json,
+						'last_completed_step' => $step,
+						'updated_at' => current_time( 'mysql' ),
+					),
+					array( 'id' => $submission_id ),
+					array( '%s', '%s', '%s', '%d', '%s' ),
+					array( '%d' )
+				);
+			} else {
+				$wpdb->update(
+					$table,
+					array(
+						'contact_name'   => $name,
+						'contact_phone'  => $phone,
+						'answers'        => $answers_json,
+					),
+					array( 'id' => $submission_id ),
+					array( '%s', '%s', '%s' ),
+					array( '%d' )
+				);
+			}
 
 			return $submission_id;
 		}
 
 		// Create new partial submission
-		$quote_type = 'individual';
-		if ( ! empty( $quote_types ) ) {
-			$types = json_decode( $quote_types, true );
-			if ( is_array( $types ) && ! empty( $types ) ) {
-				$quote_type = $types[0]; // Use first type as primary
-			}
+		if ( $column_exists ) {
+			$result = $wpdb->insert(
+				$table,
+				array(
+					'quote_type'          => $quote_type,
+					'contact_name'        => $name,
+					'contact_email'       => $email,
+					'contact_phone'       => $phone,
+					'answers'             => $answers_json,
+					'calculated_total'    => null,
+					'is_custom_quote'    => 0,
+					'status'             => 'in_progress',
+					'last_completed_step'=> $step,
+				),
+				array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d' )
+			);
+		} else {
+			// Fallback for old schema without status/last_completed_step
+			$result = $wpdb->insert(
+				$table,
+				array(
+					'quote_type'          => $quote_type,
+					'contact_name'        => $name,
+					'contact_email'       => $email,
+					'contact_phone'       => $phone,
+					'answers'             => $answers_json,
+					'calculated_total'    => null,
+					'is_custom_quote'    => 0,
+				),
+				array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d' )
+			);
 		}
 
-		$result = $wpdb->insert(
-			$table,
-			array(
-				'quote_type'          => $quote_type,
-				'contact_name'        => $name,
-				'contact_email'       => $email,
-				'contact_phone'       => $phone,
-				'answers'             => wp_json_encode( array(
-					'quote_types' => $quote_types,
-					'answers'     => $answers,
-					'businesses'  => $businesses,
-				) ),
-				'calculated_total'    => null,
-				'is_custom_quote'    => 0,
-				'status'             => 'in_progress',
-				'last_completed_step'=> $step,
-			),
-			array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d' )
-		);
-
 		if ( false === $result ) {
-			return new WP_Error( 'db_error', 'Failed to save partial submission.' );
+			return new WP_Error( 'db_error', 'Failed to save partial submission: ' . $wpdb->last_error );
 		}
 
 		return $wpdb->insert_id;
