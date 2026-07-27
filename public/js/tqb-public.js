@@ -935,7 +935,10 @@
 						sectionTotal += result.baseFee;
 					}
 
-					sectionTotal += result.total;
+					// Calculate section total from line items (handles null total for custom quotes)
+					result.lineItems.forEach( function ( li ) {
+						sectionTotal += li.amount;
+					} );
 					isCustomQuote = isCustomQuote || result.isCustomQuote;
 
 					// Line items for this section
