@@ -89,3 +89,14 @@ function tqb_run() {
 	}
 }
 add_action( 'plugins_loaded', 'tqb_run' );
+
+/**
+ * Run upgrades when plugin is loaded
+ */
+function tqb_check_upgrade() {
+	$saved_version = get_option( 'tqb_db_version', '0' );
+	if ( version_compare( $saved_version, TQB_VERSION, '<' ) ) {
+		TQB_Activator::upgrade();
+	}
+}
+add_action( 'init', 'tqb_check_upgrade' );

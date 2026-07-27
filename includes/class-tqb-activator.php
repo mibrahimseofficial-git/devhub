@@ -33,6 +33,32 @@ class TQB_Activator {
 	}
 
 	/**
+	 * Runs on plugin upgrade to fix existing data.
+	 */
+	public static function upgrade() {
+		global $wpdb;
+
+		// Fix crypto and tuition items: change pricing_pattern from qty_times_fee to flat
+		$wpdb->update(
+			$wpdb->prefix . 'tqb_line_items',
+			array( 'pricing_pattern' => 'flat' ),
+			array( 'item_key' => 'crypto' ),
+			array( '%s' ),
+			array( '%s' )
+		);
+
+		$wpdb->update(
+			$wpdb->prefix . 'tqb_line_items',
+			array( 'pricing_pattern' => 'flat' ),
+			array( 'item_key' => 'tuition' ),
+			array( '%s' ),
+			array( '%s' )
+		);
+
+		update_option( 'tqb_db_version', TQB_VERSION );
+	}
+
+	/**
 	 * Default values for plugin-wide settings, editable later from the admin
 	 * dashboard's General Settings tab. Uses add_option (not update_option)
 	 * so re-activating never overwrites a value James has already changed.
@@ -170,8 +196,8 @@ class TQB_Activator {
 			array( 'farm_income', 'Farm income', 275, 'qty_times_fee', null, 0, 1, 60, 'Income from farming activities, including livestock, crops, and other agricultural products.' ),
 			array( 'k1_received', 'Received a K-1', 50, 'qty_times_fee', null, 0, 1, 70, 'A K-1 form reports income from partnerships, S-corporations, or estates/trusts.' ),
 			array( 'foreign_accounts', 'Has foreign bank accounts or foreign income (FBAR)', 250, 'qty_times_fee', null, 1, 1, 80, 'If you have foreign bank accounts exceeding $10,000 at any point during the year, you may need to file an FBAR (FinCEN Form 114).' ),
-			array( 'crypto', 'Bought, sold, or traded cryptocurrency', 250, 'qty_times_fee', null, 1, 1, 90, 'Cryptocurrency transactions (buying, selling, trading) are taxable and must be reported on your return.' ),
-			array( 'tuition', 'Paid college tuition (1098-T)', 25, 'qty_times_fee', null, 0, 1, 100, 'You should receive a 1098-T form from your educational institution showing tuition paid.' ),
+			array( 'crypto', 'Bought, sold, or traded cryptocurrency', 250, 'flat', null, 1, 1, 90, 'Cryptocurrency transactions (buying, selling, trading) are taxable and must be reported on your return. Trading more than $100K may require a custom quote.' ),
+			array( 'tuition', 'Paid college tuition (1098-T)', 25, 'flat', null, 0, 1, 100, 'You should receive a 1098-T form from your educational institution showing tuition paid.' ),
 			array( 'childcare', 'Paid for childcare or dependent care', 25, 'flat', null, 0, 1, 110, 'Child and dependent care expenses may qualify for a tax credit. You will need the provider\'s name and tax ID.' ),
 			array( 'hsa', 'Has an HSA', 25, 'qty_times_fee', null, 0, 1, 120, 'Health Savings Account contributions and distributions are reported on Form 8889.' ),
 			array( 'home_sale', 'Sold any home during the year (1099-S)', 150, 'qty_times_fee', null, 0, 1, 130, 'If you sold a home, you should receive a 1099-S form. There may be capital gains implications.' ),
