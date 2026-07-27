@@ -482,6 +482,8 @@
 				qty.min = '1';
 				qty.value = '1';
 				qty.setAttribute( 'data-item-key-qty', item.key );
+				qty.setAttribute( 'data-section-type', type );
+				qty.setAttribute( 'data-section-index', businessIndex );
 				qty.disabled = true;
 				row.appendChild( qty );
 
@@ -540,7 +542,7 @@
 			var sectionIndex = checkbox.getAttribute( 'data-section-index' );
 			var key = checkbox.getAttribute( 'data-item-key' );
 			var compositeKey = type + '-' + sectionIndex + '-' + key;
-			var qtyField = wizard.querySelector( '[data-item-key-qty="' + key + '"]' );
+			var qtyField = wizard.querySelector( '[data-item-key-qty="' + key + '"][data-section-type="' + type + '"][data-section-index="' + sectionIndex + '"]' );
 			answers[ compositeKey ] = {
 				selected: checkbox.checked,
 				qty: qtyField ? ( parseInt( qtyField.value, 10 ) || 1 ) : 1,
