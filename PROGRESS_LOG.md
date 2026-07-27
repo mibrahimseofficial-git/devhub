@@ -11,11 +11,47 @@ next session starts clean.
 
 ---
 
-## Current Status: Added editable labels and tooltips feature. Label and tooltip fields are now editable from backend. Tooltip icon shows on hover in frontend. Ready to merge and test.
+## Current Status: Added multi-select + multiple businesses feature. Users can now select both Individual and Business, add multiple businesses, and get a combined quote. Pushed to GitHub PR #1.
 
 ---
 
 ## Session Log
+
+### Session 17 — 2026-07-24 (multi-select + multiple businesses)
+**Done:**
+- **Multi-select at Step 1**: Users can now select both Individual and Business via checkboxes
+- **Multiple businesses**: "Add Another Business" button to add unlimited business returns
+- **Combined pricing**: Summary panel shows all sections with combined grand total
+- **Review step**: Shows all answers grouped by section
+- **Backend processing**: New `process_combined_quote()` handles multiple types
+
+**New Flow:**
+1. Select Personal ✓, Business ✓ (can select both)
+2. Contact info
+3. Personal questions (if selected)
+4. Business questions (if selected, Business 1)
+5. "Add Another Business" button
+6. Review all answers combined
+7. Submit → Combined quote
+
+**Files modified:**
+- `public/views/form-template.php` — checkbox cards, multi-section layout
+- `public/css/tqb-public.css` — checkbox styles, section headers, add button
+- `public/js/tqb-public.js` — multi-select state, section rendering, combined pricing
+- `includes/class-tqb-public.php` — handle multi-select POST data
+- `includes/class-tqb-quote-handler.php` — `process_combined_quote()` method
+
+**Not done yet:**
+- Same remaining items from previous sessions
+
+**How to verify:**
+- Test selecting Individual only (should work like before)
+- Test selecting Business only (should work like before)
+- Test selecting both → should show two sections
+- Test "Add Another Business" → should add another business section
+- Test combined total calculation in summary panel
+
+---
 
 ### Session 16 — 2026-07-24 (editable labels + tooltips)
 **Done:**
