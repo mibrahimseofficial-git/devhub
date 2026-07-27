@@ -285,6 +285,200 @@ class TQB_Quote_Handler {
 	}
 
 	/**
+	 * Get existing partial submission ID for an email.
+	 *
+	 * @param string $email Contact email
+	 * @return int|false Partial submission ID if exists, false otherwise
+	 */
+	public static function get_existing_partial_id( $email ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tqb_submissions';
+
+		// Check if status column exists
+		$column_exists = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'status'" );
+
+		if ( $column_exists ) {
+			$result = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT id FROM {$table} WHERE contact_email = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
+					$email
+				)
+			);
+		} else {
+			// No status column - check for record with NULL calculated_total (partial)
+			$result = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT id FROM {$table} WHERE contact_email = %s AND calculated_total IS NULL ORDER BY created_at DESC LIMIT 1",
+					$email
+				)
+			);
+		}
+
+		return $result ? (int) $result : false;
+	}
+
+	/**
+	 * Complete an existing partial submission with final data.
+	 * Also cleans up any other partial submissions for the same email.
+	 *
+	 * @param int   $partial_id   Partial submission ID to complete
+	 * @param array $contact      Contact info
+	 * @param array $quote_types  Quote types
+	 * @param array $businesses   Business data
+	 * @param array $answers      Answers
+	 *
+	 * @return array Result with submission_id and calculation result
+	 */
+	public static function complete_partial_submission(
+		$partial_id,
+		array $contact,
+		array $quote_types,
+		array $businesses,
+		array $answers
+	) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tqb_submissions';
+
+		// Calculate the quote
+		$total = 0;
+		$is_custom_quote = false;
+		$all_results = array();
+		$business_index = 0;
+
+		foreach ( $quote_types as $type ) {
+			if ( 'individual' === $type ) {
+				$prefix = 'individual-0-';
+				$section_answers = self::filter_answers_with_prefix( $answers, $prefix );
+				$line_items = TQB_DB::get_line_items( 'individual', false );
+				$result = TQB_Pricing_Engine::calculate_individual( $line_items, $section_answers );
+
+				$all_results[] = array(
+					'type' => 'individual',
+					'result' => $result,
+				);
+
+				$total += $result['total'];
+				$is_custom_quote = $is_custom_quote || $result['is_custom_quote'];
+			} elseif ( 'business' === $type ) {
+				if ( ! isset( $businesses[ $business_index ] ) ) {
+					throw new InvalidArgumentException( 'Missing business data' );
+				}
+
+				$business = $businesses[ $business_index ];
+				$prefix = 'business-' . $business_index . '-';
+				$section_answers = self::filter_answers_with_prefix( $answers, $prefix );
+
+				$entity_group = ( 'partnership' === $business['entity_type'] ) ? 'partnership' : 'c_s_corp';
+				$asset_bands = TQB_DB::get_asset_bands( $entity_group );
+				$asset_band = self::find_band_by_label( $asset_bands, $business['asset_band'] );
+				$revenue_bands = TQB_DB::get_revenue_addons();
+				$revenue_band = self::find_band_by_label( $revenue_bands, $business['revenue_band'] );
+
+				if ( ! $asset_band || ! $revenue_band ) {
+					throw new InvalidArgumentException( 'Invalid asset or revenue band' );
+				}
+
+				$extra_items = TQB_DB::get_line_items( 'business', false );
+				$result = TQB_Pricing_Engine::calculate_business(
+					$business['entity_type'],
+					$asset_band,
+					$revenue_band,
+					$extra_items,
+					$section_answers
+				);
+
+				$all_results[] = array(
+					'type' => 'business',
+					'index' => $business_index,
+					'business' => $business,
+					'result' => $result,
+				);
+
+				$total += $result['total'];
+				$is_custom_quote = $is_custom_quote || $result['is_custom_quote'];
+				$business_index++;
+			}
+		}
+
+		// Store combined answers
+		$answers_to_store = array(
+			'quote_types' => $quote_types,
+			'businesses' => $businesses,
+			'answers' => $answers,
+		);
+
+		// Update the partial submission to completed
+		$now = current_time( 'mysql' );
+		$column_exists = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'status'" );
+
+		if ( $column_exists ) {
+			$wpdb->update(
+				$table,
+				array(
+					'quote_type'          => 'combined',
+					'contact_name'        => $contact['name'],
+					'contact_email'       => $contact['email'],
+					'contact_phone'       => $contact['phone'],
+					'answers'             => $answers_to_store,
+					'calculated_total'     => $total,
+					'is_custom_quote'     => $is_custom_quote,
+					'custom_quote_reason' => $is_custom_quote ? 'Multiple items requiring custom quote' : null,
+					'status'              => 'completed',
+					'last_completed_step' => 5,
+					'updated_at'          => $now,
+				),
+				array( 'id' => $partial_id ),
+				array( '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%s', '%s', '%d', '%s' ),
+				array( '%d' )
+			);
+
+			// Delete other partial submissions for this email (cleanup old duplicates)
+			$wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$table} WHERE contact_email = %s AND id != %d AND status = 'in_progress'",
+					$contact['email'],
+					$partial_id
+				)
+			);
+		} else {
+			$wpdb->update(
+				$table,
+				array(
+					'quote_type'          => 'combined',
+					'contact_name'        => $contact['name'],
+					'contact_email'       => $contact['email'],
+					'contact_phone'       => $contact['phone'],
+					'answers'             => $answers_to_store,
+					'calculated_total'    => $total,
+					'is_custom_quote'     => $is_custom_quote,
+					'custom_quote_reason' => $is_custom_quote ? 'Multiple items requiring custom quote' : null,
+				),
+				array( 'id' => $partial_id ),
+				array( '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%s' ),
+				array( '%d' )
+			);
+
+			// Delete other partial submissions for this email (cleanup old duplicates)
+			$wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$table} WHERE contact_email = %s AND id != %d AND calculated_total IS NULL",
+					$contact['email'],
+					$partial_id
+				)
+			);
+		}
+
+		return array(
+			'submission_id' => $partial_id,
+			'result' => array(
+				'total' => $total,
+				'is_custom_quote' => $is_custom_quote,
+				'results' => $all_results,
+			),
+		);
+	}
+
+	/**
 	 * Save partial form progress for abandoned quote follow-up.
 	 * Creates a new partial submission or updates existing one by email.
 	 *

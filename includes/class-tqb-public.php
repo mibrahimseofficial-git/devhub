@@ -187,7 +187,23 @@ class TQB_Public {
 		}
 
 		try {
-			$result = TQB_Quote_Handler::process_combined_quote( $contact, $quote_types, $businesses, $answers );
+			// Check if there's an existing partial submission for this email
+			// If so, update it to completed instead of creating a new record
+			$existing_partial_id = TQB_Quote_Handler::get_existing_partial_id( $contact['email'] );
+
+			if ( $existing_partial_id ) {
+				// Complete the existing partial submission
+				$result = TQB_Quote_Handler::complete_partial_submission(
+					$existing_partial_id,
+					$contact,
+					$quote_types,
+					$businesses,
+					$answers
+				);
+			} else {
+				// No existing partial - create new submission
+				$result = TQB_Quote_Handler::process_combined_quote( $contact, $quote_types, $businesses, $answers );
+			}
 		} catch ( InvalidArgumentException $e ) {
 			wp_send_json_error( array( 'message' => 'There was a problem with your submission. Please try again or contact us directly.' ), 400 );
 			return;
