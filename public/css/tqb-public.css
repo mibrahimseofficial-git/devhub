@@ -896,46 +896,49 @@
 }
 
 /* ---- Resume Banner ---- */
-#tqb-resume-banner {
+.tqb-resume-banner {
 	margin-bottom: 20px;
-	padding: 0;
-	background: transparent;
-	border: none;
 }
 
-#tqb-resume-banner .tqb-resume-banner__content {
+.tqb-resume-banner[hidden] {
+	display: none;
+}
+
+.tqb-resume-banner__content {
 	background: var(--tqb-success-bg);
 	border: 1px solid var(--tqb-success);
 	border-radius: 8px;
 	padding: 20px;
+	text-align: left;
 }
 
-#tqb-resume-banner .tqb-resume-banner__title {
+.tqb-resume-banner__title {
 	margin: 0 0 8px 0;
-	font-size: 16px;
+	font-size: 18px;
+	font-weight: 600;
 	color: #146C43;
 }
 
-#tqb-resume-banner .tqb-resume-banner__message {
+.tqb-resume-banner__message {
 	margin: 0 0 4px 0;
 	font-size: 14px;
 	color: #146C43;
 }
 
-#tqb-resume-banner .tqb-resume-banner__details {
+.tqb-resume-banner__details {
 	margin: 0 0 16px 0;
 	font-size: 13px;
 	color: #146C43;
 	opacity: 0.85;
 }
 
-#tqb-resume-banner .tqb-resume-banner__actions {
+.tqb-resume-banner__actions {
 	display: flex;
 	gap: 12px;
 	flex-wrap: wrap;
 }
 
-#tqb-resume-banner .tqb-btn {
+.tqb-resume-banner__actions .tqb-btn {
 	margin: 0;
 }
 

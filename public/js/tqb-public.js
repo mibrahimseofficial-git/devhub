@@ -268,34 +268,43 @@
 	function showResumeBanner( partialData ) {
 		var banner = document.getElementById( 'tqb-resume-banner' );
 		if ( ! banner ) {
-			// Create banner if it doesn't exist
-			banner = document.createElement( 'div' );
-			banner.id = 'tqb-resume-banner';
-			banner.className = 'tqb-notice-banner';
-			
-			var form = document.querySelector( '.tqb-wizard' );
-			if ( form && form.parentNode ) {
-				form.parentNode.insertBefore( banner, form );
-			}
+			return;
 		}
 
-		var stepNames = ['', 'Type', 'Contact', 'Questions', 'Review', 'Complete'];
+		var stepNames = ['', 'Type Selection', 'Contact Info', 'Filing Details', 'Review', 'Complete'];
 		var lastStepName = stepNames[partialData.last_step] || 'Step ' + partialData.last_step;
 
 		banner.innerHTML = 
 			'<div class="tqb-resume-banner__content">' +
-			'<p class="tqb-resume-banner__title"><strong>Welcome back!</strong></p>' +
+			'<p class="tqb-resume-banner__title">Welcome back!</p>' +
 			'<p class="tqb-resume-banner__message">We found your quote in progress from this device.</p>' +
-			'<p class="tqb-resume-banner__details">Email: ' + partialData.contact_email + ' | Last step: ' + lastStepName + '</p>' +
+			'<p class="tqb-resume-banner__details">Email: ' + partialData.contact_email + ' &bull; Last step: ' + lastStepName + '</p>' +
 			'<div class="tqb-resume-banner__actions">' +
-			'<button type="button" class="tqb-btn tqb-btn--primary" onclick="resumePartial(' + partialData.submission_id + ')">Resume My Quote</button>' +
-			'<button type="button" class="tqb-btn tqb-btn--ghost" onclick="dismissResumeBanner()">Start Fresh</button>' +
+			'<button type="button" class="tqb-btn tqb-btn--primary" id="tqb-resume-btn">Resume My Quote</button>' +
+			'<button type="button" class="tqb-btn tqb-btn--ghost" id="tqb-fresh-btn">Start Fresh</button>' +
 			'</div>' +
 			'</div>';
-		banner.style.display = 'block';
+		
+		banner.hidden = false;
 
 		// Store partial data for later use
 		window.tqbPartialData = partialData;
+
+		// Attach event listeners
+		var resumeBtn = document.getElementById( 'tqb-resume-btn' );
+		var freshBtn = document.getElementById( 'tqb-fresh-btn' );
+
+		if ( resumeBtn ) {
+			resumeBtn.addEventListener( 'click', function() {
+				resumePartial( partialData.submission_id );
+			} );
+		}
+
+		if ( freshBtn ) {
+			freshBtn.addEventListener( 'click', function() {
+				dismissResumeBanner();
+			} );
+		}
 	}
 
 	/**
@@ -317,18 +326,54 @@
 		// Store partial submission ID
 		state.partialSubmissionId = submissionId;
 
-		// Go to the last completed step
-		var stepToGo = partial.last_step || 2;
-		goToStep( stepToGo );
+		// Restore quote types and build business fields
+		if ( partial.quote_types && partial.quote_types.length ) {
+			// Clear existing selections
+			document.querySelectorAll( '.tqb-quote-type-checkbox' ).forEach( function( cb ) {
+				cb.checked = false;
+			} );
+
+			// Select the saved types
+			state.selectedTypes = [];
+			partial.quote_types.forEach( function( type ) {
+				var checkbox = document.getElementById( 'tqb-select-' + type );
+				if ( checkbox ) {
+					checkbox.checked = true;
+					state.selectedTypes.push( type );
+				}
+			} );
+
+			// Rebuild business fields for each business type
+			var businessCount = 0;
+			state.selectedTypes.forEach( function( type ) {
+				if ( type === 'business' ) {
+					businessCount++;
+				}
+			} );
+			buildBusinessFields( businessCount );
+
+			// Restore business data if available
+			if ( partial.businesses && partial.businesses.length ) {
+				partial.businesses.forEach( function( business, index ) {
+					var bizId = 'tqb-business-' + index;
+					var entityEl = document.getElementById( bizId + '-entity' );
+					var assetsEl = document.getElementById( bizId + '-assets' );
+					var revenueEl = document.getElementById( bizId + '-revenue' );
+
+					if ( entityEl && business.entity_type ) entityEl.value = business.entity_type;
+					if ( assetsEl && business.asset_band ) assetsEl.value = business.asset_band;
+					if ( revenueEl && business.revenue_band ) revenueEl.value = business.revenue_band;
+				} );
+			}
+		}
 
 		// Dismiss banner
 		dismissResumeBanner();
 
-		// Try to restore saved selections/answers if on the right step
-		if ( partial.quote_types && partial.quote_types.length ) {
-			// Restore quote types and answers would require more complex logic
-			// For now, just go to the step
-		}
+		// Go to the last completed step (or step 2 if contact info was saved)
+		var stepToGo = partial.last_step || 2;
+		goToStep( stepToGo );
+		updateSummaryPanel();
 	}
 
 	/**
@@ -337,8 +382,11 @@
 	function dismissResumeBanner() {
 		var banner = document.getElementById( 'tqb-resume-banner' );
 		if ( banner ) {
-			banner.style.display = 'none';
+			banner.hidden = true;
+			banner.innerHTML = '';
 		}
+		// Clear the partial data
+		window.tqbPartialData = null;
 	}
 
 	/**
@@ -1857,8 +1905,4 @@
 	}
 
 	updateSummaryPanel();
-
-	// Expose functions globally for inline onclick handlers
-	window.resumePartial = resumePartial;
-	window.dismissResumeBanner = dismissResumeBanner;
 } )();
