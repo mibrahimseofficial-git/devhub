@@ -29,6 +29,8 @@ class TQB_Public {
 		add_action( 'wp_ajax_nopriv_tqb_submit_quote', array( $this, 'handle_submit' ) );
 		add_action( 'wp_ajax_tqb_save_partial', array( $this, 'handle_save_partial' ) );
 		add_action( 'wp_ajax_nopriv_tqb_save_partial', array( $this, 'handle_save_partial' ) );
+		add_action( 'wp_ajax_tqb_check_partial_by_ip', array( $this, 'handle_check_partial_by_ip' ) );
+		add_action( 'wp_ajax_nopriv_tqb_check_partial_by_ip', array( $this, 'handle_check_partial_by_ip' ) );
 	}
 
 	/**
@@ -258,6 +260,7 @@ class TQB_Public {
 		$businesses = isset( $_POST['businesses'] ) ? (array) $_POST['businesses'] : array();
 		$contact_name = isset( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '';
 		$contact_phone = isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : '';
+		$user_ip = $this->get_client_ip();
 
 		$result = TQB_Quote_Handler::save_partial_submission(
 			$email,
@@ -266,17 +269,91 @@ class TQB_Public {
 			$contact_name,
 			$contact_phone,
 			$answers,
-			$businesses
+			$businesses,
+			$user_ip
 		);
 
 		if ( is_wp_error( $result ) ) {
-			wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 );
+			$error_code = $result->get_error_code();
+			$message = $result->get_error_message();
+			
+			if ( $error_code === 'ip_conflict' ) {
+				wp_send_json_error( array( 
+					'message' => $message,
+					'ip_conflict' => true,
+				), 400 );
+				return;
+			}
+			
+			wp_send_json_error( array( 'message' => $message ), 400 );
 			return;
 		}
 
 		wp_send_json_success( array(
 			'saved' => true,
 			'submission_id' => $result,
+		) );
+	}
+
+	/**
+	 * Get client IP address, handling proxies.
+	 */
+	private function get_client_ip() {
+		$ip_keys = array(
+			'HTTP_CF_CONNECTING_IP', // Cloudflare
+			'HTTP_X_FORWARDED_FOR',
+			'HTTP_X_FORWARDED',
+			'HTTP_X_CLUSTER_CLIENT_IP',
+			'HTTP_FORWARDED_FOR',
+			'HTTP_FORWARDED',
+			'REMOTE_ADDR',
+		);
+
+		foreach ( $ip_keys as $key ) {
+			if ( ! empty( $_SERVER[ $key ] ) ) {
+				$ip = $_SERVER[ $key ];
+				// Handle comma-separated IPs (X-Forwarded-For)
+				if ( strpos( $ip, ',' ) !== false ) {
+					$ip = trim( explode( ',', $ip )[0] );
+				}
+				return filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '';
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Check for existing partial by IP and return data for auto-population.
+	 * Called via AJAX when page loads.
+	 */
+	public function handle_check_partial_by_ip() {
+		$user_ip = $this->get_client_ip();
+
+		if ( empty( $user_ip ) ) {
+			wp_send_json_success( array( 'has_partial' => false ) );
+			return;
+		}
+
+		$partial = TQB_Quote_Handler::get_partial_by_ip( $user_ip );
+
+		if ( ! $partial ) {
+			wp_send_json_success( array( 'has_partial' => false ) );
+			return;
+		}
+
+		// Decode answers JSON
+		$answers_data = json_decode( $partial['answers'], true );
+
+		wp_send_json_success( array(
+			'has_partial' => true,
+			'submission_id' => $partial['id'],
+			'contact_email' => $partial['contact_email'],
+			'contact_name' => $partial['contact_name'],
+			'contact_phone' => $partial['contact_phone'],
+			'last_step' => $partial['last_completed_step'],
+			'quote_types' => $answers_data['quote_types'] ?? array(),
+			'answers' => $answers_data['answers'] ?? array(),
+			'businesses' => $answers_data['businesses'] ?? array(),
 		) );
 	}
 

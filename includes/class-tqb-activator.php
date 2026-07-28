@@ -111,6 +111,10 @@ class TQB_Activator {
 			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN final_email_sent_at DATETIME NULL AFTER final_email_sent" );
 		}
 
+		if ( ! in_array( 'user_ip', $sub_column_names, true ) ) {
+			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN user_ip VARCHAR(45) NULL AFTER last_completed_step" );
+		}
+
 		if ( ! in_array( 'updated_at', $sub_column_names, true ) ) {
 			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at" );
 		}
@@ -178,6 +182,7 @@ class TQB_Activator {
 			custom_quote_reason VARCHAR(255) NULL COMMENT 'e.g. crypto, foreign_accounts, assets_over_5m',
 			status VARCHAR(20) NOT NULL DEFAULT 'completed' COMMENT 'completed, in_progress, abandoned',
 			last_completed_step INT NOT NULL DEFAULT 0 COMMENT '1-5 for tracking partial submissions',
+			user_ip VARCHAR(45) NULL COMMENT 'IPv4 or IPv6 address for tracking',
 			hubspot_synced TINYINT(1) NOT NULL DEFAULT 0,
 			hubspot_contact_id VARCHAR(100) NULL,
 			hubspot_deal_id VARCHAR(100) NULL,
@@ -197,7 +202,8 @@ class TQB_Activator {
 			KEY created_at (created_at),
 			KEY is_custom_quote (is_custom_quote),
 			KEY reminder_email_sent (reminder_email_sent),
-			KEY followup_email_sent (followup_email_sent)
+			KEY followup_email_sent (followup_email_sent),
+			KEY user_ip (user_ip)
 		) {$charset_collate};";
 
 		dbDelta( $sql );

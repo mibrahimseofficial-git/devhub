@@ -285,6 +285,78 @@ class TQB_Quote_Handler {
 	}
 
 	/**
+	 * Get existing partial submission by IP address.
+	 * Used to auto-populate form when user returns from same device.
+	 *
+	 * @param string $ip User's IP address
+	 * @return array|false Partial submission data if exists, false otherwise
+	 */
+	public static function get_partial_by_ip( $ip ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tqb_submissions';
+
+		// Check if user_ip column exists
+		$column_exists = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'user_ip'" );
+
+		if ( ! $column_exists ) {
+			return false;
+		}
+
+		$result = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, contact_email, contact_name, contact_phone, answers, last_completed_step FROM {$table} WHERE user_ip = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
+				$ip
+			),
+			ARRAY_A
+		);
+
+		return $result;
+	}
+
+	/**
+	 * Check if IP already has a partial submission with DIFFERENT email.
+	 * This helps detect when someone is trying to submit from same IP but different email.
+	 *
+	 * @param string $ip         User's IP address
+	 * @param string $email      User's email
+	 * @return array|false Array with 'exists' and optional 'message', or false if no conflict
+	 */
+	public static function check_ip_email_conflict( $ip, $email ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tqb_submissions';
+
+		// Check if user_ip column exists
+		$column_exists = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'user_ip'" );
+
+		if ( ! $column_exists ) {
+			return false;
+		}
+
+		// Find partial with this IP but different email
+		$result = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT contact_email, contact_name FROM {$table} WHERE user_ip = %s AND status = 'in_progress' AND contact_email != %s ORDER BY created_at DESC LIMIT 1",
+				$ip,
+				$email
+			),
+			ARRAY_A
+		);
+
+		if ( $result ) {
+			return array(
+				'exists'  => true,
+				'message'  => sprintf(
+					'This device already has a quote in progress for %s. Please use the same email (%s) or contact us directly.',
+					$result['contact_email'],
+					$result['contact_email']
+				),
+			);
+		}
+
+		return false;
+	}
+
+	/**
 	 * Get existing partial submission ID for an email.
 	 *
 	 * @param string $email Contact email
@@ -483,8 +555,7 @@ class TQB_Quote_Handler {
 	 * Creates a new partial submission or updates existing one by email.
 	 * 
 	 * SECURITY: Only allows updates if contact info matches.
-	 * This prevents someone from entering another person's email and
-	 * modifying their answers/selections.
+	 * Also tracks IP to detect conflicts when same device tries different email.
 	 *
 	 * @param string $email        Contact email
 	 * @param int    $step         Current step (1-4)
@@ -493,6 +564,7 @@ class TQB_Quote_Handler {
 	 * @param string $phone        Contact phone (used for verification)
 	 * @param array  $answers      Answers array
 	 * @param array  $businesses   Businesses array
+	 * @param string $user_ip      User's IP address
 	 *
 	 * @return int|WP_Error Submission ID or error
 	 */
@@ -503,13 +575,17 @@ class TQB_Quote_Handler {
 		$name = '',
 		$phone = '',
 		$answers = array(),
-		$businesses = array()
+		$businesses = array(),
+		$user_ip = ''
 	) {
 		global $wpdb;
 		$table = $wpdb->prefix . 'tqb_submissions';
 
 		// Check if status column exists
 		$column_exists = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'status'" );
+
+		// Check if user_ip column exists
+		$has_ip_column = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'user_ip'" );
 
 		// Build answers JSON
 		$answers_json = wp_json_encode( array(
@@ -554,10 +630,7 @@ class TQB_Quote_Handler {
 			$phone_match = strcasecmp( trim( $existing['contact_phone'] ), trim( $phone ) ) === 0;
 
 			// If contact info doesn't match, don't allow updates
-			// Return the existing ID but don't modify anything
 			if ( ! $name_match || ! $phone_match ) {
-				// Contact info mismatch - return existing ID but don't update
-				// This allows the form to continue but protects existing data
 				return new WP_Error( 
 					'contact_mismatch', 
 					'Contact information does not match existing submission. Please use the original name and phone.' 
@@ -567,66 +640,78 @@ class TQB_Quote_Handler {
 			// Contact info matches - safe to update
 			$submission_id = $existing['id'];
 
-			if ( $column_exists ) {
-				$wpdb->update(
-					$table,
-					array(
-						'answers'        => $answers_json,
-						'last_completed_step' => $step,
-						'updated_at' => current_time( 'mysql' ),
-					),
-					array( 'id' => $submission_id ),
-					array( '%s', '%d', '%s' ),
-					array( '%d' )
-				);
-			} else {
-				$wpdb->update(
-					$table,
-					array(
-						'answers'        => $answers_json,
-					),
-					array( 'id' => $submission_id ),
-					array( '%s' ),
-					array( '%d' )
-				);
+			$update_data = array(
+				'answers'        => $answers_json,
+				'last_completed_step' => $step,
+				'updated_at' => current_time( 'mysql' ),
+			);
+			
+			// Update IP if column exists and we have an IP
+			if ( $has_ip_column && ! empty( $user_ip ) ) {
+				$update_data['user_ip'] = $user_ip;
 			}
+
+			$update_format = array( '%s', '%d', '%s' );
+			if ( $has_ip_column && ! empty( $user_ip ) ) {
+				$update_format[] = '%s';
+			}
+
+			$wpdb->update(
+				$table,
+				$update_data,
+				array( 'id' => $submission_id ),
+				$update_format,
+				array( '%d' )
+			);
 
 			return $submission_id;
 		}
 
-		// Create new partial submission (first time with contact info)
-		if ( $column_exists ) {
-			$result = $wpdb->insert(
-				$table,
-				array(
-					'quote_type'          => $quote_type,
-					'contact_name'        => $name,
-					'contact_email'       => $email,
-					'contact_phone'       => $phone,
-					'answers'             => $answers_json,
-					'calculated_total'    => null,
-					'is_custom_quote'    => 0,
-					'status'             => 'in_progress',
-					'last_completed_step'=> $step,
-				),
-				array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d' )
+		// No existing partial by email - check IP conflict
+		if ( $has_ip_column && ! empty( $user_ip ) ) {
+			$ip_conflict = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT contact_email FROM {$table} WHERE user_ip = %s AND status = 'in_progress' LIMIT 1",
+					$user_ip
+				)
 			);
-		} else {
-			// Fallback for old schema without status/last_completed_step
-			$result = $wpdb->insert(
-				$table,
-				array(
-					'quote_type'          => $quote_type,
-					'contact_name'        => $name,
-					'contact_email'       => $email,
-					'contact_phone'       => $phone,
-					'answers'             => $answers_json,
-					'calculated_total'    => null,
-					'is_custom_quote'    => 0,
-				),
-				array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d' )
-			);
+
+			if ( $ip_conflict && $ip_conflict->contact_email !== $email ) {
+				return new WP_Error(
+					'ip_conflict',
+					sprintf(
+						'This device already has a quote in progress for %s. Please use the same email or contact us directly.',
+						$ip_conflict->contact_email
+					)
+				);
+			}
 		}
+
+		// Create new partial submission (first time with contact info)
+		$insert_data = array(
+			'quote_type'          => $quote_type,
+			'contact_name'        => $name,
+			'contact_email'       => $email,
+			'contact_phone'       => $phone,
+			'answers'             => $answers_json,
+			'calculated_total'    => null,
+			'is_custom_quote'    => 0,
+		);
+
+		$insert_format = array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d' );
+
+		if ( $column_exists ) {
+			$insert_data['status'] = 'in_progress';
+			$insert_data['last_completed_step'] = $step;
+			$insert_format = array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%d' );
+		}
+
+		if ( $has_ip_column && ! empty( $user_ip ) ) {
+			$insert_data['user_ip'] = $user_ip;
+			$insert_format[] = '%s';
+		}
+
+		$result = $wpdb->insert( $table, $insert_data, $insert_format );
 
 		if ( false === $result ) {
 			return new WP_Error( 'db_error', 'Failed to save partial submission: ' . $wpdb->last_error );

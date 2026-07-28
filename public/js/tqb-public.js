@@ -152,17 +152,117 @@
 				state.partialSubmissionId = result.data.submission_id;
 				hideFormError();
 			} else if ( result.data && result.data.duplicate ) {
-				// Show duplicate email warning
 				showDuplicateEmailWarning( emailEl.value );
 			} else if ( result.data && result.data.message && result.data.message.indexOf( 'does not match' ) !== -1 ) {
-				// Contact info mismatch - show warning but allow form to continue
 				showContactMismatchWarning();
+			} else if ( result.data && result.data.ip_conflict ) {
+				showIPConflictWarning( result.data.message );
 			}
 		} )
 		.catch( function ( error ) {
-			// Silently fail - partial save is not critical
 			console.log( 'Partial save failed:', error );
 		} );
+	}
+
+	/**
+	 * Check for existing partial by IP and auto-populate form.
+	 */
+	function checkExistingPartialByIP() {
+		var data = new FormData();
+		data.append( 'action', 'tqb_check_partial_by_ip' );
+
+		fetch( tqbData.ajaxUrl, {
+			method: 'POST',
+			body: data,
+		} )
+		.then( function ( response ) {
+			return response.json();
+		} )
+		.then( function ( result ) {
+			if ( result.success && result.data.has_partial ) {
+				// Found existing partial - show banner and offer to resume
+				showResumeBanner( result.data );
+			}
+		} )
+		.catch( function ( error ) {
+			console.log( 'Check partial failed:', error );
+		} );
+	}
+
+	/**
+	 * Show banner offering to resume existing partial.
+	 */
+	function showResumeBanner( partialData ) {
+		var banner = document.getElementById( 'tqb-resume-banner' );
+		if ( ! banner ) {
+			// Create banner if it doesn't exist
+			banner = document.createElement( 'div' );
+			banner.id = 'tqb-resume-banner';
+			banner.className = 'tqb-notice-banner';
+			
+			var form = document.querySelector( '.tqb-wizard' );
+			if ( form && form.parentNode ) {
+				form.parentNode.insertBefore( banner, form );
+			}
+		}
+
+		var stepNames = ['', 'Type', 'Contact', 'Questions', 'Review', 'Complete'];
+		var lastStepName = stepNames[partialData.last_step] || 'Step ' + partialData.last_step;
+
+		banner.innerHTML = 
+			'<div style="background: #e8f5e9; border: 1px solid #4caf50; border-radius: 4px; padding: 15px; margin-bottom: 20px;">' +
+			'<strong>Welcome back!</strong> We found your quote in progress from this device.<br>' +
+			'Email: ' + partialData.contact_email + ' | Last step: ' + lastStepName + '<br><br>' +
+			'<button type="button" class="button button-primary" onclick="resumePartial(' + partialData.submission_id + ')">Resume My Quote</button> ' +
+			'<button type="button" class="button" onclick="dismissResumeBanner()">Start Fresh</button>' +
+			'</div>';
+		banner.style.display = 'block';
+
+		// Store partial data for later use
+		window.tqbPartialData = partialData;
+	}
+
+	/**
+	 * Resume the partial submission.
+	 */
+	function resumePartial( submissionId ) {
+		var partial = window.tqbPartialData;
+		if ( ! partial ) return;
+
+		// Populate contact info
+		var emailEl = document.getElementById( 'tqb-contact-email' );
+		var nameEl = document.getElementById( 'tqb-contact-name' );
+		var phoneEl = document.getElementById( 'tqb-contact-phone' );
+
+		if ( emailEl ) emailEl.value = partial.contact_email || '';
+		if ( nameEl ) nameEl.value = partial.contact_name || '';
+		if ( phoneEl ) phoneEl.value = partial.contact_phone || '';
+
+		// Store partial submission ID
+		state.partialSubmissionId = submissionId;
+
+		// Go to the last completed step
+		var stepToGo = partial.last_step || 2;
+		goToStep( stepToGo );
+
+		// Dismiss banner
+		dismissResumeBanner();
+
+		// Try to restore saved selections/answers if on the right step
+		if ( partial.quote_types && partial.quote_types.length ) {
+			// Restore quote types and answers would require more complex logic
+			// For now, just go to the step
+		}
+	}
+
+	/**
+	 * Dismiss the resume banner and start fresh.
+	 */
+	function dismissResumeBanner() {
+		var banner = document.getElementById( 'tqb-resume-banner' );
+		if ( banner ) {
+			banner.style.display = 'none';
+		}
 	}
 
 	/**
@@ -194,6 +294,20 @@
 	}
 
 	/**
+	 * Show warning when same IP has different email.
+	 */
+	function showIPConflictWarning( message ) {
+		var errorEl = document.getElementById( 'tqb-form-error' );
+		if ( errorEl ) {
+			errorEl.innerHTML = '<strong>Warning:</strong> ' + message;
+			errorEl.style.background = '#ffebee';
+			errorEl.style.borderColor = '#f44336';
+			errorEl.style.color = '#b71c1c';
+			errorEl.hidden = false;
+		}
+	}
+
+	/**
 	 * Hide the form error message.
 	 */
 	function hideFormError() {
@@ -202,6 +316,15 @@
 			errorEl.hidden = true;
 		}
 	}
+
+	// Check for existing partial on page load
+	document.addEventListener( 'DOMContentLoaded', function() {
+		// Only check on step 1 (type selection) to avoid conflicts
+		var currentStep = parseInt( wizard.getAttribute( 'data-step' ), 10 );
+		if ( currentStep === 1 ) {
+			checkExistingPartialByIP();
+		}
+	} );
 
 	/**
 	 * Check if email is valid.
