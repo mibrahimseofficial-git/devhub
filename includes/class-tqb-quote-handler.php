@@ -651,9 +651,20 @@ class TQB_Quote_Handler {
 				ARRAY_A
 			);
 
-			// If not found, try to find a record with NULL calculated_total (partial without proper status)
+			// If not found, try to find a record with NULL calculated_total AND NOT abandoned
 			// This handles old records that might have incorrect status values
-			if ( ! $existing ) {
+			if ( ! $existing && $has_status_column ) {
+				$existing = $wpdb->get_row(
+					$wpdb->prepare(
+						"SELECT id, contact_name, contact_phone FROM {$table} WHERE contact_email = %s AND calculated_total IS NULL AND status != 'abandoned' ORDER BY created_at DESC LIMIT 1 ",
+						$email
+					),
+					ARRAY_A
+				);
+			}
+
+			// Fallback for databases without status column
+			if ( ! $existing && ! $has_status_column ) {
 				$existing = $wpdb->get_row(
 					$wpdb->prepare(
 						"SELECT id, contact_name, contact_phone FROM {$table} WHERE contact_email = %s AND calculated_total IS NULL ORDER BY created_at DESC LIMIT 1 ",
