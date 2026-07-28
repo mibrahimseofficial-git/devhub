@@ -146,6 +146,9 @@ function tqb_get_sort_indicator( $column ) {
 						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'created_at', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'created_at' && isset( $_GET['order'] ) && $_GET['order'] === 'DESC' ) ? 'ASC' : 'DESC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">Created<?php echo tqb_get_sort_indicator( 'created_at' ); ?></a>
 					</th>
 					<th style="width: 80px;">Actions</th>
+					<th style="width: 120px;">
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'user_ip', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'user_ip' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">IP Address<?php echo tqb_get_sort_indicator( 'user_ip' ); ?></a>
+					</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -194,6 +197,9 @@ function tqb_get_sort_indicator( $column ) {
 						</td>
 						<td>
 							<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=tqb_delete_submission&id=' . $sub['id'] ), 'tqb_delete_sub_' . $sub['id'] ) ); ?>" class="button button-small" style="color: #b32d2e;" onclick="return confirm('Delete this submission? This cannot be undone.');">Delete</a>
+						</td>
+						<td>
+							<?php echo esc_html( ! empty( $sub['user_ip'] ) ? $sub['user_ip'] : '-' ); ?>
 						</td>
 					</tr>
 				<?php endforeach; ?>
