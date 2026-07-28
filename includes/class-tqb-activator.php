@@ -56,20 +56,22 @@ class TQB_Activator {
 		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$line_items_table}", ARRAY_A );
 		$column_names = wp_list_pluck( $columns, 'Field' );
 
-		// Helper for safe column addition
-		$add_line_column = function( $col_name, $col_def, $after = null ) use ( $wpdb, $line_items_table, $column_names ) {
-			if ( in_array( $col_name, $column_names, true ) ) {
-				return;
-			}
-			$sql = "ALTER TABLE {$line_items_table} ADD COLUMN {$col_name} {$col_def}";
-			if ( $after && in_array( $after, $column_names, true ) ) {
-				$sql .= " AFTER {$after}";
-			}
+		if ( ! in_array( 'threshold_qty', $column_names, true ) ) {
+			$after = in_array( 'is_custom_quote_trigger', $column_names, true ) ? 'is_custom_quote_trigger' : null;
+			$sql = "ALTER TABLE {$line_items_table} ADD COLUMN threshold_qty DECIMAL(14,2) NULL";
+			if ( $after ) { $sql .= " AFTER {$after}"; }
 			$wpdb->query( $sql );
-		};
+		}
 
-		$add_line_column( 'threshold_qty', 'DECIMAL(14,2) NULL', 'is_custom_quote_trigger' );
-		$add_line_column( 'threshold_trigger', 'VARCHAR(10) NULL', 'threshold_qty' );
+		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$line_items_table}", ARRAY_A );
+		$column_names = wp_list_pluck( $columns, 'Field' );
+
+		if ( ! in_array( 'threshold_trigger', $column_names, true ) ) {
+			$after = in_array( 'threshold_qty', $column_names, true ) ? 'threshold_qty' : null;
+			$sql = "ALTER TABLE {$line_items_table} ADD COLUMN threshold_trigger VARCHAR(10) NULL";
+			if ( $after ) { $sql .= " AFTER {$after}"; }
+			$wpdb->query( $sql );
+		}
 
 		// Refresh column list after potential additions
 		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$line_items_table}", ARRAY_A );
@@ -114,34 +116,103 @@ class TQB_Activator {
 		}
 		$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
 
-		// Helper to safely add column (use AFTER only if referenced column exists)
-		// Uses reference to update the outer scope variable
-		$add_column = function( $col_name, $col_def, $after = null ) use ( $wpdb, $submissions_table, &$sub_column_names ) {
-			if ( in_array( $col_name, $sub_column_names, true ) ) {
-				return;
-			}
-			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN {$col_name} {$col_def}";
-			if ( $after && in_array( $after, $sub_column_names, true ) ) {
-				$sql .= " AFTER {$after}";
-			}
+		// Add status column
+		if ( ! in_array( 'status', $sub_column_names, true ) ) {
+			$after = in_array( 'custom_quote_reason', $sub_column_names, true ) ? 'custom_quote_reason' : null;
+			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'completed'";
+			if ( $after ) { $sql .= " AFTER {$after}"; }
 			$wpdb->query( $sql );
-			// Refresh column list
-			$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
-			if ( is_array( $columns ) ) {
-				$sub_column_names = wp_list_pluck( $columns, 'Field' );
-			}
-		};
+			$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
+			$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
+		}
 
-		$add_column( 'status', "VARCHAR(20) NOT NULL DEFAULT 'completed'", 'custom_quote_reason' );
-		$add_column( 'last_completed_step', 'INT NOT NULL DEFAULT 0', 'status' );
-		$add_column( 'reminder_email_sent', 'TINYINT(1) NOT NULL DEFAULT 0', 'confirmation_email_sent' );
-		$add_column( 'reminder_email_sent_at', 'DATETIME NULL', 'reminder_email_sent' );
-		$add_column( 'followup_email_sent', 'TINYINT(1) NOT NULL DEFAULT 0', 'reminder_email_sent_at' );
-		$add_column( 'followup_email_sent_at', 'DATETIME NULL', 'followup_email_sent' );
-		$add_column( 'final_email_sent', 'TINYINT(1) NOT NULL DEFAULT 0', 'followup_email_sent_at' );
-		$add_column( 'final_email_sent_at', 'DATETIME NULL', 'final_email_sent' );
-		$add_column( 'updated_at', 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP', 'created_at' );
-		$add_column( 'user_ip', 'VARCHAR(45) NULL', 'updated_at' );
+		// Add last_completed_step column
+		if ( ! in_array( 'last_completed_step', $sub_column_names, true ) ) {
+			$after = in_array( 'status', $sub_column_names, true ) ? 'status' : null;
+			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN last_completed_step INT NOT NULL DEFAULT 0";
+			if ( $after ) { $sql .= " AFTER {$after}"; }
+			$wpdb->query( $sql );
+			$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
+			$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
+		}
+
+		// Add reminder_email_sent column
+		if ( ! in_array( 'reminder_email_sent', $sub_column_names, true ) ) {
+			$after = in_array( 'confirmation_email_sent', $sub_column_names, true ) ? 'confirmation_email_sent' : null;
+			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN reminder_email_sent TINYINT(1) NOT NULL DEFAULT 0";
+			if ( $after ) { $sql .= " AFTER {$after}"; }
+			$wpdb->query( $sql );
+			$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
+			$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
+		}
+
+		// Add reminder_email_sent_at column
+		if ( ! in_array( 'reminder_email_sent_at', $sub_column_names, true ) ) {
+			$after = in_array( 'reminder_email_sent', $sub_column_names, true ) ? 'reminder_email_sent' : null;
+			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN reminder_email_sent_at DATETIME NULL";
+			if ( $after ) { $sql .= " AFTER {$after}"; }
+			$wpdb->query( $sql );
+			$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
+			$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
+		}
+
+		// Add followup_email_sent column
+		if ( ! in_array( 'followup_email_sent', $sub_column_names, true ) ) {
+			$after = in_array( 'reminder_email_sent_at', $sub_column_names, true ) ? 'reminder_email_sent_at' : null;
+			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN followup_email_sent TINYINT(1) NOT NULL DEFAULT 0";
+			if ( $after ) { $sql .= " AFTER {$after}"; }
+			$wpdb->query( $sql );
+			$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
+			$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
+		}
+
+		// Add followup_email_sent_at column
+		if ( ! in_array( 'followup_email_sent_at', $sub_column_names, true ) ) {
+			$after = in_array( 'followup_email_sent', $sub_column_names, true ) ? 'followup_email_sent' : null;
+			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN followup_email_sent_at DATETIME NULL";
+			if ( $after ) { $sql .= " AFTER {$after}"; }
+			$wpdb->query( $sql );
+			$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
+			$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
+		}
+
+		// Add final_email_sent column
+		if ( ! in_array( 'final_email_sent', $sub_column_names, true ) ) {
+			$after = in_array( 'followup_email_sent_at', $sub_column_names, true ) ? 'followup_email_sent_at' : null;
+			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN final_email_sent TINYINT(1) NOT NULL DEFAULT 0";
+			if ( $after ) { $sql .= " AFTER {$after}"; }
+			$wpdb->query( $sql );
+			$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
+			$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
+		}
+
+		// Add final_email_sent_at column
+		if ( ! in_array( 'final_email_sent_at', $sub_column_names, true ) ) {
+			$after = in_array( 'final_email_sent', $sub_column_names, true ) ? 'final_email_sent' : null;
+			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN final_email_sent_at DATETIME NULL";
+			if ( $after ) { $sql .= " AFTER {$after}"; }
+			$wpdb->query( $sql );
+			$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
+			$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
+		}
+
+		// Add updated_at column
+		if ( ! in_array( 'updated_at', $sub_column_names, true ) ) {
+			$after = in_array( 'created_at', $sub_column_names, true ) ? 'created_at' : null;
+			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP";
+			if ( $after ) { $sql .= " AFTER {$after}"; }
+			$wpdb->query( $sql );
+			$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
+			$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
+		}
+
+		// Add user_ip column
+		if ( ! in_array( 'user_ip', $sub_column_names, true ) ) {
+			$after = in_array( 'updated_at', $sub_column_names, true ) ? 'updated_at' : null;
+			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN user_ip VARCHAR(45) NULL";
+			if ( $after ) { $sql .= " AFTER {$after}"; }
+			$wpdb->query( $sql );
+		}
 
 		// --- Add abandoned quote email settings ---
 		if ( false === get_option( 'tqb_enable_abandoned_emails', false ) ) {
