@@ -76,25 +76,18 @@ function tqb_get_sort_indicator( $column ) {
 		<!-- Status Filter -->
 		<div style="display: flex; gap: 5px; align-items: center;">
 			<span style="font-size: 13px; color: #646970; font-weight: 500;">Status:</span>
-			<a href="<?php echo esc_url( tqb_build_filter_url( array( 'status' => '', 'paged' => 1 ) ); ?>" 
-			   class="button <?php echo empty( $status_filter ) ? 'button-primary' : ''; ?>">All (<?php echo $counts['all']; ?>)</a>
-			<a href="<?php echo esc_url( tqb_build_filter_url( array( 'status' => 'completed', 'paged' => 1 ) ); ?>" 
-			   class="button <?php echo 'completed' === $status_filter ? 'button-primary' : ''; ?>">Completed (<?php echo $counts['completed']; ?>)</a>
-			<a href="<?php echo esc_url( tqb_build_filter_url( array( 'status' => 'in_progress', 'paged' => 1 ) ); ?>" 
-			   class="button <?php echo 'in_progress' === $status_filter ? 'button-primary' : ''; ?>">In Progress (<?php echo $counts['in_progress']; ?>)</a>
-			<a href="<?php echo esc_url( tqb_build_filter_url( array( 'status' => 'abandoned', 'paged' => 1 ) ); ?>" 
-			   class="button <?php echo 'abandoned' === $status_filter ? 'button-primary' : ''; ?>">Abandoned (<?php echo $counts['abandoned']; ?>)</a>
+			<a href="<?php echo esc_url( tqb_build_filter_url( array( 'status' => '', 'paged' => 1 ) ) ); ?>" class="button <?php echo empty( $status_filter ) ? 'button-primary' : ''; ?>">All (<?php echo $counts['all']; ?>)</a>
+			<a href="<?php echo esc_url( tqb_build_filter_url( array( 'status' => 'completed', 'paged' => 1 ) ) ); ?>" class="button <?php echo 'completed' === $status_filter ? 'button-primary' : ''; ?>">Completed (<?php echo $counts['completed']; ?>)</a>
+			<a href="<?php echo esc_url( tqb_build_filter_url( array( 'status' => 'in_progress', 'paged' => 1 ) ) ); ?>" class="button <?php echo 'in_progress' === $status_filter ? 'button-primary' : ''; ?>">In Progress (<?php echo $counts['in_progress']; ?>)</a>
+			<a href="<?php echo esc_url( tqb_build_filter_url( array( 'status' => 'abandoned', 'paged' => 1 ) ) ); ?>" class="button <?php echo 'abandoned' === $status_filter ? 'button-primary' : ''; ?>">Abandoned (<?php echo $counts['abandoned']; ?>)</a>
 		</div>
 
 		<!-- Type Filter -->
 		<div style="display: flex; gap: 5px; align-items: center;">
 			<span style="font-size: 13px; color: #646970; font-weight: 500;">Type:</span>
-			<a href="<?php echo esc_url( tqb_build_filter_url( array( 'type' => '', 'paged' => 1 ) ); ?>" 
-			   class="button <?php echo empty( $type_filter ) ? 'button-secondary' : ''; ?>">All</a>
-			<a href="<?php echo esc_url( tqb_build_filter_url( array( 'type' => 'individual', 'paged' => 1 ) ); ?>" 
-			   class="button <?php echo 'individual' === $type_filter ? 'button-primary' : 'button-secondary'; ?>">Individual</a>
-			<a href="<?php echo esc_url( tqb_build_filter_url( array( 'type' => 'business', 'paged' => 1 ) ); ?>" 
-			   class="button <?php echo 'business' === $type_filter ? 'button-primary' : 'button-secondary'; ?>">Business</a>
+			<a href="<?php echo esc_url( tqb_build_filter_url( array( 'type' => '', 'paged' => 1 ) ) ); ?>" class="button <?php echo empty( $type_filter ) ? 'button-secondary' : ''; ?>">All</a>
+			<a href="<?php echo esc_url( tqb_build_filter_url( array( 'type' => 'individual', 'paged' => 1 ) ) ); ?>" class="button <?php echo 'individual' === $type_filter ? 'button-primary' : 'button-secondary'; ?>">Individual</a>
+			<a href="<?php echo esc_url( tqb_build_filter_url( array( 'type' => 'business', 'paged' => 1 ) ) ); ?>" class="button <?php echo 'business' === $type_filter ? 'button-primary' : 'button-secondary'; ?>">Business</a>
 		</div>
 	</div>
 
@@ -108,12 +101,10 @@ function tqb_get_sort_indicator( $column ) {
 		<?php if ( $type_filter ) : ?>
 			<input type="hidden" name="type" value="<?php echo esc_attr( $type_filter ); ?>" />
 		<?php endif; ?>
-		<input type="search" name="s" value="<?php echo esc_attr( $search ); ?>" 
-			   placeholder="Search name, email, phone..." 
-			   style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ddd; min-width: 220px;" />
+		<input type="search" name="s" value="<?php echo esc_attr( $search ); ?>" placeholder="Search name, email, phone..." style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ddd; min-width: 220px;" />
 		<button type="submit" class="button">Search</button>
 		<?php if ( ! empty( $search ) ) : ?>
-			<a href="<?php echo esc_url( tqb_build_filter_url( array( 's' => '' ) ); ?>" class="button button-secondary">Clear</a>
+			<a href="<?php echo esc_url( tqb_build_filter_url( array( 's' => '' ) ) ); ?>" class="button button-secondary">Clear</a>
 		<?php endif; ?>
 	</form>
 </div>
@@ -130,45 +121,29 @@ function tqb_get_sort_indicator( $column ) {
 				<tr>
 					<th style="width: 40px;"><input type="checkbox" id="tqb-select-all" /></th>
 					<th style="width: 60px;">
-						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'id', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'id' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ); ?>" style="color: inherit; text-decoration: none;">
-							ID<?php echo tqb_get_sort_indicator( 'id' ); ?>
-						</a>
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'id', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'id' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">ID<?php echo tqb_get_sort_indicator( 'id' ); ?></a>
 					</th>
 					<th>
-						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'contact_name', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'contact_name' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ); ?>" style="color: inherit; text-decoration: none;">
-							Name<?php echo tqb_get_sort_indicator( 'contact_name' ); ?>
-						</a>
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'contact_name', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'contact_name' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">Name<?php echo tqb_get_sort_indicator( 'contact_name' ); ?></a>
 					</th>
 					<th>
-						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'contact_email', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'contact_email' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ); ?>" style="color: inherit; text-decoration: none;">
-							Email<?php echo tqb_get_sort_indicator( 'contact_email' ); ?>
-						</a>
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'contact_email', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'contact_email' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">Email<?php echo tqb_get_sort_indicator( 'contact_email' ); ?></a>
 					</th>
 					<th>
-						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'contact_phone', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'contact_phone' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ); ?>" style="color: inherit; text-decoration: none;">
-							Phone<?php echo tqb_get_sort_indicator( 'contact_phone' ); ?>
-						</a>
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'contact_phone', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'contact_phone' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">Phone<?php echo tqb_get_sort_indicator( 'contact_phone' ); ?></a>
 					</th>
 					<th style="width: 100px;">
-						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'quote_type', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'quote_type' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ); ?>" style="color: inherit; text-decoration: none;">
-							Type<?php echo tqb_get_sort_indicator( 'quote_type' ); ?>
-						</a>
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'quote_type', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'quote_type' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">Type<?php echo tqb_get_sort_indicator( 'quote_type' ); ?></a>
 					</th>
 					<th style="width: 110px;">
-						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'status', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'status' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ); ?>" style="color: inherit; text-decoration: none;">
-							Status<?php echo tqb_get_sort_indicator( 'status' ); ?>
-						</a>
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'status', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'status' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">Status<?php echo tqb_get_sort_indicator( 'status' ); ?></a>
 					</th>
 					<th style="width: 100px;">
-						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'calculated_total', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'calculated_total' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ); ?>" style="color: inherit; text-decoration: none;">
-							Quote<?php echo tqb_get_sort_indicator( 'calculated_total' ); ?>
-						</a>
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'calculated_total', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'calculated_total' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">Quote<?php echo tqb_get_sort_indicator( 'calculated_total' ); ?></a>
 					</th>
 					<th style="width: 80px;">Step</th>
 					<th style="width: 160px;">
-						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'created_at', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'created_at' && isset( $_GET['order'] ) && $_GET['order'] === 'DESC' ) ? 'ASC' : 'DESC', 'paged' => 1 ) ); ?>" style="color: inherit; text-decoration: none;">
-							Created<?php echo tqb_get_sort_indicator( 'created_at' ); ?>
-						</a>
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'created_at', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'created_at' && isset( $_GET['order'] ) && $_GET['order'] === 'DESC' ) ? 'ASC' : 'DESC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">Created<?php echo tqb_get_sort_indicator( 'created_at' ); ?></a>
 					</th>
 					<th style="width: 80px;">Actions</th>
 				</tr>
@@ -218,12 +193,7 @@ function tqb_get_sort_indicator( $column ) {
 							?>
 						</td>
 						<td>
-							<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=tqb_delete_submission&id=' . $sub['id'] ), 'tqb_delete_sub_' . $sub['id'] ) ); ?>" 
-							   class="button button-small" 
-							   style="color: #b32d2e;"
-							   onclick="return confirm('Delete this submission? This cannot be undone.');">
-								Delete
-							</a>
+							<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=tqb_delete_submission&id=' . $sub['id'] ), 'tqb_delete_sub_' . $sub['id'] ) ); ?>" class="button button-small" style="color: #b32d2e;" onclick="return confirm('Delete this submission? This cannot be undone.');">Delete</a>
 						</td>
 					</tr>
 				<?php endforeach; ?>
@@ -254,10 +224,10 @@ function tqb_get_sort_indicator( $column ) {
 				</span>
 				<label for="per_page" style="font-size: 13px; color: #646970;">Per page:</label>
 				<select id="per_page" name="per_page" onchange="window.location.href=this.value" style="padding: 6px 8px; border-radius: 4px; border: 1px solid #ddd;">
-					<option value="<?php echo esc_url( tqb_build_filter_url( array( 'per_page' => 10, 'paged' => 1 ) ); ?>" <?php selected( $per_page, 10 ); ?>>10</option>
-					<option value="<?php echo esc_url( tqb_build_filter_url( array( 'per_page' => 25, 'paged' => 1 ) ); ?>" <?php selected( $per_page, 25 ); ?>>25</option>
-					<option value="<?php echo esc_url( tqb_build_filter_url( array( 'per_page' => 50, 'paged' => 1 ) ); ?>" <?php selected( $per_page, 50 ); ?>>50</option>
-					<option value="<?php echo esc_url( tqb_build_filter_url( array( 'per_page' => 100, 'paged' => 1 ) ); ?>" <?php selected( $per_page, 100 ); ?>>100</option>
+					<option value="<?php echo esc_url( tqb_build_filter_url( array( 'per_page' => 10, 'paged' => 1 ) ) ); ?>" <?php selected( $per_page, 10 ); ?>>10</option>
+					<option value="<?php echo esc_url( tqb_build_filter_url( array( 'per_page' => 25, 'paged' => 1 ) ) ); ?>" <?php selected( $per_page, 25 ); ?>>25</option>
+					<option value="<?php echo esc_url( tqb_build_filter_url( array( 'per_page' => 50, 'paged' => 1 ) ) ); ?>" <?php selected( $per_page, 50 ); ?>>50</option>
+					<option value="<?php echo esc_url( tqb_build_filter_url( array( 'per_page' => 100, 'paged' => 1 ) ) ); ?>" <?php selected( $per_page, 100 ); ?>>100</option>
 				</select>
 			</div>
 		</div>
@@ -307,7 +277,7 @@ function tqb_get_sort_indicator( $column ) {
 				
 				if ( $current_page < $total_pages ) :
 					echo '<a href="' . esc_url( tqb_build_filter_url( array( 'paged' => $current_page + 1 ) ) ) . '" class="button button-sm" style="min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center;">&rsaquo;</a>';
-					echo '<a href="' . esc_url( tqb_build_filter_url( array( 'paged' => $total_pages ) ) . '" class="button button-sm" style="min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center;">&raquo;</a>';
+					echo '<a href="' . esc_url( tqb_build_filter_url( array( 'paged' => $total_pages ) ) ) . '" class="button button-sm" style="min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center;">&raquo;</a>';
 				else :
 					echo '<span class="button button-sm" style="min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center; opacity: 0.5; cursor: not-allowed;">&rsaquo;</span>';
 					echo '<span class="button button-sm" style="min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center; opacity: 0.5; cursor: not-allowed;">&raquo;</span>';
