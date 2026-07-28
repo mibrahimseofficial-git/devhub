@@ -38,30 +38,63 @@ class TQB_Activator {
 	public static function upgrade() {
 		global $wpdb;
 
-		// --- Line items table: add threshold columns ---
+		// Safety check: ensure tables exist before trying to upgrade
+		$submissions_table = $wpdb->prefix . 'tqb_submissions';
 		$line_items_table = $wpdb->prefix . 'tqb_line_items';
+
+		// Check if submissions table exists
+		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$submissions_table}'" ) !== $submissions_table ) {
+			return; // Tables don't exist yet - activate() will create them
+		}
+
+		// Check if line_items table exists
+		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$line_items_table}'" ) !== $line_items_table ) {
+			return; // Tables don't exist yet
+		}
+
+		// --- Line items table: add threshold columns ---
 		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$line_items_table}", ARRAY_A );
 		$column_names = wp_list_pluck( $columns, 'Field' );
 
-		if ( ! in_array( 'threshold_qty', $column_names, true ) ) {
-			$wpdb->query( "ALTER TABLE {$line_items_table} ADD COLUMN threshold_qty DECIMAL(14,2) NULL AFTER is_custom_quote_trigger" );
-		}
+		// Helper for safe column addition
+		$add_line_column = function( $col_name, $col_def, $after = null ) use ( $wpdb, $line_items_table, $column_names ) {
+			if ( in_array( $col_name, $column_names, true ) ) {
+				return;
+			}
+			$sql = "ALTER TABLE {$line_items_table} ADD COLUMN {$col_name} {$col_def}";
+			if ( $after && in_array( $after, $column_names, true ) ) {
+				$sql .= " AFTER {$after}";
+			}
+			$wpdb->query( $sql );
+		};
 
-		if ( ! in_array( 'threshold_trigger', $column_names, true ) ) {
-			$wpdb->query( "ALTER TABLE {$line_items_table} ADD COLUMN threshold_trigger VARCHAR(10) NULL AFTER threshold_qty" );
-		}
+		$add_line_column( 'threshold_qty', 'DECIMAL(14,2) NULL', 'is_custom_quote_trigger' );
+		$add_line_column( 'threshold_trigger', 'VARCHAR(10) NULL', 'threshold_qty' );
+
+		// Refresh column list after potential additions
+		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$line_items_table}", ARRAY_A );
+		$column_names = wp_list_pluck( $columns, 'Field' );
 
 		// Update crypto item: use qty_times_fee with threshold
+		$update_data = array(
+			'pricing_pattern'    => 'qty_times_fee',
+			'is_custom_quote_trigger' => 0,
+		);
+		$update_format = array( '%s', '%d' );
+		if ( in_array( 'threshold_qty', $column_names, true ) ) {
+			$update_data['threshold_qty'] = 100;
+			$update_format[] = '%s';
+		}
+		if ( in_array( 'threshold_trigger', $column_names, true ) ) {
+			$update_data['threshold_trigger'] = 'above';
+			$update_format[] = '%s';
+		}
+
 		$wpdb->update(
 			$line_items_table,
-			array(
-				'pricing_pattern'    => 'qty_times_fee',
-				'is_custom_quote_trigger' => 0,
-				'threshold_qty'      => 100,
-				'threshold_trigger'  => 'above',
-			),
+			$update_data,
 			array( 'item_key' => 'crypto' ),
-			array( '%s', '%d', '%s', '%s' ),
+			$update_format,
 			array( '%s' )
 		);
 
@@ -75,12 +108,15 @@ class TQB_Activator {
 		);
 
 		// --- Submissions table: add abandoned quote columns ---
-		$submissions_table = $wpdb->prefix . 'tqb_submissions';
 		$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
+		if ( ! is_array( $sub_columns ) ) {
+			$sub_columns = array();
+		}
 		$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
 
 		// Helper to safely add column (use AFTER only if referenced column exists)
-		$add_column = function( $col_name, $col_def, $after = null ) use ( $wpdb, $submissions_table, $sub_column_names ) {
+		// Uses reference to update the outer scope variable
+		$add_column = function( $col_name, $col_def, $after = null ) use ( $wpdb, $submissions_table, &$sub_column_names ) {
 			if ( in_array( $col_name, $sub_column_names, true ) ) {
 				return;
 			}
@@ -89,6 +125,11 @@ class TQB_Activator {
 				$sql .= " AFTER {$after}";
 			}
 			$wpdb->query( $sql );
+			// Refresh column list
+			$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
+			if ( is_array( $columns ) ) {
+				$sub_column_names = wp_list_pluck( $columns, 'Field' );
+			}
 		};
 
 		$add_column( 'status', "VARCHAR(20) NOT NULL DEFAULT 'completed'", 'custom_quote_reason' );
