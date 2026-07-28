@@ -281,7 +281,7 @@
 	text-align: center;
 	font-size: 13px;
 	font-weight: 500;
-	color: var(--tqb-text-muted);
+	color: #8aa9efd;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -297,7 +297,7 @@
 	left: calc(-50% + 12px);
 	width: calc(100% - 24px);
 	height: 2px;
-	background: var(--tqb-line);
+	background: #DCE6EE;
 	z-index: -1;
 }
 
@@ -306,18 +306,18 @@
 }
 
 .tqb-progress__step.is-complete::before {
-	background: var(--tqb-accent);
+	background: #8aa9efd;
 }
 
 .tqb-progress__step.is-active::before {
-	background: linear-gradient(90deg, var(--tqb-accent) 0%, var(--tqb-line) 100%);
+	background: #8aa9efd;
 }
 
 .tqb-progress__step > span {
 	width: 26px;
 	height: 26px;
 	border-radius: 4px;
-	background: var(--tqb-line);
+	background: #DCE6EE;
 	color: #fff;
 	display: flex;
 	align-items: center;
@@ -328,12 +328,12 @@
 }
 
 .tqb-progress__step.is-active > span {
-	background: var(--tqb-navy);
+	background: #001a44;
 	box-shadow: 0 0 0 3px rgba(0, 26, 68, 0.15);
 }
 
 .tqb-progress__step.is-complete > span {
-	background: var(--tqb-accent);
+	background: #8aa9efd;
 }
 
 .tqb-progress__step > em {
@@ -348,7 +348,7 @@
 
 .tqb-progress__step.is-active,
 .tqb-progress__step.is-complete {
-	color: var(--tqb-navy);
+	color: #001a44;
 }
 
 /* ---- Step Content ---- */
