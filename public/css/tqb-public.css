@@ -895,58 +895,6 @@
 	color: var(--tqb-text-muted);
 }
 
-/* ---- Resume Banner ---- */
-.tqb-resume-banner {
-	width: 100%;
-	max-width: 800px;
-	margin: 0 auto 24px auto;
-}
-
-.tqb-resume-banner[hidden] {
-	display: none;
-}
-
-.tqb-resume-banner__content {
-	background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-	border: 2px solid #4caf50;
-	border-radius: 12px;
-	padding: 24px;
-	text-align: center;
-	box-shadow: 0 4px 12px rgba(76, 175, 80, 0.15);
-}
-
-.tqb-resume-banner__title {
-	margin: 0 0 12px 0;
-	font-size: 22px;
-	font-weight: 700;
-	color: #2e7d32;
-}
-
-.tqb-resume-banner__message {
-	margin: 0 0 8px 0;
-	font-size: 16px;
-	color: #388e3c;
-}
-
-.tqb-resume-banner__details {
-	margin: 0 0 20px 0;
-	font-size: 14px;
-	color: #558b2f;
-	font-style: italic;
-}
-
-.tqb-resume-banner__actions {
-	display: flex;
-	gap: 16px;
-	flex-wrap: wrap;
-	justify-content: center;
-}
-
-.tqb-resume-banner__actions .tqb-btn {
-	margin: 0;
-	min-width: 160px;
-}
-
 /* ---- Review Step ---- */
 .tqb-review-section {
 	margin-bottom: 24px;
