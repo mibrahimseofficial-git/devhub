@@ -12,11 +12,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 ?>
+
+<!-- Resume banner - shown when user has a partial submission -->
+<div id="tqb-resume-banner" class="tqb-resume-banner" hidden></div>
+
 <div class="tqb-layout" id="tqb-layout">
-
-	<!-- Resume banner - shown when user has a partial submission -->
-	<div id="tqb-resume-banner" class="tqb-resume-banner" hidden></div>
-
 	<div class="tqb-wizard" id="tqb-wizard" data-step="1">
 
 		<!-- Screen reader live region for step announcements -->

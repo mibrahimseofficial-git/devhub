@@ -897,7 +897,9 @@
 
 /* ---- Resume Banner ---- */
 .tqb-resume-banner {
-	margin-bottom: 20px;
+	width: 100%;
+	max-width: 800px;
+	margin: 0 auto 24px auto;
 }
 
 .tqb-resume-banner[hidden] {
@@ -905,41 +907,44 @@
 }
 
 .tqb-resume-banner__content {
-	background: var(--tqb-success-bg);
-	border: 1px solid var(--tqb-success);
-	border-radius: 8px;
-	padding: 20px;
-	text-align: left;
+	background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+	border: 2px solid #4caf50;
+	border-radius: 12px;
+	padding: 24px;
+	text-align: center;
+	box-shadow: 0 4px 12px rgba(76, 175, 80, 0.15);
 }
 
 .tqb-resume-banner__title {
-	margin: 0 0 8px 0;
-	font-size: 18px;
-	font-weight: 600;
-	color: #146C43;
+	margin: 0 0 12px 0;
+	font-size: 22px;
+	font-weight: 700;
+	color: #2e7d32;
 }
 
 .tqb-resume-banner__message {
-	margin: 0 0 4px 0;
-	font-size: 14px;
-	color: #146C43;
+	margin: 0 0 8px 0;
+	font-size: 16px;
+	color: #388e3c;
 }
 
 .tqb-resume-banner__details {
-	margin: 0 0 16px 0;
-	font-size: 13px;
-	color: #146C43;
-	opacity: 0.85;
+	margin: 0 0 20px 0;
+	font-size: 14px;
+	color: #558b2f;
+	font-style: italic;
 }
 
 .tqb-resume-banner__actions {
 	display: flex;
-	gap: 12px;
+	gap: 16px;
 	flex-wrap: wrap;
+	justify-content: center;
 }
 
 .tqb-resume-banner__actions .tqb-btn {
 	margin: 0;
+	min-width: 160px;
 }
 
 /* ---- Review Step ---- */

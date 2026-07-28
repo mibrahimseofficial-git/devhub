@@ -268,6 +268,7 @@
 	function showResumeBanner( partialData ) {
 		var banner = document.getElementById( 'tqb-resume-banner' );
 		if ( ! banner ) {
+			console.error( 'Resume banner element not found' );
 			return;
 		}
 
@@ -296,14 +297,20 @@
 
 		if ( resumeBtn ) {
 			resumeBtn.addEventListener( 'click', function() {
+				console.log( 'Resume button clicked' );
 				resumePartial( partialData.submission_id );
 			} );
+		} else {
+			console.error( 'Resume button not found' );
 		}
 
 		if ( freshBtn ) {
 			freshBtn.addEventListener( 'click', function() {
+				console.log( 'Start Fresh button clicked' );
 				dismissResumeBanner();
 			} );
+		} else {
+			console.error( 'Start Fresh button not found' );
 		}
 	}
 
@@ -312,7 +319,10 @@
 	 */
 	function resumePartial( submissionId ) {
 		var partial = window.tqbPartialData;
-		if ( ! partial ) return;
+		if ( ! partial ) {
+			console.error( 'No partial data found' );
+			return;
+		}
 
 		// Populate contact info
 		var emailEl = document.getElementById( 'tqb-contact-email' );
@@ -367,8 +377,12 @@
 			}
 		}
 
-		// Dismiss banner
-		dismissResumeBanner();
+		// Dismiss banner (don't call server since we're resuming, not abandoning)
+		var banner = document.getElementById( 'tqb-resume-banner' );
+		if ( banner ) {
+			banner.hidden = true;
+			banner.innerHTML = '';
+		}
 
 		// Go to the last completed step (or step 2 if contact info was saved)
 		var stepToGo = partial.last_step || 2;
@@ -398,10 +412,16 @@
 			body: data,
 		} )
 		.then( function ( response ) {
+			if ( ! response.ok ) {
+				throw new Error( 'Network response was not ok' );
+			}
 			return response.json();
 		} )
+		.then( function ( result ) {
+			console.log( 'Partial dismissed successfully:', result );
+		} )
 		.catch( function ( error ) {
-			console.log( 'Dismiss partial failed:', error );
+			console.error( 'Dismiss partial failed:', error );
 		} );
 	}
 
