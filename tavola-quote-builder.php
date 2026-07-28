@@ -114,6 +114,7 @@ function tqb_add_cron_interval( $schedules ) {
 // Cron functions
 function tqb_clear_cron() {
 	wp_clear_scheduled_hook( 'tqb_send_abandoned_emails' );
+	wp_clear_scheduled_hook( 'tqb_retry_hubspot_syncs' );
 }
 
 // Cron job to send abandoned quote emails
@@ -123,4 +124,16 @@ function tqb_send_abandoned_quote_emails() {
 		return;
 	}
 	TQB_Email::send_abandoned_quote_emails();
+}
+
+// Cron job to retry failed HubSpot syncs (every hour)
+add_action( 'tqb_retry_hubspot_syncs', 'tqb_retry_failed_hubspot_syncs' );
+function tqb_retry_failed_hubspot_syncs() {
+	TQB_Hubspot::retry_failed_syncs();
+}
+
+// Daily admin notification for HubSpot failures
+add_action( 'tqb_notify_hubspot_failures', 'tqb_notify_hubspot_failures' );
+function tqb_notify_hubspot_failures() {
+	TQB_Hubspot::notify_admin_of_failures();
 }

@@ -29,6 +29,16 @@ class TQB_Activator {
 		self::seed_default_data();
 		self::seed_default_settings();
 
+		// Schedule cron jobs for HubSpot retry (hourly)
+		if ( ! wp_next_scheduled( 'tqb_retry_hubspot_syncs' ) ) {
+			wp_schedule_event( time(), 'tqb_hourly', 'tqb_retry_hubspot_syncs' );
+		}
+
+		// Schedule daily admin notification for HubSpot failures
+		if ( ! wp_next_scheduled( 'tqb_notify_hubspot_failures' ) ) {
+			wp_schedule_event( time() + DAY_IN_SECONDS, 'daily', 'tqb_notify_hubspot_failures' );
+		}
+
 		update_option( 'tqb_db_version', TQB_VERSION );
 	}
 
@@ -213,6 +223,16 @@ class TQB_Activator {
 			if ( $after ) { $sql .= " AFTER {$after}"; }
 			$wpdb->query( $sql );
 		}
+
+			// Add hubspot_sync_failed column for retry tracking
+			$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
+			$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
+			if ( ! in_array( 'hubspot_sync_failed', $sub_column_names, true ) ) {
+				$after = in_array( 'hubspot_deal_id', $sub_column_names, true ) ? 'hubspot_deal_id' : null;
+				$sql = "ALTER TABLE {$submissions_table} ADD COLUMN hubspot_sync_failed TINYINT(1) NOT NULL DEFAULT 0";
+				if ( $after ) { $sql .= " AFTER {$after}"; }
+				$wpdb->query( $sql );
+			}
 
 		// --- Add abandoned quote email settings ---
 		if ( false === get_option( 'tqb_enable_abandoned_emails', false ) ) {

@@ -17,7 +17,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 class TQB_Deactivator {
 
 	public static function deactivate() {
-		// Intentionally left minimal. Flush rewrite rules here later if the
-		// front-end shortcode (Phase 4) ever registers custom rewrite rules.
+		// Clear scheduled cron jobs
+		wp_clear_scheduled_hook( 'tqb_send_abandoned_emails' );
+		wp_clear_scheduled_hook( 'tqb_retry_hubspot_syncs' );
+		wp_clear_scheduled_hook( 'tqb_notify_hubspot_failures' );
 	}
 }

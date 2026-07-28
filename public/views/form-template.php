@@ -16,6 +16,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 	<div class="tqb-wizard" id="tqb-wizard" data-step="1">
 
+		<!-- Screen reader live region for step announcements -->
+		<div class="tqb-sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
 		<div class="tqb-wizard__header">
 			<div class="tqb-progress" aria-hidden="true">
 				<span class="tqb-progress__step is-active" data-step-indicator="1"><span>1</span><em>Return Type</em></span>

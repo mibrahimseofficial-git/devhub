@@ -97,6 +97,7 @@ class TQB_Hubspot {
 
 		if ( ! $contact_id ) {
 			self::log_error( 'Could not create/find HubSpot contact for submission #' . $submission_id );
+			self::mark_sync_failed( $submission_id );
 			return;
 		}
 
@@ -104,11 +105,59 @@ class TQB_Hubspot {
 
 		if ( $deal_id ) {
 			TQB_DB::mark_hubspot_synced( $submission_id, $contact_id, $deal_id );
+			self::clear_sync_failed( $submission_id );
 		} else {
 			// Contact synced but deal failed — still record the contact ID
 			// so we're not stuck retrying the whole thing blind next time.
 			TQB_DB::mark_hubspot_synced( $submission_id, $contact_id, null );
+			self::mark_sync_failed( $submission_id );
 			self::log_error( 'HubSpot contact synced but deal creation failed for submission #' . $submission_id );
+		}
+	}
+
+	/**
+	 * Mark a submission's HubSpot sync as failed.
+	 *
+	 * @param int $submission_id
+	 */
+	private static function mark_sync_failed( $submission_id ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tqb_submissions';
+
+		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$table}", ARRAY_A );
+		$column_names = wp_list_pluck( $columns, 'Field' );
+
+		if ( in_array( 'hubspot_sync_failed', $column_names, true ) ) {
+			$wpdb->update(
+				$table,
+				array( 'hubspot_sync_failed' => 1 ),
+				array( 'id' => $submission_id ),
+				array( '%d' ),
+				array( '%d' )
+			);
+		}
+	}
+
+	/**
+	 * Clear the sync failed flag for a submission.
+	 *
+	 * @param int $submission_id
+	 */
+	private static function clear_sync_failed( $submission_id ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tqb_submissions';
+
+		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$table}", ARRAY_A );
+		$column_names = wp_list_pluck( $columns, 'Field' );
+
+		if ( in_array( 'hubspot_sync_failed', $column_names, true ) ) {
+			$wpdb->update(
+				$table,
+				array( 'hubspot_sync_failed' => 0 ),
+				array( 'id' => $submission_id ),
+				array( '%d' ),
+				array( '%d' )
+			);
 		}
 	}
 
@@ -323,5 +372,134 @@ class TQB_Hubspot {
 	private static function log_error( $message ) {
 		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional: surfaces sync failures without blocking the user-facing flow.
 		error_log( 'TQB_Hubspot: ' . $message );
+	}
+
+	/**
+	 * Retries syncing submissions that failed previously.
+	 * Called by the scheduled cron job.
+	 *
+	 * @param int $limit Maximum number of submissions to retry (default 20)
+	 * @return array Array of results: ['succeeded' => int, 'failed' => int, 'skipped' => int]
+	 */
+	public static function retry_failed_syncs( $limit = 20 ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tqb_submissions';
+
+		// Check if hubspot_sync_failed column exists
+		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$table}", ARRAY_A );
+		$column_names = wp_list_pluck( $columns, 'Field' );
+
+		if ( ! in_array( 'hubspot_sync_failed', $column_names, true ) ) {
+			// Column doesn't exist yet - skip
+			return array( 'succeeded' => 0, 'failed' => 0, 'skipped' => 0 );
+		}
+
+		// Get failed submissions that haven't been synced
+		$failed_submissions = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, contact_email FROM {$table} WHERE hubspot_sync_failed = 1 AND (hubspot_deal_id IS NULL OR hubspot_deal_id = '') ORDER BY updated_at ASC LIMIT %d",
+				$limit
+			),
+			ARRAY_A
+		);
+
+		$results = array( 'succeeded' => 0, 'failed' => 0, 'skipped' => 0 );
+
+		foreach ( $failed_submissions as $submission ) {
+			// Check if already synced (deal_id exists from a previous partial attempt)
+			$existing = TQB_DB::get_submission( $submission['id'] );
+			if ( ! $existing ) {
+				$results['skipped']++;
+				continue;
+			}
+
+			// Only retry if no deal ID exists
+			if ( ! empty( $existing['hubspot_deal_id'] ) ) {
+				// Already has a deal - just clear the failed flag
+				$wpdb->update(
+					$table,
+					array( 'hubspot_sync_failed' => 0 ),
+					array( 'id' => $submission['id'] ),
+					array( '%d' ),
+					array( '%d' )
+				);
+				$results['skipped']++;
+				continue;
+			}
+
+			// Attempt sync
+			$contact_id = self::find_or_create_contact( $existing, get_option( 'tqb_hubspot_service_key', '' ) );
+
+			if ( ! $contact_id ) {
+				$results['failed']++;
+				continue;
+			}
+
+			$deal_id = self::create_deal( $existing, $contact_id, get_option( 'tqb_hubspot_service_key', '' ) );
+
+			if ( $deal_id ) {
+				TQB_DB::mark_hubspot_synced( $submission['id'], $contact_id, $deal_id );
+				$wpdb->update(
+					$table,
+					array( 'hubspot_sync_failed' => 0 ),
+					array( 'id' => $submission['id'] ),
+					array( '%d' ),
+					array( '%d' )
+				);
+				$results['succeeded']++;
+			} else {
+				$results['failed']++;
+			}
+		}
+
+		return $results;
+	}
+
+	/**
+	 * Sends admin notification about HubSpot sync failures.
+	 * Called daily by cron if there are pending failures.
+	 */
+	public static function notify_admin_of_failures() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tqb_submissions';
+
+		$failures = $wpdb->get_var(
+			"SELECT COUNT(*) FROM {$table} WHERE hubspot_sync_failed = 1"
+		);
+
+		if ( $failures > 0 ) {
+			$admin_email = get_option( 'admin_email' );
+			$subject = sprintf( '[TQB] %d HubSpot sync failure(s) need attention', $failures );
+			$message = sprintf(
+				"There are %d submission(s) in the Tavola Quote Builder that failed to sync to HubSpot.\n\n" .
+				"These submissions are still saved locally but haven't been created in HubSpot as deals.\n\n" .
+				"You can retry these from the WordPress admin: Quotes > Settings > HubSpot\n\n" .
+				"This is an automated message from the Tavola Quote Builder plugin.",
+				$failures
+			);
+
+			wp_mail( $admin_email, $subject, $message );
+		}
+	}
+
+	/**
+	 * Count current HubSpot sync failures.
+	 *
+	 * @return int Number of failed syncs
+	 */
+	public static function count_failed_syncs() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tqb_submissions';
+
+		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$table}", ARRAY_A );
+		$column_names = wp_list_pluck( $columns, 'Field' );
+
+		if ( ! in_array( 'hubspot_sync_failed', $column_names, true ) ) {
+			return 0;
+		}
+
+		return (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM {$table} WHERE hubspot_sync_failed = 1"
+		);
 	}
 }

@@ -56,9 +56,24 @@
 
 	function goToStep( stepNumber ) {
 		var steps = wizard.querySelectorAll( '.tqb-step' );
+		var stepLabels = {
+			1: 'Return Type Selection',
+			2: 'Contact Information',
+			3: 'Filing Details',
+			4: 'Review Your Quote',
+			5: 'Your Quote Results'
+		};
+
 		steps.forEach( function ( section ) {
 			var isTarget = parseInt( section.getAttribute( 'data-step' ), 10 ) === stepNumber;
 			section.hidden = ! isTarget;
+			
+			// Update aria-current for screen readers
+			if ( isTarget ) {
+				section.setAttribute( 'aria-current', 'step' );
+			} else {
+				section.removeAttribute( 'aria-current' );
+			}
 		} );
 
 		var indicators = wizard.querySelectorAll( '.tqb-progress__step' );
@@ -72,10 +87,33 @@
 			
 			indicator.classList.toggle( 'is-active', isCurrentStep );
 			indicator.classList.toggle( 'is-complete', isPrevStep );
+			
+			// Update aria-current for progress indicators
+			if ( isCurrentStep ) {
+				indicator.setAttribute( 'aria-current', 'step' );
+			} else {
+				indicator.removeAttribute( 'aria-current' );
+			}
 		} );
 
 		wizard.setAttribute( 'data-step', stepNumber );
+		
+		// Announce step change to screen readers
+		var liveRegion = wizard.querySelector( '.tqb-sr-only' );
+		if ( liveRegion ) {
+			liveRegion.textContent = 'Step ' + stepNumber + ' of 5: ' + ( stepLabels[ stepNumber ] || '' );
+		}
+		
 		wizard.scrollIntoView( { behavior: 'smooth', block: 'nearest' } );
+		
+		// Focus management: focus the first input or heading in the step
+		var currentStep = wizard.querySelector( '.tqb-step:not([hidden])' );
+		if ( currentStep ) {
+			var focusTarget = currentStep.querySelector( 'input:not([type="hidden"]), button, [tabindex="0"]' );
+			if ( focusTarget ) {
+				setTimeout( function() { focusTarget.focus(); }, 100 );
+			}
+		}
 	}
 
 	// ---------------------------------------------------------------------
@@ -127,13 +165,22 @@
 	 * Save partial form progress for abandoned quote follow-up.
 	 * Called when user completes contact info (step 2+).
 	 */
-	function savePartialProgress( currentStep ) {
+	function savePartialProgress( currentStep, buttonEl ) {
 		var emailEl = document.getElementById( 'tqb-contact-email' );
 		var nameEl = document.getElementById( 'tqb-contact-name' );
 		var phoneEl = document.getElementById( 'tqb-contact-phone' );
 
 		if ( ! emailEl || ! emailEl.value || ! isValidEmail( emailEl.value ) ) {
 			return; // Don't save without email
+		}
+
+		// Show loading state on button if provided
+		var originalButtonText = '';
+		if ( buttonEl ) {
+			originalButtonText = buttonEl.textContent;
+			buttonEl.disabled = true;
+			buttonEl.classList.add( 'tqb-loading' );
+			buttonEl.textContent = 'Saving...';
 		}
 
 		var data = new FormData();
@@ -155,6 +202,13 @@
 			return response.json();
 		} )
 		.then( function ( result ) {
+			// Reset button state
+			if ( buttonEl ) {
+				buttonEl.disabled = false;
+				buttonEl.classList.remove( 'tqb-loading' );
+				buttonEl.textContent = originalButtonText;
+			}
+
 			if ( result.success && result.data.submission_id ) {
 				state.partialSubmissionId = result.data.submission_id;
 				hideFormError();
@@ -172,6 +226,12 @@
 			}
 		} )
 		.catch( function ( error ) {
+			// Reset button state
+			if ( buttonEl ) {
+				buttonEl.disabled = false;
+				buttonEl.classList.remove( 'tqb-loading' );
+				buttonEl.textContent = originalButtonText;
+			}
 			console.log( 'Partial save failed:', error );
 		} );
 	}
@@ -467,7 +527,7 @@
 				state.completedSteps.push( STEP.CONTACT );
 			}
 			// Save partial progress for abandoned quote follow-up
-			savePartialProgress( STEP.CONTACT );
+			savePartialProgress( STEP.CONTACT, btn );
 			goToStep( STEP.QUESTIONS );
 			updateSummaryPanel();
 		} );
@@ -1050,7 +1110,7 @@
 				state.completedSteps.push( STEP.QUESTIONS );
 			}
 			// Save partial progress for abandoned quote follow-up
-			savePartialProgress( STEP.QUESTIONS );
+			savePartialProgress( STEP.QUESTIONS, btn );
 			buildReviewStep();
 			goToStep( STEP.REVIEW );
 			updateSummaryPanel();
