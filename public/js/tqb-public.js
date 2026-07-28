@@ -159,13 +159,11 @@
 
 		updateSummaryPanel();
 
-		// Call server to mark partial as abandoned (if any exists)
-		if ( state.partialSubmissionId ) {
-			var data = new FormData();
-			data.append( 'action', 'tqb_dismiss_partial' );
-			data.append( 'nonce', tqbData.nonceDismissPartial || '' );
-			fetch( tqbData.ajaxUrl, { method: 'POST', body: data } );
-		}
+		// Call server to abandon ALL in_progress partials for this IP
+		var data = new FormData();
+		data.append( 'action', 'tqb_dismiss_partial' );
+		data.append( 'nonce', tqbData.nonceDismissPartial || '' );
+		fetch( tqbData.ajaxUrl, { method: 'POST', body: data } );
 
 		goToStep( STEP.TYPE );
 	}
