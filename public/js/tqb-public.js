@@ -283,11 +283,14 @@
 		var lastStepName = stepNames[partialData.last_step] || 'Step ' + partialData.last_step;
 
 		banner.innerHTML = 
-			'<div style="background: #e8f5e9; border: 1px solid #4caf50; border-radius: 4px; padding: 15px; margin-bottom: 20px;">' +
-			'<strong>Welcome back!</strong> We found your quote in progress from this device.<br>' +
-			'Email: ' + partialData.contact_email + ' | Last step: ' + lastStepName + '<br><br>' +
-			'<button type="button" class="button button-primary" onclick="resumePartial(' + partialData.submission_id + ')">Resume My Quote</button> ' +
-			'<button type="button" class="button" onclick="dismissResumeBanner()">Start Fresh</button>' +
+			'<div class="tqb-resume-banner__content">' +
+			'<p class="tqb-resume-banner__title"><strong>Welcome back!</strong></p>' +
+			'<p class="tqb-resume-banner__message">We found your quote in progress from this device.</p>' +
+			'<p class="tqb-resume-banner__details">Email: ' + partialData.contact_email + ' | Last step: ' + lastStepName + '</p>' +
+			'<div class="tqb-resume-banner__actions">' +
+			'<button type="button" class="tqb-btn tqb-btn--primary" onclick="resumePartial(' + partialData.submission_id + ')">Resume My Quote</button>' +
+			'<button type="button" class="tqb-btn tqb-btn--ghost" onclick="dismissResumeBanner()">Start Fresh</button>' +
+			'</div>' +
 			'</div>';
 		banner.style.display = 'block';
 
@@ -1854,4 +1857,8 @@
 	}
 
 	updateSummaryPanel();
+
+	// Expose functions globally for inline onclick handlers
+	window.resumePartial = resumePartial;
+	window.dismissResumeBanner = dismissResumeBanner;
 } )();
