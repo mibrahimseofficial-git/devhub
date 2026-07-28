@@ -481,12 +481,16 @@ class TQB_Quote_Handler {
 	/**
 	 * Save partial form progress for abandoned quote follow-up.
 	 * Creates a new partial submission or updates existing one by email.
+	 * 
+	 * SECURITY: Only saves answers/selections, NOT contact info.
+	 * Contact info is locked after first entry to prevent someone from
+	 * modifying another person's info.
 	 *
 	 * @param string $email        Contact email
 	 * @param int    $step         Current step (1-4)
 	 * @param string $quote_types  JSON-encoded array of quote types
-	 * @param string $name         Contact name
-	 * @param string $phone        Contact phone
+	 * @param string $name         Contact name (ignored - locked from first save)
+	 * @param string $phone        Contact phone (ignored - locked from first save)
 	 * @param array  $answers      Answers array
 	 * @param array  $businesses   Businesses array
 	 *
@@ -507,7 +511,7 @@ class TQB_Quote_Handler {
 		// Check if status column exists
 		$column_exists = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'status'" );
 
-		// Build answers JSON
+		// Build answers JSON (only store selections, NOT contact info)
 		$answers_json = wp_json_encode( array(
 			'quote_types' => $quote_types,
 			'answers'     => $answers,
@@ -527,7 +531,7 @@ class TQB_Quote_Handler {
 		if ( $column_exists ) {
 			$existing = $wpdb->get_row(
 				$wpdb->prepare(
-					"SELECT id FROM {$table} WHERE contact_email = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
+					"SELECT id, contact_name, contact_phone FROM {$table} WHERE contact_email = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
 					$email
 				),
 				ARRAY_A
@@ -536,7 +540,7 @@ class TQB_Quote_Handler {
 			// No status column yet - just get the most recent by email
 			$existing = $wpdb->get_row(
 				$wpdb->prepare(
-					"SELECT id FROM {$table} WHERE contact_email = %s ORDER BY created_at DESC LIMIT 1",
+					"SELECT id, contact_name, contact_phone FROM {$table} WHERE contact_email = %s ORDER BY created_at DESC LIMIT 1",
 					$email
 				),
 				ARRAY_A
@@ -545,32 +549,29 @@ class TQB_Quote_Handler {
 
 		if ( $existing ) {
 			// Update existing partial submission
+			// SECURITY: Only update answers, NEVER overwrite contact info
 			$submission_id = $existing['id'];
 
 			if ( $column_exists ) {
 				$wpdb->update(
 					$table,
 					array(
-						'contact_name'   => $name,
-						'contact_phone'  => $phone,
 						'answers'        => $answers_json,
 						'last_completed_step' => $step,
 						'updated_at' => current_time( 'mysql' ),
 					),
 					array( 'id' => $submission_id ),
-					array( '%s', '%s', '%s', '%d', '%s' ),
+					array( '%s', '%d', '%s' ),
 					array( '%d' )
 				);
 			} else {
 				$wpdb->update(
 					$table,
 					array(
-						'contact_name'   => $name,
-						'contact_phone'  => $phone,
 						'answers'        => $answers_json,
 					),
 					array( 'id' => $submission_id ),
-					array( '%s', '%s', '%s' ),
+					array( '%s' ),
 					array( '%d' )
 				);
 			}
@@ -578,7 +579,7 @@ class TQB_Quote_Handler {
 			return $submission_id;
 		}
 
-		// Create new partial submission
+		// Create new partial submission (first time with contact info)
 		if ( $column_exists ) {
 			$result = $wpdb->insert(
 				$table,
