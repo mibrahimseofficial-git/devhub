@@ -150,9 +150,13 @@
 		.then( function ( result ) {
 			if ( result.success && result.data.submission_id ) {
 				state.partialSubmissionId = result.data.submission_id;
+				hideFormError();
 			} else if ( result.data && result.data.duplicate ) {
 				// Show duplicate email warning
 				showDuplicateEmailWarning( emailEl.value );
+			} else if ( result.data && result.data.message && result.data.message.indexOf( 'does not match' ) !== -1 ) {
+				// Contact info mismatch - show warning but allow form to continue
+				showContactMismatchWarning();
 			}
 		} )
 		.catch( function ( error ) {
@@ -172,6 +176,30 @@
 			errorEl.style.borderColor = '#ffc107';
 			errorEl.style.color = '#856404';
 			errorEl.hidden = false;
+		}
+	}
+
+	/**
+	 * Show warning when contact info doesn't match existing submission.
+	 */
+	function showContactMismatchWarning() {
+		var errorEl = document.getElementById( 'tqb-form-error' );
+		if ( errorEl ) {
+			errorEl.innerHTML = '<strong>Warning:</strong> The name and phone number don\'t match the existing submission for this email. Your changes cannot be saved. Please use the same name and phone number that was used originally, or contact us directly.';
+			errorEl.style.background = '#ffebee';
+			errorEl.style.borderColor = '#f44336';
+			errorEl.style.color = '#b71c1c';
+			errorEl.hidden = false;
+		}
+	}
+
+	/**
+	 * Hide the form error message.
+	 */
+	function hideFormError() {
+		var errorEl = document.getElementById( 'tqb-form-error' );
+		if ( errorEl ) {
+			errorEl.hidden = true;
 		}
 	}
 

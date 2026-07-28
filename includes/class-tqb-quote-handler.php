@@ -482,15 +482,15 @@ class TQB_Quote_Handler {
 	 * Save partial form progress for abandoned quote follow-up.
 	 * Creates a new partial submission or updates existing one by email.
 	 * 
-	 * SECURITY: Only saves answers/selections, NOT contact info.
-	 * Contact info is locked after first entry to prevent someone from
-	 * modifying another person's info.
+	 * SECURITY: Only allows updates if contact info matches.
+	 * This prevents someone from entering another person's email and
+	 * modifying their answers/selections.
 	 *
 	 * @param string $email        Contact email
 	 * @param int    $step         Current step (1-4)
 	 * @param string $quote_types  JSON-encoded array of quote types
-	 * @param string $name         Contact name (ignored - locked from first save)
-	 * @param string $phone        Contact phone (ignored - locked from first save)
+	 * @param string $name         Contact name (used for verification)
+	 * @param string $phone        Contact phone (used for verification)
 	 * @param array  $answers      Answers array
 	 * @param array  $businesses   Businesses array
 	 *
@@ -511,7 +511,7 @@ class TQB_Quote_Handler {
 		// Check if status column exists
 		$column_exists = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'status'" );
 
-		// Build answers JSON (only store selections, NOT contact info)
+		// Build answers JSON
 		$answers_json = wp_json_encode( array(
 			'quote_types' => $quote_types,
 			'answers'     => $answers,
@@ -548,8 +548,23 @@ class TQB_Quote_Handler {
 		}
 
 		if ( $existing ) {
-			// Update existing partial submission
-			// SECURITY: Only update answers, NEVER overwrite contact info
+			// SECURITY: Verify contact info matches before allowing update
+			// This prevents someone from modifying another person's form
+			$name_match = strcasecmp( trim( $existing['contact_name'] ), trim( $name ) ) === 0;
+			$phone_match = strcasecmp( trim( $existing['contact_phone'] ), trim( $phone ) ) === 0;
+
+			// If contact info doesn't match, don't allow updates
+			// Return the existing ID but don't modify anything
+			if ( ! $name_match || ! $phone_match ) {
+				// Contact info mismatch - return existing ID but don't update
+				// This allows the form to continue but protects existing data
+				return new WP_Error( 
+					'contact_mismatch', 
+					'Contact information does not match existing submission. Please use the original name and phone.' 
+				);
+			}
+
+			// Contact info matches - safe to update
 			$submission_id = $existing['id'];
 
 			if ( $column_exists ) {
