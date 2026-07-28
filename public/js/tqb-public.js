@@ -387,6 +387,22 @@
 		}
 		// Clear the partial data
 		window.tqbPartialData = null;
+
+		// Call server to mark partial as abandoned
+		var data = new FormData();
+		data.append( 'action', 'tqb_dismiss_partial' );
+		data.append( 'nonce', tqbData.nonceDismissPartial || '' );
+
+		fetch( tqbData.ajaxUrl, {
+			method: 'POST',
+			body: data,
+		} )
+		.then( function ( response ) {
+			return response.json();
+		} )
+		.catch( function ( error ) {
+			console.log( 'Dismiss partial failed:', error );
+		} );
 	}
 
 	/**

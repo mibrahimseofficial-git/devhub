@@ -403,17 +403,21 @@ class TQB_Quote_Handler {
 		global $wpdb;
 		$table = $wpdb->prefix . 'tqb_submissions';
 
-		// First, try to find a record with status = 'in_progress'
-		$result = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT id FROM {$table} WHERE contact_email = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
-				$email
-			)
-		);
+		// Check if status column exists
+		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$table}", ARRAY_A );
+		$column_names = wp_list_pluck( $columns, 'Field' );
+		$has_status_column = in_array( 'status', $column_names, true );
 
-		// If not found, try to find a record with NULL calculated_total (partial submission without proper status)
-		// This handles old records that might have incorrect status values
-		if ( ! $result ) {
+		// First, try to find a record with status = 'in_progress'
+		if ( $has_status_column ) {
+			$result = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT id FROM {$table} WHERE contact_email = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
+					$email
+				)
+			);
+		} else {
+			// Fallback for old databases without status column
 			$result = $wpdb->get_var(
 				$wpdb->prepare(
 					"SELECT id FROM {$table} WHERE contact_email = %s AND calculated_total IS NULL ORDER BY created_at DESC LIMIT 1",

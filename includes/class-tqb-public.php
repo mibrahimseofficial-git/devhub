@@ -16,6 +16,7 @@ class TQB_Public {
 	const NONCE_ACTION = 'tqb_quote_nonce';
 	const NONCE_ACTION_SAVE_PARTIAL = 'tqb_save_partial_nonce';
 	const NONCE_ACTION_CHECK_PARTIAL = 'tqb_check_partial_nonce';
+	const NONCE_ACTION_DISMISS_PARTIAL = 'tqb_dismiss_partial_nonce';
 
 	/**
 	 * Rate limiting settings.
@@ -38,6 +39,8 @@ class TQB_Public {
 		add_action( 'wp_ajax_nopriv_tqb_save_partial', array( $this, 'handle_save_partial' ) );
 		add_action( 'wp_ajax_tqb_check_partial_by_ip', array( $this, 'handle_check_partial_by_ip' ) );
 		add_action( 'wp_ajax_nopriv_tqb_check_partial_by_ip', array( $this, 'handle_check_partial_by_ip' ) );
+		add_action( 'wp_ajax_tqb_dismiss_partial', array( $this, 'handle_dismiss_partial' ) );
+		add_action( 'wp_ajax_nopriv_tqb_dismiss_partial', array( $this, 'handle_dismiss_partial' ) );
 	}
 
 	/**
@@ -74,6 +77,7 @@ class TQB_Public {
 			'nonce'           => wp_create_nonce( self::NONCE_ACTION ),
 			'nonceSavePartial' => wp_create_nonce( self::NONCE_ACTION_SAVE_PARTIAL ),
 			'nonceCheckPartial' => wp_create_nonce( self::NONCE_ACTION_CHECK_PARTIAL ),
+			'nonceDismissPartial' => wp_create_nonce( self::NONCE_ACTION_DISMISS_PARTIAL ),
 			'individualItems' => $this->format_items_for_js( TQB_DB::get_line_items( 'individual', true ) ),
 			'businessItems'   => $this->format_items_for_js( TQB_DB::get_line_items( 'business', true ) ),
 			'assetBands'      => array(
@@ -382,6 +386,52 @@ class TQB_Public {
 			'answers' => $answers_data['answers'] ?? array(),
 			'businesses' => $answers_data['businesses'] ?? array(),
 		) );
+	}
+
+	/**
+	 * Dismisses/abandons the current partial submission so user can start fresh.
+	 */
+	public function handle_dismiss_partial() {
+		$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION_DISMISS_PARTIAL ) ) {
+			wp_send_json_error( array( 'message' => 'Security verification failed.' ), 403 );
+			return;
+		}
+
+		$user_ip = $this->get_client_ip();
+
+		if ( empty( $user_ip ) ) {
+			wp_send_json_success();
+			return;
+		}
+
+		// Mark the partial as abandoned instead of deleting (for audit purposes)
+		global $wpdb;
+		$table = $wpdb->prefix . 'tqb_submissions';
+
+		// Check if status column exists
+		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$table}", ARRAY_A );
+		$column_names = wp_list_pluck( $columns, 'Field' );
+		$has_status_column = in_array( 'status', $column_names, true );
+
+		if ( $has_status_column ) {
+			$wpdb->update(
+				$table,
+				array( 'status' => 'abandoned' ),
+				array( 'user_ip' => $user_ip, 'status' => 'in_progress' ),
+				array( '%s' ),
+				array( '%s', '%s' )
+			);
+		} else {
+			// Fallback: delete the partial if no status column
+			$wpdb->delete(
+				$table,
+				array( 'user_ip' => $user_ip, 'calculated_total' => null ),
+				array( '%s', 'NULL' )
+			);
+		}
+
+		wp_send_json_success();
 	}
 
 	/**
