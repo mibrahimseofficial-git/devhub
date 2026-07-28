@@ -79,45 +79,28 @@ class TQB_Activator {
 		$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
 		$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
 
-		if ( ! in_array( 'status', $sub_column_names, true ) ) {
-			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'completed' AFTER custom_quote_reason" );
-		}
+		// Helper to safely add column (use AFTER only if referenced column exists)
+		$add_column = function( $col_name, $col_def, $after = null ) use ( $wpdb, $submissions_table, $sub_column_names ) {
+			if ( in_array( $col_name, $sub_column_names, true ) ) {
+				return;
+			}
+			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN {$col_name} {$col_def}";
+			if ( $after && in_array( $after, $sub_column_names, true ) ) {
+				$sql .= " AFTER {$after}";
+			}
+			$wpdb->query( $sql );
+		};
 
-		if ( ! in_array( 'last_completed_step', $sub_column_names, true ) ) {
-			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN last_completed_step INT NOT NULL DEFAULT 0 AFTER status" );
-		}
-
-		if ( ! in_array( 'reminder_email_sent', $sub_column_names, true ) ) {
-			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN reminder_email_sent TINYINT(1) NOT NULL DEFAULT 0 AFTER confirmation_email_sent" );
-		}
-
-		if ( ! in_array( 'reminder_email_sent_at', $sub_column_names, true ) ) {
-			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN reminder_email_sent_at DATETIME NULL AFTER reminder_email_sent" );
-		}
-
-		if ( ! in_array( 'followup_email_sent', $sub_column_names, true ) ) {
-			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN followup_email_sent TINYINT(1) NOT NULL DEFAULT 0 AFTER reminder_email_sent_at" );
-		}
-
-		if ( ! in_array( 'followup_email_sent_at', $sub_column_names, true ) ) {
-			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN followup_email_sent_at DATETIME NULL AFTER followup_email_sent" );
-		}
-
-		if ( ! in_array( 'final_email_sent', $sub_column_names, true ) ) {
-			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN final_email_sent TINYINT(1) NOT NULL DEFAULT 0 AFTER followup_email_sent_at" );
-		}
-
-		if ( ! in_array( 'final_email_sent_at', $sub_column_names, true ) ) {
-			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN final_email_sent_at DATETIME NULL AFTER final_email_sent" );
-		}
-
-		if ( ! in_array( 'user_ip', $sub_column_names, true ) ) {
-			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN user_ip VARCHAR(45) NULL AFTER last_completed_step" );
-		}
-
-		if ( ! in_array( 'updated_at', $sub_column_names, true ) ) {
-			$wpdb->query( "ALTER TABLE {$submissions_table} ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at" );
-		}
+		$add_column( 'status', "VARCHAR(20) NOT NULL DEFAULT 'completed'", 'custom_quote_reason' );
+		$add_column( 'last_completed_step', 'INT NOT NULL DEFAULT 0', 'status' );
+		$add_column( 'reminder_email_sent', 'TINYINT(1) NOT NULL DEFAULT 0', 'confirmation_email_sent' );
+		$add_column( 'reminder_email_sent_at', 'DATETIME NULL', 'reminder_email_sent' );
+		$add_column( 'followup_email_sent', 'TINYINT(1) NOT NULL DEFAULT 0', 'reminder_email_sent_at' );
+		$add_column( 'followup_email_sent_at', 'DATETIME NULL', 'followup_email_sent' );
+		$add_column( 'final_email_sent', 'TINYINT(1) NOT NULL DEFAULT 0', 'followup_email_sent_at' );
+		$add_column( 'final_email_sent_at', 'DATETIME NULL', 'final_email_sent' );
+		$add_column( 'updated_at', 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP', 'created_at' );
+		$add_column( 'user_ip', 'VARCHAR(45) NULL', 'updated_at' );
 
 		// --- Add abandoned quote email settings ---
 		if ( false === get_option( 'tqb_enable_abandoned_emails', false ) ) {
