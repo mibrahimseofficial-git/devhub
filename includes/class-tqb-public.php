@@ -238,9 +238,36 @@ class TQB_Public {
 		// The submission is identified by email
 
 		$email = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
+		$name = isset( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '';
+		$phone = isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : '';
+
+		// Validate required fields
+		$errors = array();
+
+		if ( empty( $name ) ) {
+			$errors['name'] = 'Full name is required';
+		} elseif ( strlen( trim( $name ) ) < 2 ) {
+			$errors['name'] = 'Please enter a valid name';
+		}
 
 		if ( empty( $email ) ) {
-			wp_send_json_error( array( 'message' => 'Email is required.' ), 400 );
+			$errors['email'] = 'Email address is required';
+		} elseif ( ! is_email( $email ) ) {
+			$errors['email'] = 'Please enter a valid email address';
+		}
+
+		if ( empty( $phone ) ) {
+			$errors['phone'] = 'Phone number is required';
+		} elseif ( ! $this->is_valid_phone( $phone ) ) {
+			$errors['phone'] = 'Please enter a valid phone number';
+		}
+
+		// Return validation errors if any
+		if ( ! empty( $errors ) ) {
+			wp_send_json_error( array(
+				'message' => 'Please fill in all required fields correctly.',
+				'validation_errors' => $errors,
+			), 400 );
 			return;
 		}
 
@@ -258,16 +285,14 @@ class TQB_Public {
 		$quote_types = isset( $_POST['quote_types'] ) ? sanitize_text_field( wp_unslash( $_POST['quote_types'] ) ) : '';
 		$answers = isset( $_POST['answers'] ) ? (array) $_POST['answers'] : array();
 		$businesses = isset( $_POST['businesses'] ) ? (array) $_POST['businesses'] : array();
-		$contact_name = isset( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '';
-		$contact_phone = isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : '';
 		$user_ip = $this->get_client_ip();
 
 		$result = TQB_Quote_Handler::save_partial_submission(
 			$email,
 			$step,
 			$quote_types,
-			$contact_name,
-			$contact_phone,
+			$name,
+			$phone,
 			$answers,
 			$businesses,
 			$user_ip
@@ -381,6 +406,20 @@ class TQB_Public {
 		}
 
 		return '0.0.0.0';
+	}
+
+	/**
+	 * Validates a phone number.
+	 * Must have at least 10 digits.
+	 *
+	 * @param string $phone The phone number to validate.
+	 * @return bool True if valid, false otherwise.
+	 */
+	private function is_valid_phone( $phone ) {
+		// Remove all non-digit characters
+		$digits_only = preg_replace( '/\D/', '', $phone );
+		// Must have at least 10 digits
+		return strlen( $digits_only ) >= 10;
 	}
 
 	/**

@@ -151,12 +151,17 @@
 			if ( result.success && result.data.submission_id ) {
 				state.partialSubmissionId = result.data.submission_id;
 				hideFormError();
+			} else if ( result.data && result.data.validation_errors ) {
+				// Server-side validation errors
+				showServerValidationErrors( result.data.validation_errors );
 			} else if ( result.data && result.data.duplicate ) {
 				showDuplicateEmailWarning( emailEl.value );
 			} else if ( result.data && result.data.message && result.data.message.indexOf( 'does not match' ) !== -1 ) {
 				showContactMismatchWarning();
 			} else if ( result.data && result.data.ip_conflict ) {
 				showIPConflictWarning( result.data.message );
+			} else if ( result.data && result.data.message ) {
+				showFormError( result.data.message );
 			}
 		} )
 		.catch( function ( error ) {
@@ -308,6 +313,20 @@
 	}
 
 	/**
+	 * Show the form error message.
+	 */
+	function showFormError( message ) {
+		var errorEl = document.getElementById( 'tqb-form-error' );
+		if ( errorEl ) {
+			errorEl.innerHTML = '<strong>Error:</strong> ' + message;
+			errorEl.style.background = '#ffebee';
+			errorEl.style.borderColor = '#dc3545';
+			errorEl.style.color = '#dc3545';
+			errorEl.hidden = false;
+		}
+	}
+
+	/**
 	 * Hide the form error message.
 	 */
 	function hideFormError() {
@@ -449,6 +468,17 @@
 	[ 'tqb-contact-name', 'tqb-contact-email', 'tqb-contact-phone' ].forEach( function ( id ) {
 		var field = document.getElementById( id );
 		field.addEventListener( 'input', updateSummaryPanel );
+		
+		// Real-time validation as user types
+		field.addEventListener( 'input', function() {
+			clearFieldError( field );
+			hideFormError();
+		} );
+		
+		// Validate on blur
+		field.addEventListener( 'blur', function() {
+			validateSingleField( field );
+		} );
 	} );
 
 	// Save partial progress when email is entered (capture leads who leave without clicking Continue)
@@ -461,18 +491,179 @@
 		} );
 	}
 
+	/**
+	 * Validate a single field and show inline error if invalid.
+	 */
+	function validateSingleField( field ) {
+		var fieldId = field.id;
+		var value = field.value.trim();
+		
+		if ( fieldId === 'tqb-contact-name' ) {
+			if ( ! value ) {
+				showFieldError( field, 'Full name is required' );
+				return false;
+			} else if ( value.length < 2 ) {
+				showFieldError( field, 'Please enter a valid name' );
+				return false;
+			}
+		} else if ( fieldId === 'tqb-contact-email' ) {
+			if ( ! value ) {
+				showFieldError( field, 'Email address is required' );
+				return false;
+			} else if ( ! isValidEmail( value ) ) {
+				showFieldError( field, 'Please enter a valid email (e.g. name@example.com)' );
+				return false;
+			}
+		} else if ( fieldId === 'tqb-contact-phone' ) {
+			if ( ! value ) {
+				showFieldError( field, 'Phone number is required' );
+				return false;
+			} else if ( ! isValidPhone( value ) ) {
+				showFieldError( field, 'Please enter a valid phone number' );
+				return false;
+			}
+		}
+		
+		return true;
+	}
+
+	/**
+	 * Validate contact form fields with clear error messages.
+	 * @returns {boolean} Whether all fields are valid
+	 */
 	function validateContactFields() {
 		var name = document.getElementById( 'tqb-contact-name' );
 		var email = document.getElementById( 'tqb-contact-email' );
 		var phone = document.getElementById( 'tqb-contact-phone' );
-
-		var valid = name.value.trim() !== '' && email.checkValidity() && phone.value.trim() !== '';
-
+		
+		var errors = [];
+		var valid = true;
+		
+		// Reset field styles
 		[ name, email, phone ].forEach( function ( field ) {
-			field.style.borderColor = field.value.trim() === '' ? '#B3261E' : '';
+			field.style.borderColor = '';
+			clearFieldError( field );
 		} );
-
+		
+		// Validate name
+		if ( ! name.value.trim() ) {
+			errors.push( 'Please enter your full name.' );
+			showFieldError( name, 'Full name is required' );
+			valid = false;
+		} else if ( name.value.trim().length < 2 ) {
+			errors.push( 'Please enter a valid name.' );
+			showFieldError( name, 'Please enter a valid name' );
+			valid = false;
+		}
+		
+		// Validate email
+		if ( ! email.value.trim() ) {
+			errors.push( 'Please enter your email address.' );
+			showFieldError( email, 'Email address is required' );
+			valid = false;
+		} else if ( ! isValidEmail( email.value.trim() ) ) {
+			errors.push( 'Please enter a valid email address.' );
+			showFieldError( email, 'Please enter a valid email (e.g. name@example.com)' );
+			valid = false;
+		}
+		
+		// Validate phone
+		if ( ! phone.value.trim() ) {
+			errors.push( 'Please enter your phone number.' );
+			showFieldError( phone, 'Phone number is required' );
+			valid = false;
+		} else if ( ! isValidPhone( phone.value.trim() ) ) {
+			errors.push( 'Please enter a valid phone number.' );
+			showFieldError( phone, 'Please enter a valid phone number' );
+			valid = false;
+		}
+		
+		// Show summary error if any fields are invalid
+		if ( ! valid ) {
+			showFormError( 'Please fill in all required fields correctly before continuing.' );
+		} else {
+			hideFormError();
+		}
+		
 		return valid;
+	}
+
+	/**
+	 * Show error message below a field.
+	 */
+	function showFieldError( field, message ) {
+		field.style.borderColor = '#dc3545';
+		field.classList.add( 'tqb-field--error' );
+		
+		// Remove existing error message
+		var existingError = field.parentNode.querySelector( '.tqb-field-error' );
+		if ( existingError ) {
+			existingError.remove();
+		}
+		
+		// Add error message
+		var errorDiv = document.createElement( 'div' );
+		errorDiv.className = 'tqb-field-error';
+		errorDiv.textContent = message;
+		errorDiv.style.color = '#dc3545';
+		errorDiv.style.fontSize = '12px';
+		errorDiv.style.marginTop = '4px';
+		field.parentNode.appendChild( errorDiv );
+	}
+
+	/**
+	 * Show server-side validation errors.
+	 */
+	function showServerValidationErrors( errors ) {
+		// Map error keys to field IDs
+		var fieldMap = {
+			'name': 'tqb-contact-name',
+			'email': 'tqb-contact-email',
+			'phone': 'tqb-contact-phone'
+		};
+		
+		// Clear all existing errors first
+		[ 'tqb-contact-name', 'tqb-contact-email', 'tqb-contact-phone' ].forEach( function( id ) {
+			var field = document.getElementById( id );
+			if ( field ) {
+				clearFieldError( field );
+			}
+		} );
+		
+		// Show errors for each field
+		Object.keys( errors ).forEach( function( key ) {
+			var fieldId = fieldMap[ key ];
+			if ( fieldId ) {
+				var field = document.getElementById( fieldId );
+				if ( field ) {
+					showFieldError( field, errors[ key ] );
+				}
+			}
+		} );
+		
+		// Show summary error
+		showFormError( 'Please fill in all required fields correctly.' );
+	}
+
+	/**
+	 * Clear error message from a field.
+	 */
+	function clearFieldError( field ) {
+		field.classList.remove( 'tqb-field--error' );
+		var existingError = field.parentNode.querySelector( '.tqb-field-error' );
+		if ( existingError ) {
+			existingError.remove();
+		}
+	}
+
+	/**
+	 * Validate phone number (basic validation).
+	 */
+	function isValidPhone( phone ) {
+		// Remove all non-digit characters for validation
+		var digitsOnly = phone.replace( /\D/g, '' );
+		// Must be at least 10 digits
+		return digitsOnly.length >= 10;
 	}
 
 	// ---------------------------------------------------------------------
