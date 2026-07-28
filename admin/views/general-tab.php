@@ -114,13 +114,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 								<p class="description">When enabled, incomplete quotes will receive reminder emails at the intervals below.</p>
 						</td>
 				</tr>
-				<tr>
-						<th scope="row"><label for="tqb_office_address">Office Address</label></th>
-						<td>
-								<textarea id="tqb_office_address" name="office_address" rows="3" class="large-text"><?php echo esc_textarea( $office_address ); ?></textarea>
-								<p class="description">Used in follow-up email templates.</p>
-						</td>
-				</tr>
 		</table>
 
 		<h3 style="margin-top: 20px;">Email Timing</h3>

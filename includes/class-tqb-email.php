@@ -297,7 +297,6 @@ class TQB_Email {
 		$site_name = get_bloginfo( 'name' );
 		$quote_page_url = get_permalink( get_queried_object_id() );
 		$scheduling_link = get_option( 'tqb_scheduling_link', '' );
-		$office_address = nl2br( esc_html( get_option( 'tqb_office_address', '' ) ) );
 
 		$body  = '<p>Hi ' . esc_html( $name ) . ',</p>';
 		$body .= '<p>We wanted to check in on your tax quote. Tax season can be stressful, and we\'re here to make it easier.</p>';
@@ -305,10 +304,6 @@ class TQB_Email {
 		
 		if ( ! empty( $scheduling_link ) ) {
 			$body .= '<p><a href="' . esc_url( $scheduling_link ) . '" style="background:#c9a84c;color:#1e3a5f;padding:12px 24px;text-decoration:none;border-radius:4px;display:inline-block;font-weight:bold;">Schedule a Free Call</a></p>';
-		}
-
-		if ( ! empty( $office_address ) ) {
-			$body .= '<p>Or stop by our office:<br />' . $office_address . '</p>';
 		}
 
 		$body .= '<p>Of course, you can always <a href="' . esc_url( $quote_page_url ) . '">complete your quote online</a> when it\'s convenient.</p>';
