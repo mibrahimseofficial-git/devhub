@@ -1759,15 +1759,31 @@
 			container.appendChild( next );
 		}
 
-		var againBtn = document.createElement( 'button' );
-		againBtn.type = 'button';
-		againBtn.className = 'tqb-btn tqb-btn--ghost';
-		againBtn.style.marginTop = '20px';
-		againBtn.textContent = 'Get Another Quote';
-		againBtn.addEventListener( 'click', function () {
-			resetAll();
-		} );
-		container.appendChild( againBtn );
+			// Create CTA wrapper for both buttons
+			var ctaWrapper = document.createElement( 'div' );
+			ctaWrapper.className = 'tqb-result__cta';
+
+			var againBtn = document.createElement( 'button' );
+			againBtn.type = 'button';
+			againBtn.className = 'tqb-btn tqb-btn--ghost';
+			againBtn.textContent = 'Get Another Quote';
+			againBtn.addEventListener( 'click', function () {
+				resetAll();
+			} );
+			ctaWrapper.appendChild( againBtn );
+
+			// Add Schedule Call button if available (custom quote case)
+			if ( data.schedulingLink ) {
+				var link = document.createElement( 'a' );
+				link.href = data.schedulingLink;
+				link.className = 'tqb-btn tqb-btn--primary';
+				link.target = '_blank';
+				link.rel = 'noopener noreferrer';
+				link.textContent = 'Schedule a Call';
+				ctaWrapper.appendChild( link );
+			}
+
+			container.appendChild( ctaWrapper );
 	}
 
 	function formatCurrency( amount ) {
