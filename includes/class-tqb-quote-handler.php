@@ -15,6 +15,43 @@ if ( ! defined( 'ABSPATH' ) ) {
 class TQB_Quote_Handler {
 
 	/**
+	 * Cached column existence checks to avoid repeated INFORMATION_SCHEMA queries.
+	 */
+	private static $column_cache = array();
+
+	/**
+	 * Get cached column existence check.
+	 */
+	private static function column_exists( $column_name ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tqb_submissions';
+
+		$cache_key = $table . '.' . $column_name;
+
+		if ( isset( self::$column_cache[ $cache_key ] ) ) {
+			return self::$column_cache[ $cache_key ];
+		}
+
+		$exists = (bool) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME = %s",
+				$table,
+				$column_name
+			)
+		);
+
+		self::$column_cache[ $cache_key ] = $exists;
+		return $exists;
+	}
+
+	/**
+	 * Clear the column cache (useful for testing).
+	 */
+	public static function clear_column_cache() {
+		self::$column_cache = array();
+	}
+
+	/**
 	 * Process an Individual quote submission end to end: fetch config,
 	 * calculate, save to DB. Does NOT send emails or sync HubSpot — those
 	 * are separate phases, hooked in afterward via the returned submission ID.
@@ -259,9 +296,9 @@ class TQB_Quote_Handler {
 		$table = $wpdb->prefix . 'tqb_submissions';
 
 		// Check if status column exists
-		$column_exists = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'status'" );
+		$has_status_column = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'status'" );
 
-		if ( $column_exists ) {
+		if ( $has_status_column ) {
 			// Check for completed submission with this email
 			$result = $wpdb->get_row(
 				$wpdb->prepare(
@@ -296,9 +333,9 @@ class TQB_Quote_Handler {
 		$table = $wpdb->prefix . 'tqb_submissions';
 
 		// Check if user_ip column exists
-		$column_exists = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'user_ip'" );
+		$has_status_column = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'user_ip'" );
 
-		if ( ! $column_exists ) {
+		if ( ! $has_status_column ) {
 			return false;
 		}
 
@@ -326,9 +363,9 @@ class TQB_Quote_Handler {
 		$table = $wpdb->prefix . 'tqb_submissions';
 
 		// Check if user_ip column exists
-		$column_exists = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'user_ip'" );
+		$has_status_column = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'user_ip'" );
 
-		if ( ! $column_exists ) {
+		if ( ! $has_status_column ) {
 			return false;
 		}
 
@@ -480,9 +517,9 @@ class TQB_Quote_Handler {
 
 		// Update the partial submission to completed
 		$now = current_time( 'mysql' );
-		$column_exists = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'status'" );
+		$has_status_column = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'status'" );
 
-		if ( $column_exists ) {
+		if ( $has_status_column ) {
 			$wpdb->update(
 				$table,
 				array(
@@ -580,11 +617,9 @@ class TQB_Quote_Handler {
 		global $wpdb;
 		$table = $wpdb->prefix . 'tqb_submissions';
 
-		// Check if status column exists
-		$column_exists = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'status'" );
-
-		// Check if user_ip column exists
-		$has_ip_column = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'user_ip'" );
+		// Use cached column existence checks
+		$has_status_column = self::column_exists( 'status' );
+		$has_ip_column = self::column_exists( 'user_ip' );
 
 		// Build answers JSON
 		$answers_json = wp_json_encode( array(
@@ -603,43 +638,44 @@ class TQB_Quote_Handler {
 		}
 
 		// Check for existing partial submission by email
-		// First try to find a record with status = 'in_progress'
-		$existing = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT id, contact_name, contact_phone FROM {$table} WHERE contact_email = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
-				$email
-			),
-			ARRAY_A
-		);
-
-		// If not found, try to find a record with NULL calculated_total (partial without proper status)
-		// This handles old records that might have incorrect status values
-		if ( ! $existing ) {
+			// First try to find a record with status = 'in_progress'
 			$existing = $wpdb->get_row(
 				$wpdb->prepare(
-					"SELECT id, contact_name, contact_phone FROM {$table} WHERE contact_email = %s AND calculated_total IS NULL ORDER BY created_at DESC LIMIT 1",
+					"SELECT id, contact_name, contact_phone FROM {$table} WHERE contact_email = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1 ",
 					$email
 				),
 				ARRAY_A
 			);
-		}
 
-		if ( $existing ) {
-			// SECURITY: Verify contact info matches before allowing update
-			// This prevents someone from modifying another person's form
-			$name_match = strcasecmp( trim( $existing['contact_name'] ), trim( $name ) ) === 0;
-			$phone_match = strcasecmp( trim( $existing['contact_phone'] ), trim( $phone ) ) === 0;
-
-			// If contact info doesn't match, don't allow updates
-			if ( ! $name_match || ! $phone_match ) {
-				return new WP_Error( 
-					'contact_mismatch', 
-					'Contact information does not match existing submission. Please use the original name and phone.' 
+			// If not found, try to find a record with NULL calculated_total (partial without proper status)
+			// This handles old records that might have incorrect status values
+			if ( ! $existing ) {
+				$existing = $wpdb->get_row(
+					$wpdb->prepare(
+						"SELECT id, contact_name, contact_phone FROM {$table} WHERE contact_email = %s AND calculated_total IS NULL ORDER BY created_at DESC LIMIT 1 ",
+						$email
+					),
+					ARRAY_A
 				);
 			}
 
-			// Contact info matches - safe to update
-			$submission_id = $existing['id'];
+			if ( $existing ) {
+				// SECURITY: Verify contact info matches before allowing update
+				// This prevents someone from modifying another person's form
+				$name_match = strcasecmp( trim( $existing['contact_name'] ), trim( $name ) ) === 0;
+				$phone_match = strcasecmp( trim( $existing['contact_phone'] ), trim( $phone ) ) === 0;
+
+				// If contact info doesn't match, don't allow updates
+				if ( ! $name_match || ! $phone_match ) {
+					$wpdb->query( 'ROLLBACK' );
+					return new WP_Error( 
+						'contact_mismatch', 
+						'Contact information does not match existing submission. Please use the original name and phone.' 
+					);
+				}
+
+				// Contact info matches - safe to update
+				$submission_id = $existing['id'];
 
 			$update_data = array(
 				'answers'        => $answers_json,
@@ -648,7 +684,7 @@ class TQB_Quote_Handler {
 			);
 			
 			// Update status to in_progress if the column exists (handles old records with incorrect status)
-			if ( $column_exists ) {
+			if ( $has_status_column ) {
 				$update_data['status'] = 'in_progress';
 			}
 
@@ -658,7 +694,7 @@ class TQB_Quote_Handler {
 			}
 
 			$update_format = array( '%s', '%d', '%s' );
-			if ( $column_exists ) {
+			if ( $has_status_column ) {
 				$update_format[] = '%s';
 			}
 			if ( $has_ip_column && ! empty( $user_ip ) ) {
@@ -709,7 +745,7 @@ class TQB_Quote_Handler {
 
 		$insert_format = array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d' );
 
-		if ( $column_exists ) {
+		if ( $has_status_column ) {
 			$insert_data['status'] = 'in_progress';
 			$insert_data['last_completed_step'] = $step;
 			$insert_format = array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%d' );

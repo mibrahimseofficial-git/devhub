@@ -138,6 +138,7 @@
 
 		var data = new FormData();
 		data.append( 'action', 'tqb_save_partial' );
+		data.append( 'nonce', tqbData.nonceSavePartial || '' );
 		data.append( 'email', emailEl.value );
 		data.append( 'name', nameEl ? nameEl.value : '' );
 		data.append( 'phone', phoneEl ? phoneEl.value : '' );
@@ -181,6 +182,7 @@
 	function checkExistingPartialByIP() {
 		var data = new FormData();
 		data.append( 'action', 'tqb_check_partial_by_ip' );
+		data.append( 'nonce', tqbData.nonceCheckPartial || '' );
 
 		fetch( tqbData.ajaxUrl, {
 			method: 'POST',

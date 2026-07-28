@@ -14,6 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 class TQB_Public {
 
 	const NONCE_ACTION = 'tqb_quote_nonce';
+	const NONCE_ACTION_SAVE_PARTIAL = 'tqb_save_partial_nonce';
+	const NONCE_ACTION_CHECK_PARTIAL = 'tqb_check_partial_nonce';
 
 	/**
 	 * Rate limiting settings.
@@ -22,6 +24,11 @@ class TQB_Public {
 	 */
 	const RATE_LIMIT_MAX = 5;
 	const RATE_LIMIT_WINDOW = HOUR_IN_SECONDS;
+
+	/**
+	 * Cached column existence checks to avoid repeated INFORMATION_SCHEMA queries.
+	 */
+	private static $column_cache = array();
 
 	public function __construct() {
 		add_shortcode( 'tavola_quote_builder', array( $this, 'render_shortcode' ) );
@@ -65,6 +72,8 @@ class TQB_Public {
 		wp_localize_script( 'tqb-public', 'tqbData', array(
 			'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
 			'nonce'           => wp_create_nonce( self::NONCE_ACTION ),
+			'nonceSavePartial' => wp_create_nonce( self::NONCE_ACTION_SAVE_PARTIAL ),
+			'nonceCheckPartial' => wp_create_nonce( self::NONCE_ACTION_CHECK_PARTIAL ),
 			'individualItems' => $this->format_items_for_js( TQB_DB::get_line_items( 'individual', true ) ),
 			'businessItems'   => $this->format_items_for_js( TQB_DB::get_line_items( 'business', true ) ),
 			'assetBands'      => array(
@@ -234,12 +243,21 @@ class TQB_Public {
 	 * Called via AJAX when user completes each step.
 	 */
 	public function handle_save_partial() {
-		// Don't check nonce for public users - we want to track even without login
-		// The submission is identified by email
+		// Verify CSRF token
+		$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION_SAVE_PARTIAL ) ) {
+			wp_send_json_error( array( 'message' => 'Security verification failed. Please refresh the page and try again.' ), 403 );
+			return;
+		}
 
+		// Input length limits to prevent abuse
 		$email = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
 		$name = isset( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '';
 		$phone = isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : '';
+
+		// Enforce length limits
+		$name = mb_substr( $name, 0, 100 );
+		$phone = mb_substr( $phone, 0, 20 );
 
 		// Validate required fields
 		$errors = array();
@@ -281,6 +299,7 @@ class TQB_Public {
 
 		$step = isset( $_POST['step'] ) ? absint( $_POST['step'] ) : 1;
 		$quote_types = isset( $_POST['quote_types'] ) ? sanitize_text_field( wp_unslash( $_POST['quote_types'] ) ) : '';
+		$quote_types = mb_substr( $quote_types, 0, 500 ); // Limit size
 		$answers = isset( $_POST['answers'] ) ? (array) $_POST['answers'] : array();
 		$businesses = isset( $_POST['businesses'] ) ? (array) $_POST['businesses'] : array();
 		$user_ip = $this->get_client_ip();
@@ -308,6 +327,11 @@ class TQB_Public {
 				return;
 			}
 			
+			if ( $error_code === 'db_error' ) {
+				// Log detailed error for debugging
+				error_log( 'TQB_Email: Database error in save_partial: ' . $message );
+			}
+			
 			wp_send_json_error( array( 'message' => $message ), 400 );
 			return;
 		}
@@ -323,6 +347,13 @@ class TQB_Public {
 	 * Called via AJAX when page loads.
 	 */
 	public function handle_check_partial_by_ip() {
+		// Verify CSRF token
+		$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION_CHECK_PARTIAL ) ) {
+			wp_send_json_error( array( 'message' => 'Security verification failed.' ), 403 );
+			return;
+		}
+
 		$user_ip = $this->get_client_ip();
 
 		if ( empty( $user_ip ) ) {
