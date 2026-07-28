@@ -258,8 +258,6 @@ class TQB_Public {
 
 		if ( empty( $phone ) ) {
 			$errors['phone'] = 'Phone number is required';
-		} elseif ( ! $this->is_valid_phone( $phone ) ) {
-			$errors['phone'] = 'Please enter a valid phone number';
 		}
 
 		// Return validation errors if any
@@ -406,20 +404,6 @@ class TQB_Public {
 		}
 
 		return '0.0.0.0';
-	}
-
-	/**
-	 * Validates a phone number.
-	 * Must have at least 10 digits.
-	 *
-	 * @param string $phone The phone number to validate.
-	 * @return bool True if valid, false otherwise.
-	 */
-	private function is_valid_phone( $phone ) {
-		// Remove all non-digit characters
-		$digits_only = preg_replace( '/\D/', '', $phone );
-		// Must have at least 10 digits
-		return strlen( $digits_only ) >= 10;
 	}
 
 	/**

@@ -21,6 +21,42 @@ function tqb_get_display_status( $status ) {
 		return array( 'label' => 'Unknown', 'class' => 'gray' );
 	}
 }
+
+// Build base URL for filters
+function tqb_build_filter_url( $params = array() ) {
+	$base_url = admin_url( 'admin.php?page=tqb-settings&tab=submissions' );
+	$current_params = array(
+		'status' => isset( $_GET['status'] ) ? sanitize_text_field( wp_unslash( $_GET['status'] ) ) : '',
+		'type' => isset( $_GET['type'] ) ? sanitize_text_field( wp_unslash( $_GET['type'] ) ) : '',
+		's' => isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '',
+		'orderby' => isset( $_GET['orderby'] ) ? sanitize_text_field( wp_unslash( $_GET['orderby'] ) ) : '',
+		'order' => isset( $_GET['order'] ) ? sanitize_text_field( wp_unslash( $_GET['order'] ) ) : '',
+		'per_page' => isset( $_GET['per_page'] ) ? absint( $_GET['per_page'] ) : 25,
+	);
+	
+	$merged = array_merge( $current_params, $params );
+	$query_args = array();
+	
+	foreach ( $merged as $key => $value ) {
+		if ( ! empty( $value ) && ! ( $key === 'per_page' && $value == 25 ) ) {
+			$query_args[ $key ] = $value;
+		}
+	}
+	
+	return add_query_arg( $query_args, $base_url );
+}
+
+// Get sort indicator
+function tqb_get_sort_indicator( $column ) {
+	$current_orderby = isset( $_GET['orderby'] ) ? sanitize_text_field( wp_unslash( $_GET['orderby'] ) ) : '';
+	$current_order = isset( $_GET['order'] ) ? sanitize_text_field( wp_unslash( $_GET['order'] ) ) : 'DESC';
+	
+	if ( $current_orderby !== $column ) {
+		return '';
+	}
+	
+	return $current_order === 'ASC' ? ' &#9650;' : ' &#9660;';
+}
 ?>
 <h2>Quote Submissions</h2>
 
@@ -33,26 +69,58 @@ function tqb_get_display_status( $status ) {
 	</ul>
 </div>
 
+<!-- Search & Filters Row -->
 <div class="tqb-submissions-filters" style="margin-bottom: 20px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-	<div>
-		<strong>Status:</strong>
-		<a href="<?php echo esc_url( admin_url( 'admin.php?page=tqb-settings&tab=submissions' . ( $type_filter ? '&type=' . esc_attr( $type_filter ) : '' ) ) ); ?>" 
-		   class="button <?php echo empty( $status_filter ) ? 'button-primary' : ''; ?>" style="margin-left: 5px;">All (<?php echo $counts['all']; ?>)</a>
-		<a href="<?php echo esc_url( admin_url( 'admin.php?page=tqb-settings&tab=submissions&status=completed' . ( $type_filter ? '&type=' . esc_attr( $type_filter ) : '' ) ) ); ?>" 
+	<!-- Search -->
+	<form method="get" action="" style="display: flex; gap: 8px; align-items: center;">
+		<input type="hidden" name="page" value="tqb-settings" />
+		<input type="hidden" name="tab" value="submissions" />
+		<?php if ( $status_filter ) : ?>
+			<input type="hidden" name="status" value="<?php echo esc_attr( $status_filter ); ?>" />
+		<?php endif; ?>
+		<?php if ( $type_filter ) : ?>
+			<input type="hidden" name="type" value="<?php echo esc_attr( $type_filter ); ?>" />
+		<?php endif; ?>
+		<input type="search" name="s" value="<?php echo esc_attr( $search ); ?>" 
+			   placeholder="Search name, email, phone..." 
+			   style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ddd; min-width: 220px;" />
+		<button type="submit" class="button">Search</button>
+		<?php if ( ! empty( $search ) ) : ?>
+			<a href="<?php echo esc_url( tqb_build_filter_url( array( 's' => '' ) ) ); ?>" class="button button-secondary">Clear</a>
+		<?php endif; ?>
+	</form>
+
+	<!-- Status Filter -->
+	<div style="display: flex; gap: 5px;">
+		<a href="<?php echo esc_url( tqb_build_filter_url( array( 'status' => '', 'paged' => 1 ) ) ); ?>" 
+		   class="button <?php echo empty( $status_filter ) ? 'button-primary' : ''; ?>">All (<?php echo $counts['all']; ?>)</a>
+		<a href="<?php echo esc_url( tqb_build_filter_url( array( 'status' => 'completed', 'paged' => 1 ) ) ); ?>" 
 		   class="button <?php echo 'completed' === $status_filter ? 'button-primary' : ''; ?>">Completed (<?php echo $counts['completed']; ?>)</a>
-		<a href="<?php echo esc_url( admin_url( 'admin.php?page=tqb-settings&tab=submissions&status=in_progress' . ( $type_filter ? '&type=' . esc_attr( $type_filter ) : '' ) ) ); ?>" 
+		<a href="<?php echo esc_url( tqb_build_filter_url( array( 'status' => 'in_progress', 'paged' => 1 ) ) ); ?>" 
 		   class="button <?php echo 'in_progress' === $status_filter ? 'button-primary' : ''; ?>">In Progress (<?php echo $counts['in_progress']; ?>)</a>
-		<a href="<?php echo esc_url( admin_url( 'admin.php?page=tqb-settings&tab=submissions&status=abandoned' . ( $type_filter ? '&type=' . esc_attr( $type_filter ) : '' ) ) ); ?>" 
+		<a href="<?php echo esc_url( tqb_build_filter_url( array( 'status' => 'abandoned', 'paged' => 1 ) ) ); ?>" 
 		   class="button <?php echo 'abandoned' === $status_filter ? 'button-primary' : ''; ?>">Abandoned (<?php echo $counts['abandoned']; ?>)</a>
 	</div>
-	<div style="margin-left: auto;">
-		<strong>Type:</strong>
-		<a href="<?php echo esc_url( admin_url( 'admin.php?page=tqb-settings&tab=submissions' . ( $status_filter ? '&status=' . esc_attr( $status_filter ) : '' ) ) ); ?>" 
-		   class="button <?php echo empty( $type_filter ) ? 'button-primary' : ''; ?>" style="margin-left: 5px;">All</a>
-		<a href="<?php echo esc_url( admin_url( 'admin.php?page=tqb-settings&tab=submissions&type=individual' . ( $status_filter ? '&status=' . esc_attr( $status_filter ) : '' ) ) ); ?>" 
-		   class="button <?php echo 'individual' === $type_filter ? 'button-primary' : ''; ?>">Individual</a>
-		<a href="<?php echo esc_url( admin_url( 'admin.php?page=tqb-settings&tab=submissions&type=business' . ( $status_filter ? '&status=' . esc_attr( $status_filter ) : '' ) ) ); ?>" 
-		   class="button <?php echo 'business' === $type_filter ? 'button-primary' : ''; ?>">Business</a>
+
+	<!-- Type Filter -->
+	<div style="display: flex; gap: 5px;">
+		<a href="<?php echo esc_url( tqb_build_filter_url( array( 'type' => '', 'paged' => 1 ) ) ); ?>" 
+		   class="button <?php echo empty( $type_filter ) ? 'button-secondary' : ''; ?>">All Types</a>
+		<a href="<?php echo esc_url( tqb_build_filter_url( array( 'type' => 'individual', 'paged' => 1 ) ) ); ?>" 
+		   class="button <?php echo 'individual' === $type_filter ? 'button-primary' : 'button-secondary'; ?>">Individual</a>
+		<a href="<?php echo esc_url( tqb_build_filter_url( array( 'type' => 'business', 'paged' => 1 ) ) ); ?>" 
+		   class="button <?php echo 'business' === $type_filter ? 'button-primary' : 'button-secondary'; ?>">Business</a>
+	</div>
+
+	<!-- Per Page -->
+	<div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+		<label for="per_page" style="font-size: 13px;">Show:</label>
+		<select id="per_page" name="per_page" onchange="window.location.href=this.value" style="padding: 5px;">
+			<option value="<?php echo esc_url( tqb_build_filter_url( array( 'per_page' => 10, 'paged' => 1 ) ) ); ?>" <?php selected( $per_page, 10 ); ?>>10</option>
+			<option value="<?php echo esc_url( tqb_build_filter_url( array( 'per_page' => 25, 'paged' => 1 ) ) ); ?>" <?php selected( $per_page, 25 ); ?>>25</option>
+			<option value="<?php echo esc_url( tqb_build_filter_url( array( 'per_page' => 50, 'paged' => 1 ) ) ); ?>" <?php selected( $per_page, 50 ); ?>>50</option>
+			<option value="<?php echo esc_url( tqb_build_filter_url( array( 'per_page' => 100, 'paged' => 1 ) ) ); ?>" <?php selected( $per_page, 100 ); ?>>100</option>
+		</select>
 	</div>
 </div>
 
@@ -67,15 +135,47 @@ function tqb_get_display_status( $status ) {
 			<thead>
 				<tr>
 					<th style="width: 40px;"><input type="checkbox" id="tqb-select-all" /></th>
-					<th style="width: 50px;">ID</th>
-					<th style="width: 100px;">Type</th>
-					<th style="width: 150px;">Name</th>
-					<th style="width: 200px;">Email</th>
-					<th style="width: 100px;">Phone</th>
-					<th style="width: 100px;">Status</th>
-					<th style="width: 100px;">Quote</th>
+					<th style="width: 60px;">
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'id', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'id' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">
+							ID<?php echo tqb_get_sort_indicator( 'id' ); ?>
+						</a>
+					</th>
+					<th>
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'contact_name', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'contact_name' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">
+							Name<?php echo tqb_get_sort_indicator( 'contact_name' ); ?>
+						</a>
+					</th>
+					<th>
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'contact_email', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'contact_email' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">
+							Email<?php echo tqb_get_sort_indicator( 'contact_email' ); ?>
+						</a>
+					</th>
+					<th>
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'contact_phone', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'contact_phone' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">
+							Phone<?php echo tqb_get_sort_indicator( 'contact_phone' ); ?>
+						</a>
+					</th>
+					<th style="width: 100px;">
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'quote_type', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'quote_type' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">
+							Type<?php echo tqb_get_sort_indicator( 'quote_type' ); ?>
+						</a>
+					</th>
+					<th style="width: 110px;">
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'status', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'status' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">
+							Status<?php echo tqb_get_sort_indicator( 'status' ); ?>
+						</a>
+					</th>
+					<th style="width: 100px;">
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'calculated_total', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'calculated_total' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">
+							Quote<?php echo tqb_get_sort_indicator( 'calculated_total' ); ?>
+						</a>
+					</th>
 					<th style="width: 80px;">Step</th>
-					<th style="width: 150px;">Created</th>
+					<th style="width: 160px;">
+						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'created_at', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'created_at' && isset( $_GET['order'] ) && $_GET['order'] === 'DESC' ) ? 'ASC' : 'DESC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">
+							Created<?php echo tqb_get_sort_indicator( 'created_at' ); ?>
+						</a>
+					</th>
 					<th style="width: 80px;">Actions</th>
 				</tr>
 			</thead>
@@ -86,14 +186,14 @@ function tqb_get_display_status( $status ) {
 					<tr>
 						<td><input type="checkbox" name="delete_ids[]" value="<?php echo esc_attr( $sub['id'] ); ?>" class="tqb-delete-checkbox" /></td>
 						<td><?php echo esc_html( $sub['id'] ); ?></td>
+						<td><?php echo esc_html( $sub['contact_name'] ); ?></td>
+						<td><a href="mailto:<?php echo esc_attr( $sub['contact_email'] ); ?>"><?php echo esc_html( $sub['contact_email'] ); ?></a></td>
+						<td><?php echo esc_html( $sub['contact_phone'] ); ?></td>
 						<td>
 							<span class="tqb-badge tqb-badge--<?php echo esc_attr( $sub['quote_type'] ); ?>">
 								<?php echo esc_html( ucfirst( $sub['quote_type'] ) ); ?>
 							</span>
 						</td>
-						<td><?php echo esc_html( $sub['contact_name'] ); ?></td>
-						<td><a href="mailto:<?php echo esc_attr( $sub['contact_email'] ); ?>"><?php echo esc_html( $sub['contact_email'] ); ?></a></td>
-						<td><?php echo esc_html( $sub['contact_phone'] ); ?></td>
 						<td>
 							<span class="tqb-status tqb-status--<?php echo esc_attr( $status_info['class'] ); ?>">
 								<?php echo esc_html( $status_info['label'] ); ?>
@@ -144,33 +244,30 @@ function tqb_get_display_status( $status ) {
 			<button type="submit" class="button">Apply</button>
 			<span style="color: #666; font-size: 13px;">
 				<?php echo esc_html( $total_count ); ?> <?php echo $total_count === 1 ? 'submission' : 'submissions'; ?>
+				<?php if ( ! empty( $search ) ) : ?>
+					(matching "<?php echo esc_html( $search ); ?>")
+				<?php endif; ?>
 			</span>
 		</div>
 	</form>
 
 	<?php if ( $total_pages > 1 ) : ?>
 		<div class="tablenav" style="margin-top: 15px;">
-			<div class="tablenav-pages">
+			<div class="tablenav-pages" style="float: none;">
 				<span class="displaying-num"><?php echo esc_html( $total_count ); ?> items</span>
 				<span class="pagination-links">
 					<?php
-					$base_url = admin_url( 'admin.php?page=tqb-settings&tab=submissions' );
-					if ( $status_filter ) {
-						$base_url .= '&status=' . esc_attr( $status_filter );
-					}
-					if ( $type_filter ) {
-						$base_url .= '&type=' . esc_attr( $type_filter );
-					}
+					$base_url = tqb_build_filter_url( array( 'paged' => 1 ) );
 
 					if ( $current_page > 1 ) {
-						echo '<a class="prev-page" href="' . esc_url( $base_url . '&paged=' . ( $current_page - 1 ) ) . '">&lsaquo;</a>';
+						echo '<a class="prev-page" href="' . esc_url( tqb_build_filter_url( array( 'paged' => $current_page - 1 ) ) ) . '">&lsaquo; Previous</a>';
 					}
 					?>
-					<span class="paging-input">
+					<span class="paging-input" style="margin: 0 10px;">
 						Page <?php echo esc_html( $current_page ); ?> of <?php echo esc_html( $total_pages ); ?>
 					</span>
 					<?php if ( $current_page < $total_pages ) : ?>
-						<a class="next-page" href="<?php echo esc_url( $base_url . '&paged=' . ( $current_page + 1 ) ); ?>">&rsaquo;</a>
+						<a class="next-page" href="<?php echo esc_url( tqb_build_filter_url( array( 'paged' => $current_page + 1 ) ) ); ?>">Next &rsaquo;</a>
 					<?php endif; ?>
 				</span>
 			</div>
@@ -223,5 +320,11 @@ jQuery(document).ready(function($) {
 .tqb-status--gray {
 	background: #f5f5f5;
 	color: #666;
+}
+.widefat thead th {
+	background: #f1f1f1;
+}
+.widefat thead th a {
+	font-weight: 600;
 }
 </style>

@@ -64,8 +64,14 @@
 		var indicators = wizard.querySelectorAll( '.tqb-progress__step' );
 		indicators.forEach( function ( indicator ) {
 			var indicatorStep = parseInt( indicator.getAttribute( 'data-step-indicator' ), 10 );
-			indicator.classList.toggle( 'is-active', indicatorStep === stepNumber );
-			indicator.classList.toggle( 'is-complete', indicatorStep < stepNumber );
+			
+			// Previous steps (1 to current-1): always is-complete (blue line)
+			var isPrevStep = indicatorStep < stepNumber;
+			// Current step: is-active
+			var isCurrentStep = indicatorStep === stepNumber;
+			
+			indicator.classList.toggle( 'is-active', isCurrentStep );
+			indicator.classList.toggle( 'is-complete', isPrevStep );
 		} );
 
 		wizard.setAttribute( 'data-step', stepNumber );
@@ -518,9 +524,6 @@
 			if ( ! value ) {
 				showFieldError( field, 'Phone number is required' );
 				return false;
-			} else if ( ! isValidPhone( value ) ) {
-				showFieldError( field, 'Please enter a valid phone number' );
-				return false;
 			}
 		}
 		
@@ -571,10 +574,6 @@
 		if ( ! phone.value.trim() ) {
 			errors.push( 'Please enter your phone number.' );
 			showFieldError( phone, 'Phone number is required' );
-			valid = false;
-		} else if ( ! isValidPhone( phone.value.trim() ) ) {
-			errors.push( 'Please enter a valid phone number.' );
-			showFieldError( phone, 'Please enter a valid phone number' );
 			valid = false;
 		}
 		
@@ -657,13 +656,11 @@
 	}
 
 	/**
-	 * Validate phone number (basic validation).
+	 * Validate phone number (check if not empty).
 	 */
 	function isValidPhone( phone ) {
-		// Remove all non-digit characters for validation
-		var digitsOnly = phone.replace( /\D/g, '' );
-		// Must be at least 10 digits
-		return digitsOnly.length >= 10;
+		// Just check if there's content - no format validation
+		return phone.trim().length > 0;
 	}
 
 	// ---------------------------------------------------------------------

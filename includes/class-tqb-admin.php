@@ -149,14 +149,26 @@ class TQB_Admin {
 		global $wpdb;
 		$table = $wpdb->prefix . 'tqb_submissions';
 
+		// Per page options
+		$per_page_options = array( 10, 25, 50, 100 );
+		$per_page = isset( $_GET['per_page'] ) ? absint( $_GET['per_page'] ) : 25;
+		if ( ! in_array( $per_page, $per_page_options, true ) ) {
+			$per_page = 25;
+		}
+
 		// Pagination
-		$per_page = 20;
 		$current_page = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
 		$offset = ( $current_page - 1 ) * $per_page;
 
 		// Filters
 		$status_filter = isset( $_GET['status'] ) ? sanitize_key( $_GET['status'] ) : '';
 		$type_filter = isset( $_GET['type'] ) ? sanitize_key( $_GET['type'] ) : '';
+		$search = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
+
+		// Sorting
+		$allowed_columns = array( 'id', 'contact_name', 'contact_email', 'contact_phone', 'quote_type', 'status', 'calculated_total', 'created_at' );
+		$orderby = isset( $_GET['orderby'] ) && in_array( $_GET['orderby'], $allowed_columns, true ) ? $_GET['orderby'] : 'created_at';
+		$order = isset( $_GET['order'] ) && 'asc' === strtolower( $_GET['order'] ) ? 'ASC' : 'DESC';
 
 		// Build query
 		$where = array( '1=1' );
@@ -172,7 +184,19 @@ class TQB_Admin {
 			$where_args[] = $type_filter;
 		}
 
+		if ( ! empty( $search ) ) {
+			$where[] = '(contact_name LIKE %s OR contact_email LIKE %s OR contact_phone LIKE %s)';
+			$search_like = '%' . $wpdb->esc_like( $search ) . '%';
+			$where_args[] = $search_like;
+			$where_args[] = $search_like;
+			$where_args[] = $search_like;
+		}
+
 		$where_clause = implode( ' AND ', $where );
+
+		// Sanitize orderby for query
+		$orderby = in_array( $orderby, $allowed_columns, true ) ? $orderby : 'created_at';
+		$orderby = '`' . sanitize_key( $orderby ) . '`';
 
 		// Get total count
 		$total_count = $wpdb->get_var(
@@ -185,7 +209,7 @@ class TQB_Admin {
 		// Get submissions
 		$submissions = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$table} WHERE {$where_clause} ORDER BY created_at DESC LIMIT %d OFFSET %d",
+				"SELECT * FROM {$table} WHERE {$where_clause} ORDER BY {$orderby} {$order} LIMIT %d OFFSET %d",
 				array_merge( $where_args, array( $per_page, $offset ) )
 			),
 			ARRAY_A
