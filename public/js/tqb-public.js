@@ -337,7 +337,7 @@
 		state.partialSubmissionId = submissionId;
 
 		// Restore quote types and build business fields
-		if ( partial.quote_types && partial.quote_types.length ) {
+		if ( partial.quote_types && Array.isArray( partial.quote_types ) && partial.quote_types.length ) {
 			// Clear existing selections
 			document.querySelectorAll( '.tqb-quote-type-checkbox' ).forEach( function( cb ) {
 				cb.checked = false;
@@ -363,7 +363,7 @@
 			buildBusinessFields( businessCount );
 
 			// Restore business data if available
-			if ( partial.businesses && partial.businesses.length ) {
+			if ( partial.businesses && Array.isArray( partial.businesses ) && partial.businesses.length ) {
 				partial.businesses.forEach( function( business, index ) {
 					var bizId = 'tqb-business-' + index;
 					var entityEl = document.getElementById( bizId + '-entity' );
