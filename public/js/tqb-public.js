@@ -1687,16 +1687,6 @@
 			body.className = 'tqb-result__custom-body';
 			body.textContent = 'Based on your answers, your situation needs a closer look before we can quote a price. Someone from our team will follow up \u2014 or you can grab time on our calendar now.';
 			container.appendChild( body );
-
-			if ( data.schedulingLink ) {
-				var link = document.createElement( 'a' );
-				link.href = data.schedulingLink;
-				link.className = 'tqb-btn tqb-btn--primary';
-				link.target = '_blank';
-				link.rel = 'noopener noreferrer';
-				link.textContent = 'Schedule a Call';
-				container.appendChild( link );
-			}
 		} else {
 			container.className = 'tqb-result';
 
@@ -1721,31 +1711,31 @@
 			container.appendChild( next );
 		}
 
-			// Create CTA wrapper for both buttons
-			var ctaWrapper = document.createElement( 'div' );
-			ctaWrapper.className = 'tqb-result__cta';
+		// Create CTA wrapper for buttons
+		var ctaWrapper = document.createElement( 'div' );
+		ctaWrapper.className = 'tqb-result__cta';
 
-			var againBtn = document.createElement( 'button' );
-			againBtn.type = 'button';
-			againBtn.className = 'tqb-btn tqb-btn--ghost';
-			againBtn.textContent = 'Get Another Quote';
-			againBtn.addEventListener( 'click', function () {
-				resetAll();
-			} );
-			ctaWrapper.appendChild( againBtn );
+		var againBtn = document.createElement( 'button' );
+		againBtn.type = 'button';
+		againBtn.className = 'tqb-btn tqb-btn--ghost';
+		againBtn.textContent = 'Get Another Quote';
+		againBtn.addEventListener( 'click', function () {
+			resetAll();
+		} );
+		ctaWrapper.appendChild( againBtn );
 
-			// Add Schedule Call button if available (custom quote case)
-			if ( data.schedulingLink ) {
-				var link = document.createElement( 'a' );
-				link.href = data.schedulingLink;
-				link.className = 'tqb-btn tqb-btn--primary';
-				link.target = '_blank';
-				link.rel = 'noopener noreferrer';
-				link.textContent = 'Schedule a Call';
-				ctaWrapper.appendChild( link );
-			}
+		// Add Schedule Call button if available
+		if ( data.schedulingLink ) {
+			var link = document.createElement( 'a' );
+			link.href = data.schedulingLink;
+			link.className = 'tqb-btn tqb-btn--primary';
+			link.target = '_blank';
+			link.rel = 'noopener noreferrer';
+			link.textContent = 'Schedule a Call';
+			ctaWrapper.appendChild( link );
+		}
 
-			container.appendChild( ctaWrapper );
+		container.appendChild( ctaWrapper );
 	}
 
 	function formatCurrency( amount ) {
