@@ -296,33 +296,6 @@ class TQB_Public {
 	}
 
 	/**
-	 * Get client IP address, handling proxies.
-	 */
-	private function get_client_ip() {
-		$ip_keys = array(
-			'HTTP_CF_CONNECTING_IP', // Cloudflare
-			'HTTP_X_FORWARDED_FOR',
-			'HTTP_X_FORWARDED',
-			'HTTP_X_CLUSTER_CLIENT_IP',
-			'HTTP_FORWARDED_FOR',
-			'HTTP_FORWARDED',
-			'REMOTE_ADDR',
-		);
-
-		foreach ( $ip_keys as $key ) {
-			if ( ! empty( $_SERVER[ $key ] ) ) {
-				$ip = $_SERVER[ $key ];
-				// Handle comma-separated IPs (X-Forwarded-For)
-				if ( strpos( $ip, ',' ) !== false ) {
-					$ip = trim( explode( ',', $ip )[0] );
-				}
-				return filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '';
-			}
-		}
-		return '';
-	}
-
-	/**
 	 * Check for existing partial by IP and return data for auto-population.
 	 * Called via AJAX when page loads.
 	 */
