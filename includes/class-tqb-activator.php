@@ -119,7 +119,7 @@ class TQB_Activator {
 		// Add status column
 		if ( ! in_array( 'status', $sub_column_names, true ) ) {
 			$after = in_array( 'custom_quote_reason', $sub_column_names, true ) ? 'custom_quote_reason' : null;
-			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'completed'";
+			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'in_progress'";
 			if ( $after ) { $sql .= " AFTER {$after}"; }
 			$wpdb->query( $sql );
 			$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );

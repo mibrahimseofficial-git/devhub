@@ -366,18 +366,17 @@ class TQB_Quote_Handler {
 		global $wpdb;
 		$table = $wpdb->prefix . 'tqb_submissions';
 
-		// Check if status column exists
-		$column_exists = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'status'" );
+		// First, try to find a record with status = 'in_progress'
+		$result = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$table} WHERE contact_email = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
+				$email
+			)
+		);
 
-		if ( $column_exists ) {
-			$result = $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT id FROM {$table} WHERE contact_email = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
-					$email
-				)
-			);
-		} else {
-			// No status column - check for record with NULL calculated_total (partial)
+		// If not found, try to find a record with NULL calculated_total (partial submission without proper status)
+		// This handles old records that might have incorrect status values
+		if ( ! $result ) {
 			$result = $wpdb->get_var(
 				$wpdb->prepare(
 					"SELECT id FROM {$table} WHERE contact_email = %s AND calculated_total IS NULL ORDER BY created_at DESC LIMIT 1",
@@ -604,19 +603,21 @@ class TQB_Quote_Handler {
 		}
 
 		// Check for existing partial submission by email
-		if ( $column_exists ) {
+		// First try to find a record with status = 'in_progress'
+		$existing = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, contact_name, contact_phone FROM {$table} WHERE contact_email = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
+				$email
+			),
+			ARRAY_A
+		);
+
+		// If not found, try to find a record with NULL calculated_total (partial without proper status)
+		// This handles old records that might have incorrect status values
+		if ( ! $existing ) {
 			$existing = $wpdb->get_row(
 				$wpdb->prepare(
-					"SELECT id, contact_name, contact_phone FROM {$table} WHERE contact_email = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
-					$email
-				),
-				ARRAY_A
-			);
-		} else {
-			// No status column yet - just get the most recent by email
-			$existing = $wpdb->get_row(
-				$wpdb->prepare(
-					"SELECT id, contact_name, contact_phone FROM {$table} WHERE contact_email = %s ORDER BY created_at DESC LIMIT 1",
+					"SELECT id, contact_name, contact_phone FROM {$table} WHERE contact_email = %s AND calculated_total IS NULL ORDER BY created_at DESC LIMIT 1",
 					$email
 				),
 				ARRAY_A
@@ -646,12 +647,20 @@ class TQB_Quote_Handler {
 				'updated_at' => current_time( 'mysql' ),
 			);
 			
+			// Update status to in_progress if the column exists (handles old records with incorrect status)
+			if ( $column_exists ) {
+				$update_data['status'] = 'in_progress';
+			}
+
 			// Update IP if column exists and we have an IP
 			if ( $has_ip_column && ! empty( $user_ip ) ) {
 				$update_data['user_ip'] = $user_ip;
 			}
 
 			$update_format = array( '%s', '%d', '%s' );
+			if ( $column_exists ) {
+				$update_format[] = '%s';
+			}
 			if ( $has_ip_column && ! empty( $user_ip ) ) {
 				$update_format[] = '%s';
 			}
