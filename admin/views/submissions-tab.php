@@ -112,10 +112,13 @@ function tqb_get_sort_indicator( $column ) {
 		   class="button <?php echo 'business' === $type_filter ? 'button-primary' : 'button-secondary'; ?>">Business</a>
 	</div>
 
-	<!-- Per Page -->
-	<div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
-		<label for="per_page" style="font-size: 13px;">Show:</label>
-		<select id="per_page" name="per_page" onchange="window.location.href=this.value" style="padding: 5px;">
+	<!-- Per Page & Records Info -->
+	<div style="margin-left: auto; display: flex; gap: 20px; align-items: center;">
+		<span style="color: #646970; font-size: 13px;">
+			Showing <strong><?php echo esc_html( $offset + 1 ); ?></strong> to <strong><?php echo esc_html( min( $offset + $per_page, $total_count ) ); ?></strong> of <strong><?php echo esc_html( $total_count ); ?></strong> results
+		</span>
+		<label for="per_page" style="font-size: 13px; color: #646970;">Per page:</label>
+		<select id="per_page" name="per_page" onchange="window.location.href=this.value" style="padding: 6px 8px; border-radius: 4px; border: 1px solid #ddd;">
 			<option value="<?php echo esc_url( tqb_build_filter_url( array( 'per_page' => 10, 'paged' => 1 ) ) ); ?>" <?php selected( $per_page, 10 ); ?>>10</option>
 			<option value="<?php echo esc_url( tqb_build_filter_url( array( 'per_page' => 25, 'paged' => 1 ) ) ); ?>" <?php selected( $per_page, 25 ); ?>>25</option>
 			<option value="<?php echo esc_url( tqb_build_filter_url( array( 'per_page' => 50, 'paged' => 1 ) ) ); ?>" <?php selected( $per_page, 50 ); ?>>50</option>
@@ -250,30 +253,65 @@ function tqb_get_sort_indicator( $column ) {
 			</span>
 		</div>
 	</form>
+		</form>
 
-	<?php if ( $total_pages > 1 ) : ?>
-		<div class="tablenav" style="margin-top: 15px;">
-			<div class="tablenav-pages" style="float: none;">
-				<span class="displaying-num"><?php echo esc_html( $total_count ); ?> items</span>
-				<span class="pagination-links">
+		<?php if ( $total_pages > 1 ) : ?>
+		<div class="tablenav bottom" style="margin-top: 20px; padding: 15px; background: #f6f7f7; border: 1px solid #c3c4c7; border-radius: 4px;">
+			<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+				<span class="displaying-num" style="color: #646970; font-size: 13px;">
+						<?php echo esc_html( $total_count ); ?> <?php echo $total_count === 1 ? 'item' : 'items'; ?>
+				</span>
+				
+				<nav class="pagination-links" style="display: flex; gap: 5px; align-items: center;">
 					<?php
-					$base_url = tqb_build_filter_url( array( 'paged' => 1 ) );
-
-					if ( $current_page > 1 ) {
-						echo '<a class="prev-page" href="' . esc_url( tqb_build_filter_url( array( 'paged' => $current_page - 1 ) ) ) . '">&lsaquo; Previous</a>';
+					$range = 2;
+					$start_page = max( 1, $current_page - $range );
+					$end_page = min( $total_pages, $current_page + $range );
+					
+					if ( $current_page > 1 ) :
+						echo '<a href="' . esc_url( tqb_build_filter_url( array( 'paged' => 1 ) ) ) . '" class="button button-sm" style="min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center;">&laquo;</a>';
+						echo '<a href="' . esc_url( tqb_build_filter_url( array( 'paged' => $current_page - 1 ) ) ) . '" class="button button-sm" style="min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center;">&lsaquo;</a>';
+					else :
+						echo '<span class="button button-sm" style="min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center; opacity: 0.5; cursor: not-allowed;">&laquo;</span>';
+						echo '<span class="button button-sm" style="min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center; opacity: 0.5; cursor: not-allowed;">&lsaquo;</span>';
+					endif;
+					
+					if ( $start_page > 1 ) {
+						echo '<span style="padding: 0 5px; color: #646970;">...</span>';
 					}
+					
+					for ( $i = $start_page; $i <= $end_page; $i++ ) :
+						if ( $i === $current_page ) :
+							echo '<span class="button button-sm" style="min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center; background: #2271b1; color: #fff; border-color: #2271b1;">' . esc_html( $i ) . '</span>';
+						else :
+							echo '<a href="' . esc_url( tqb_build_filter_url( array( 'paged' => $i ) ) ) . '" class="button button-sm" style="min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center;">' . esc_html( $i ) . '</a>';
+						endif;
+					endfor;
+					
+					if ( $end_page < $total_pages ) {
+						echo '<span style="padding: 0 5px; color: #646970;">...</span>';
+					}
+					
+					if ( $current_page < $total_pages ) :
+						echo '<a href="' . esc_url( tqb_build_filter_url( array( 'paged' => $current_page + 1 ) ) ) . '" class="button button-sm" style="min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center;">&rsaquo;</a>';
+						echo '<a href="' . esc_url( tqb_build_filter_url( array( 'paged' => $total_pages ) ) ) . '" class="button button-sm" style="min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center;">&raquo;</a>';
+					else :
+						echo '<span class="button button-sm" style="min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center; opacity: 0.5; cursor: not-allowed;">&rsaquo;</span>';
+						echo '<span class="button button-sm" style="min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center; opacity: 0.5; cursor: not-allowed;">&raquo;</span>';
+					endif;
 					?>
-					<span class="paging-input" style="margin: 0 10px;">
-						Page <?php echo esc_html( $current_page ); ?> of <?php echo esc_html( $total_pages ); ?>
-					</span>
-					<?php if ( $current_page < $total_pages ) : ?>
-						<a class="next-page" href="<?php echo esc_url( tqb_build_filter_url( array( 'paged' => $current_page + 1 ) ) ); ?>">Next &rsaquo;</a>
-					<?php endif; ?>
+				</nav>
+				
+				<span style="color: #646970; font-size: 13px;">
+					Page <input type="number" min="1" max="<?php echo esc_attr( $total_pages ); ?>" value="<?php echo esc_attr( $current_page ); ?>" 
+							   onchange="window.location.href='<?php echo esc_url( tqb_build_filter_url( array( 'paged' => '' ) ) ); ?>&paged=' + this.value" 
+							   style="width: 60px; padding: 4px 8px; text-align: center; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;"> 
+					of <?php echo esc_html( $total_pages ); ?>
 				</span>
 			</div>
 		</div>
+		<?php endif; ?>
 	<?php endif; ?>
-<?php endif; ?>
 
 <script>
 jQuery(document).ready(function($) {
