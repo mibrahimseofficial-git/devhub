@@ -111,16 +111,7 @@ function tqb_add_cron_interval( $schedules ) {
 	return $schedules;
 }
 
-// Schedule cron on plugin activation
-register_activation_hook( __FILE__, 'tqb_schedule_cron' );
-function tqb_schedule_cron() {
-	if ( ! wp_next_scheduled( 'tqb_send_abandoned_emails' ) ) {
-		wp_schedule_event( time(), 'tqb_hourly', 'tqb_send_abandoned_emails' );
-	}
-}
-
-// Clear cron on plugin deactivation
-register_deactivation_hook( __FILE__, 'tqb_clear_cron' );
+// Cron functions
 function tqb_clear_cron() {
 	wp_clear_scheduled_hook( 'tqb_send_abandoned_emails' );
 }
