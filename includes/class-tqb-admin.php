@@ -215,6 +215,16 @@ class TQB_Admin {
 			ARRAY_A
 		);
 
+		// Decode answers JSON for each submission
+		foreach ( $submissions as &$sub ) {
+			if ( ! empty( $sub['answers'] ) ) {
+				$decoded = json_decode( $sub['answers'], true );
+				if ( json_last_error() === JSON_ERROR_NONE ) {
+					$sub['answers'] = $decoded;
+				}
+			}
+		}
+
 		// Get counts by status
 		$counts = array(
 			'all' => $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" ),

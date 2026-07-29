@@ -196,6 +196,7 @@ function tqb_get_sort_indicator( $column ) {
 							?>
 						</td>
 						<td>
+							<button type="button" class="button button-small tqb-view-details" data-id="<?php echo esc_attr( $sub['id'] ); ?>">View</button>
 							<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=tqb_delete_submission&id=' . $sub['id'] ), 'tqb_delete_sub_' . $sub['id'] ) ); ?>" class="button button-small" style="color: #b32d2e;" onclick="return confirm('Delete this submission? This cannot be undone.');">Delete</a>
 						</td>
 						<td>
@@ -297,8 +298,152 @@ function tqb_get_sort_indicator( $column ) {
 
 <script>
 jQuery(document).ready(function($) {
+	// Select all functionality
 	$('#tqb-select-all').on('change', function() {
 		$('.tqb-delete-checkbox').prop('checked', $(this).prop('checked'));
+	});
+
+	// Submission data passed from PHP
+	var submissionsData = <?php echo json_encode(array_values($submissions)); ?>;
+
+	// Create lookup by ID
+	var submissionsById = {};
+	submissionsData.forEach(function(sub) {
+		submissionsById[sub.id] = sub;
+	});
+
+	// Open modal
+	$('.tqb-view-details').on('click', function() {
+		var id = $(this).data('id');
+		var sub = submissionsById[id];
+		if (!sub) return;
+
+		$('#tqb-modal-id').text('#' + id);
+
+		// Parse answers
+		var answersHtml = '';
+		try {
+			var answersData = sub.answers || {};
+			var answerItems = answersData.answers || answersData;
+
+			if (answerItems && typeof answerItems === 'object' && Object.keys(answerItems).length > 0) {
+				answersHtml = '<table><thead><tr><th>Item</th><th>Selected</th><th>Quantity</th><th>Details</th></tr></thead><tbody>';
+				for (var key in answerItems) {
+					if (answerItems.hasOwnProperty(key)) {
+						var item = answerItems[key];
+						var selected = item && item.selected ? 'Yes' : 'No';
+						var selectedClass = item && item.selected ? 'yes' : 'no';
+						var qty = item && item.qty ? item.qty : (item && item.volume ? item.volume : '-');
+						var details = item && item.thresholdNote ? item.thresholdNote : '-';
+						answersHtml += '<tr><td>' + key.replace(/_/g, ' ') + '</td><td class="' + selectedClass + '">' + selected + '</td><td>' + qty + '</td><td>' + details + '</td></tr>';
+					}
+				}
+				answersHtml += '</tbody></table>';
+			} else {
+				answersHtml = '<p style="color: #888;">No answers recorded for this submission.</p>';
+			}
+		} catch (e) {
+			answersHtml = '<p style="color: #888;">Unable to parse answers data.</p>';
+		}
+
+		// Handle business data
+		var businessHtml = '';
+		try {
+			var answersData = sub.answers || {};
+			var businesses = answersData.businesses;
+			if (businesses && businesses.length > 0) {
+				businessHtml = '<div class="tqb-modal-section"><h3>Business Information</h3>';
+				businesses.forEach(function(biz, idx) {
+					businessHtml += '<div class="tqb-modal-grid">';
+					businessHtml += '<div class="tqb-modal-item"><label>Entity Type</label><span>' + (biz.entity_type || '-') + '</span></div>';
+					businessHtml += '<div class="tqb-modal-item"><label>Asset Band</label><span>' + (biz.asset_band || '-') + '</span></div>';
+					businessHtml += '<div class="tqb-modal-item"><label>Revenue Band</label><span>' + (biz.revenue_band || '-') + '</span></div>';
+					businessHtml += '</div>';
+				});
+				businessHtml += '</div>';
+			}
+		} catch (e) {}
+
+		// Format email status
+		function formatEmailStatus(status) {
+			if (status === 'sent') return '<span class="status-yes">&#10003; Sent</span>';
+			if (status === 'failed') return '<span class="status-no">&#10007; Failed</span>';
+			return '<span class="status-no">&#9711; Pending</span>';
+		}
+
+		// Build modal content
+		var bodyHtml = '';
+
+		// Contact Info
+		bodyHtml += '<div class="tqb-modal-section"><h3>Contact Information</h3>';
+		bodyHtml += '<div class="tqb-modal-grid">';
+		bodyHtml += '<div class="tqb-modal-item"><label>Name</label><span>' + (sub.contact_name || '-') + '</span></div>';
+		bodyHtml += '<div class="tqb-modal-item"><label>Email</label><span>' + (sub.contact_email || '-') + '</span></div>';
+		bodyHtml += '<div class="tqb-modal-item"><label>Phone</label><span>' + (sub.contact_phone || '-') + '</span></div>';
+		bodyHtml += '<div class="tqb-modal-item"><label>IP Address</label><span>' + (sub.user_ip || '-') + '</span></div>';
+		bodyHtml += '</div></div>';
+
+		// Quote Details
+		bodyHtml += '<div class="tqb-modal-section"><h3>Quote Details</h3>';
+		bodyHtml += '<div class="tqb-modal-grid">';
+		bodyHtml += '<div class="tqb-modal-item"><label>Quote Type</label><span>' + (sub.quote_type || '-') + '</span></div>';
+		bodyHtml += '<div class="tqb-modal-item"><label>Status</label><span>' + (sub.status || '-') + '</span></div>';
+		bodyHtml += '<div class="tqb-modal-item"><label>Result</label><span>' + (sub.quote_result || '-') + '</span></div>';
+		bodyHtml += '<div class="tqb-modal-item"><label>HubSpot Sync</label><span>' + (sub.hubspot_synced ? '&#10003; Synced' : '&#9711; Not Synced') + '</span></div>';
+		bodyHtml += '</div></div>';
+
+		// Business Info
+		if (businessHtml) {
+			bodyHtml += businessHtml;
+		}
+
+		// Email Statuses
+		bodyHtml += '<div class="tqb-modal-section"><h3>Email Statuses</h3>';
+		bodyHtml += '<div class="tqb-modal-grid">';
+		bodyHtml += '<div class="tqb-modal-item"><label>Confirmation</label><span>' + formatEmailStatus(sub.confirmation_sent) + '</span></div>';
+		bodyHtml += '<div class="tqb-modal-item"><label>Reminder</label><span>' + formatEmailStatus(sub.reminder_sent) + '</span></div>';
+		bodyHtml += '<div class="tqb-modal-item"><label>Follow-up</label><span>' + formatEmailStatus(sub.followup_sent) + '</span></div>';
+		bodyHtml += '<div class="tqb-modal-item"><label>Final</label><span>' + formatEmailStatus(sub.final_sent) + '</span></div>';
+		bodyHtml += '</div></div>';
+
+		// Answers
+		bodyHtml += '<div class="tqb-modal-section"><h3>Answers</h3>' + answersHtml + '</div>';
+
+		// Timestamps
+		bodyHtml += '<div class="tqb-modal-section"><h3>Timestamps</h3>';
+		bodyHtml += '<div class="tqb-modal-grid">';
+		if (sub.created_at) {
+			var createdDate = new Date(sub.created_at);
+			bodyHtml += '<div class="tqb-modal-item"><label>Created</label><span>' + createdDate.toLocaleString() + '</span></div>';
+		}
+		if (sub.updated_at) {
+			var updatedDate = new Date(sub.updated_at);
+			bodyHtml += '<div class="tqb-modal-item"><label>Last Updated</label><span>' + updatedDate.toLocaleString() + '</span></div>';
+		}
+		if (sub.confirmation_sent_at && sub.confirmation_sent === 'sent') {
+			var confDate = new Date(sub.confirmation_sent_at);
+			bodyHtml += '<div class="tqb-modal-item"><label>Confirmation Sent</label><span>' + confDate.toLocaleString() + '</span></div>';
+		}
+		if (sub.followup_sent_at && sub.followup_sent === 'sent') {
+			var followupDate = new Date(sub.followup_sent_at);
+			bodyHtml += '<div class="tqb-modal-item"><label>Follow-up Sent</label><span>' + followupDate.toLocaleString() + '</span></div>';
+		}
+		bodyHtml += '</div></div>';
+
+		$('#tqb-modal-body').html(bodyHtml);
+		$('#tqb-modal-overlay, #tqb-view-modal').fadeIn();
+	});
+
+	// Close modal
+	$('#tqb-modal-close, #tqb-modal-overlay').on('click', function() {
+		$('#tqb-modal-overlay, #tqb-view-modal').fadeOut();
+	});
+
+	// Close on Escape
+	$(document).on('keydown', function(e) {
+		if (e.key === 'Escape') {
+			$('#tqb-modal-overlay, #tqb-view-modal').fadeOut();
+		}
 	});
 });
 </script>
@@ -347,4 +492,137 @@ jQuery(document).ready(function($) {
 .widefat thead th a {
 	font-weight: 600;
 }
+
+/* Modal Styles */
+.tqb-modal-overlay {
+	display: none;
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.6);
+	z-index: 100000;
+}
+.tqb-modal {
+	display: none;
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	background: #fff;
+	width: 90%;
+	max-width: 700px;
+	max-height: 85vh;
+	overflow-y: auto;
+	border-radius: 8px;
+	box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+	z-index: 100001;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+.tqb-modal-header {
+	background: linear-gradient(135deg, #1a365d 0%, #2d4a77 100%);
+	color: #fff;
+	padding: 20px 25px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.tqb-modal-header h2 {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 600;
+	color: #fff;
+}
+.tqb-modal-close {
+	background: none;
+	border: none;
+	color: #fff;
+	font-size: 28px;
+	cursor: pointer;
+	padding: 0;
+	line-height: 1;
+	opacity: 0.8;
+}
+.tqb-modal-close:hover {
+	opacity: 1;
+}
+.tqb-modal-body {
+	padding: 25px;
+}
+.tqb-modal-section {
+	margin-bottom: 25px;
+}
+.tqb-modal-section h3 {
+	margin: 0 0 12px 0;
+	font-size: 14px;
+	color: #1a365d;
+	border-bottom: 2px solid #d4af37;
+	padding-bottom: 6px;
+	text-transform: uppercase;
+	font-weight: 600;
+}
+.tqb-modal-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 15px;
+}
+.tqb-modal-item {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+.tqb-modal-item label {
+	font-size: 11px;
+	color: #666;
+	text-transform: uppercase;
+	font-weight: 600;
+}
+.tqb-modal-item span {
+	font-size: 14px;
+	color: #333;
+}
+.tqb-modal-item span.status-yes {
+	color: #2e7d32;
+	font-weight: 600;
+}
+.tqb-modal-item span.status-no {
+	color: #c62828;
+}
+.tqb-modal table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 13px;
+}
+.tqb-modal table th {
+	background: #f8f9fa;
+	padding: 8px 12px;
+	text-align: left;
+	border: 1px solid #e0e0e0;
+	color: #1a365d;
+	font-weight: 600;
+}
+.tqb-modal table td {
+	padding: 8px 12px;
+	border: 1px solid #e0e0e0;
+}
+.tqb-modal table td.yes {
+	color: #2e7d32;
+	font-weight: 600;
+}
+.tqb-modal table td.no {
+	color: #c62828;
+}
 </style>
+
+<!-- View Details Modal -->
+<div class="tqb-modal-overlay" id="tqb-modal-overlay"></div>
+<div class="tqb-modal" id="tqb-view-modal">
+	<div class="tqb-modal-header">
+		<h2>Submission Details <span id="tqb-modal-id"></span></h2>
+		<button type="button" class="tqb-modal-close" id="tqb-modal-close">&times;</button>
+	</div>
+	<div class="tqb-modal-body" id="tqb-modal-body">
+		<!-- Content loaded via JavaScript -->
+	</div>
+</div>
