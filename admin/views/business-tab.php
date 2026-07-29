@@ -105,35 +105,91 @@ include TQB_PLUGIN_DIR . 'admin/views/line-items-tab.php';
 
 <hr style="margin: 40px 0;" />
 
-<h2>Schedule L Threshold (reference only, not editable here)</h2>
+<h2>Schedule L Thresholds (Flat Fee Rule)</h2>
 <p class="description">
-	When a return qualifies, it gets the flat $999 base fee instead of the asset-band lookup above.
-	This logic is entity-specific and lives in the plugin's pricing engine, not in a database table —
-	changing it requires a developer.
+	When a business meets ALL conditions below, it qualifies for the flat fee instead of the asset-band lookup.
+	Edit these values to customize when the $999 flat fee applies.
 </p>
-<table class="widefat striped" style="max-width: 700px;">
-	<thead>
-		<tr>
-			<th>Entity Type</th>
-			<th>Schedule L NOT required when</th>
-			<th>Flat Fee</th>
-		</tr>
-	</thead>
-	<tbody>
-		<tr>
-			<td>C-Corporation</td>
-			<td>Receipts under $250K AND assets under $250K</td>
-			<td>$999.00</td>
-		</tr>
-		<tr>
-			<td>S-Corporation</td>
-			<td>Receipts under $250K AND assets under $250K</td>
-			<td>$999.00</td>
-		</tr>
-		<tr>
-			<td>Partnership</td>
-			<td>Receipts under $250K AND assets do not exceed $1M</td>
-			<td>$999.00</td>
-		</tr>
-	</tbody>
-</table>
+
+<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="max-width: 700px;">
+	<?php wp_nonce_field( TQB_Admin::NONCE_ACTION_SCHEDULE_L, 'tqb_schedule_l_nonce' ); ?>
+	<input type="hidden" name="action" value="tqb_save_schedule_l" />
+
+	<table class="widefat" style="margin-bottom: 20px;">
+		<thead>
+			<tr>
+				<th style="width: 20%;">Entity Type</th>
+				<th style="width: 25%;">Asset Threshold ($)</th>
+				<th style="width: 25%;">Revenue Threshold ($)</th>
+				<th style="width: 15%;">Flat Fee ($)</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<td><strong>C-Corporation</strong></td>
+				<td>
+					<input type="number" step="1" min="0" name="schedule_l[c_corp][asset_threshold]" 
+						value="<?php echo esc_attr( $schedule_l_thresholds['c_corp']['asset_threshold'] ?? 250000 ); ?>" 
+						style="width: 120px;" />
+				</td>
+				<td>
+					<input type="number" step="1" min="0" name="schedule_l[c_corp][revenue_threshold]" 
+						value="<?php echo esc_attr( $schedule_l_thresholds['c_corp']['revenue_threshold'] ?? 250000 ); ?>" 
+						style="width: 120px;" />
+				</td>
+				<td>
+					<input type="number" step="0.01" min="0" name="schedule_l[c_corp][flat_fee]" 
+						value="<?php echo esc_attr( $schedule_l_thresholds['c_corp']['flat_fee'] ?? 999 ); ?>" 
+						style="width: 100px;" />
+				</td>
+			</tr>
+			<tr>
+				<td><strong>S-Corporation</strong></td>
+				<td>
+					<input type="number" step="1" min="0" name="schedule_l[s_corp][asset_threshold]" 
+						value="<?php echo esc_attr( $schedule_l_thresholds['s_corp']['asset_threshold'] ?? 250000 ); ?>" 
+						style="width: 120px;" />
+				</td>
+				<td>
+					<input type="number" step="1" min="0" name="schedule_l[s_corp][revenue_threshold]" 
+						value="<?php echo esc_attr( $schedule_l_thresholds['s_corp']['revenue_threshold'] ?? 250000 ); ?>" 
+						style="width: 120px;" />
+				</td>
+				<td>
+					<input type="number" step="0.01" min="0" name="schedule_l[s_corp][flat_fee]" 
+						value="<?php echo esc_attr( $schedule_l_thresholds['s_corp']['flat_fee'] ?? 999 ); ?>" 
+						style="width: 100px;" />
+				</td>
+			</tr>
+			<tr>
+				<td><strong>Partnership</strong></td>
+				<td>
+					<input type="number" step="1" min="0" name="schedule_l[partnership][asset_threshold]" 
+						value="<?php echo esc_attr( $schedule_l_thresholds['partnership']['asset_threshold'] ?? 1000000 ); ?>" 
+						style="width: 120px;" />
+				</td>
+				<td>
+					<input type="number" step="1" min="0" name="schedule_l[partnership][revenue_threshold]" 
+						value="<?php echo esc_attr( $schedule_l_thresholds['partnership']['revenue_threshold'] ?? 250000 ); ?>" 
+						style="width: 120px;" />
+				</td>
+				<td>
+					<input type="number" step="0.01" min="0" name="schedule_l[partnership][flat_fee]" 
+						value="<?php echo esc_attr( $schedule_l_thresholds['partnership']['flat_fee'] ?? 999 ); ?>" 
+						style="width: 100px;" />
+				</td>
+			</tr>
+		</tbody>
+	</table>
+
+	<p style="margin-bottom: 20px;">
+		<em style="color: #666; font-size: 13px;">
+			<strong>How it works:</strong> For each entity type, if BOTH asset AND revenue are below their thresholds, 
+			the Flat Fee applies. Otherwise, the asset-band lookup is used.
+		</em>
+	</p>
+
+	<p class="submit">
+		<button type="submit" class="button button-primary">Save Schedule L Thresholds</button>
+	</p>
+</form>

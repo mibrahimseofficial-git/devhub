@@ -18,19 +18,17 @@ class TQB_Admin {
 	const NONCE_ACTION_LINE_ITEMS = 'tqb_save_line_items';
 	const NONCE_ACTION_RATE_BANDS = 'tqb_save_rate_bands';
 	const NONCE_ACTION_GENERAL = 'tqb_save_general_settings';
+	const NONCE_ACTION_SCHEDULE_L = 'tqb_save_schedule_l';
 
 	public function __construct() {
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
 		add_action( 'admin_post_tqb_save_line_items', array( $this, 'handle_save_line_items' ) );
 		add_action( 'admin_post_tqb_save_rate_bands', array( $this, 'handle_save_rate_bands' ) );
 		add_action( 'admin_post_tqb_save_general_settings', array( $this, 'handle_save_general_settings' ) );
+		add_action( 'admin_post_tqb_save_schedule_l', array( $this, 'handle_save_schedule_l' ) );
 		add_action( 'admin_post_tqb_delete_submission', array( $this, 'handle_delete_submission' ) );
 		add_action( 'admin_post_tqb_delete_submissions', array( $this, 'handle_bulk_delete_submissions' ) );
 		add_action( 'wp_ajax_tqb_fetch_hubspot_pipelines', array( $this, 'handle_fetch_hubspot_pipelines' ) );
-		add_action( 'wp_ajax_tqb_get_counts', array( $this, 'handle_get_counts' ) );
-		add_action( 'wp_ajax_tqb_cleanup_rate_bands', array( $this, 'handle_cleanup_rate_bands' ) );
-		add_action( 'wp_ajax_tqb_cleanup_line_items', array( $this, 'handle_cleanup_line_items' ) );
-		add_action( 'wp_ajax_tqb_reset_to_defaults', array( $this, 'handle_reset_to_defaults' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_saved_notice' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 	}
@@ -130,6 +128,11 @@ class TQB_Admin {
 		$asset_bands_c_s = TQB_DB::get_all_rate_bands( 'asset_band', 'c_s_corp' );
 		$asset_bands_partnership = TQB_DB::get_all_rate_bands( 'asset_band', 'partnership' );
 		$revenue_addons = TQB_DB::get_all_rate_bands( 'revenue_addon' );
+		$schedule_l_thresholds = get_option( 'tqb_schedule_l_thresholds', array(
+			'c_corp' => array( 'asset_threshold' => 250000, 'revenue_threshold' => 250000, 'flat_fee' => 999 ),
+			's_corp' => array( 'asset_threshold' => 250000, 'revenue_threshold' => 250000, 'flat_fee' => 999 ),
+			'partnership' => array( 'asset_threshold' => 1000000, 'revenue_threshold' => 250000, 'flat_fee' => 999 ),
+		) );
 		include TQB_PLUGIN_DIR . 'admin/views/business-tab.php';
 	}
 
@@ -254,8 +257,19 @@ class TQB_Admin {
 		check_admin_referer( self::NONCE_ACTION_LINE_ITEMS, 'tqb_nonce' );
 
 		$quote_type = isset( $_POST['quote_type'] ) ? sanitize_key( $_POST['quote_type'] ) : '';
-		$items      = isset( $_POST['items'] ) ? (array) $_POST['items'] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		$items      = isset( $_POST['items'] ) ? (array) $_POST['items'] : array();
+		$new_items  = isset( $_POST['new_items'] ) ? (array) $_POST['new_items'] : array();
+		$deleted    = isset( $_POST['deleted_items'] ) ? $_POST['deleted_items'] : '';
 
+		// Delete items marked for deletion
+		if ( ! empty( $deleted ) ) {
+			$deleted_ids = array_filter( array_map( 'absint', explode( ',', $deleted ) ) );
+			foreach ( $deleted_ids as $del_id ) {
+				TQB_DB::delete_line_item( $del_id );
+			}
+		}
+
+		// Update existing items
 		foreach ( $items as $item_id => $fields ) {
 			$item_id         = absint( $item_id );
 			$label          = isset( $fields['label'] ) ? sanitize_text_field( wp_unslash( $fields['label'] ) ) : '';
@@ -267,7 +281,6 @@ class TQB_Admin {
 				: null;
 			$is_active = isset( $fields['is_active'] ) ? 1 : 0;
 
-			// Threshold fields
 			$threshold_qty = ( isset( $fields['threshold_qty'] ) && '' !== $fields['threshold_qty'] )
 				? (float) $fields['threshold_qty']
 				: null;
@@ -281,6 +294,35 @@ class TQB_Admin {
 				'tooltip'           => $tooltip,
 				'fee'               => $fee,
 				'pricing_pattern'   => $pricing_pattern,
+				'hardcoded_value'   => $hardcoded_value,
+				'is_active'         => $is_active,
+				'threshold_qty'     => $threshold_qty,
+				'threshold_trigger'  => $threshold_trigger,
+			) );
+		}
+
+		// Add new items
+		foreach ( $new_items as $temp_id => $fields ) {
+			$label          = isset( $fields['label'] ) ? sanitize_text_field( wp_unslash( $fields['label'] ) ) : '';
+			if ( empty( $label ) ) {
+				continue; // Skip empty entries
+			}
+			
+			$item_key = 'custom_' . uniqid();
+			$tooltip        = isset( $fields['tooltip'] ) ? sanitize_textarea_field( wp_unslash( $fields['tooltip'] ) ) : '';
+			$fee             = isset( $fields['fee'] ) ? (float) $fields['fee'] : 0;
+			$pricing_pattern = isset( $fields['pricing_pattern'] ) ? sanitize_key( $fields['pricing_pattern'] ) : 'qty_times_fee';
+			$hardcoded_value = ( isset( $fields['hardcoded_value'] ) && '' !== $fields['hardcoded_value'] )
+				? (float) $fields['hardcoded_value']
+				: null;
+			$is_active = isset( $fields['is_active'] ) ? 1 : 0;
+
+			$threshold_qty = ( isset( $fields['threshold_qty'] ) && '' !== $fields['threshold_qty'] )
+				? (float) $fields['threshold_qty']
+				: null;
+			$threshold_trigger = isset( $fields['threshold_trigger'] ) ? sanitize_key( $fields['threshold_trigger'] ) : null;
+
+			TQB_DB::add_line_item( $quote_type, $item_key, $label, $fee, $pricing_pattern, $tooltip, array(
 				'hardcoded_value'   => $hardcoded_value,
 				'is_active'         => $is_active,
 				'threshold_qty'     => $threshold_qty,
@@ -443,110 +485,33 @@ class TQB_Admin {
 	}
 
 		/**
-		 * Get current row counts for cleanup UI.
+		 * Save Schedule L thresholds.
 		 */
-		public function handle_get_counts() {
+		public function handle_save_schedule_l() {
 			if ( ! current_user_can( 'manage_options' ) ) {
-				wp_send_json_error( 'Permission denied.', 403 );
+				wp_die( esc_html__( 'Permission denied.', 'tavola-quote-builder' ) );
 			}
 
-			check_ajax_referer( 'tqb_fetch_pipelines', 'nonce' );
+			check_admin_referer( self::NONCE_ACTION_SCHEDULE_L, 'tqb_schedule_l_nonce' );
 
-			global $wpdb;
-			$rate_bands_count = $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}tqb_rate_bands" );
-			$line_items_count = $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}tqb_line_items" );
+			$schedule_l = isset( $_POST['schedule_l'] ) ? (array) $_POST['schedule_l'] : array();
 
-			wp_send_json_success( array(
-				'rate_bands' => (int) $rate_bands_count,
-				'line_items' => (int) $line_items_count,
-			) );
-		}
+			$thresholds = array();
+			$entities = array( 'c_corp', 's_corp', 'partnership' );
 
-		/**
-		 * Remove duplicate rate bands.
-		 */
-		public function handle_cleanup_rate_bands() {
-			if ( ! current_user_can( 'manage_options' ) ) {
-				wp_send_json_error( 'Permission denied.', 403 );
+			foreach ( $entities as $entity ) {
+				if ( isset( $schedule_l[ $entity ] ) ) {
+					$thresholds[ $entity ] = array(
+						'asset_threshold'   => isset( $schedule_l[ $entity ]['asset_threshold'] ) ? (int) $schedule_l[ $entity ]['asset_threshold'] : 0,
+						'revenue_threshold' => isset( $schedule_l[ $entity ]['revenue_threshold'] ) ? (int) $schedule_l[ $entity ]['revenue_threshold'] : 0,
+						'flat_fee'         => isset( $schedule_l[ $entity ]['flat_fee'] ) ? (float) $schedule_l[ $entity ]['flat_fee'] : 999,
+					);
+				}
 			}
 
-			check_ajax_referer( 'tqb_fetch_pipelines', 'nonce' );
+			update_option( 'tqb_schedule_l_thresholds', $thresholds );
 
-			global $wpdb;
-			$table = $wpdb->prefix . 'tqb_rate_bands';
-
-			$before = $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
-
-			$wpdb->query( "
-				DELETE FROM {$table} 
-				WHERE id NOT IN (
-					SELECT * FROM (
-						SELECT MIN(id) 
-						FROM {$table} 
-						GROUP BY band_type, COALESCE(entity_group, ''), band_label
-					) AS temp
-				)
-			" );
-
-			$after = $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
-
-			wp_send_json_success( array(
-				'deleted' => $before - $after,
-				'remaining' => $after,
-			) );
+			wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=business&tqb_saved=1' ) );
+			exit;
 		}
-
-		/**
-		 * Remove duplicate line items.
-		 */
-		public function handle_cleanup_line_items() {
-			if ( ! current_user_can( 'manage_options' ) ) {
-				wp_send_json_error( 'Permission denied.', 403 );
-			}
-
-			check_ajax_referer( 'tqb_fetch_pipelines', 'nonce' );
-
-			global $wpdb;
-			$table = $wpdb->prefix . 'tqb_line_items';
-
-			$before = $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
-
-			$wpdb->query( "
-				DELETE FROM {$table} 
-				WHERE id NOT IN (
-					SELECT * FROM (
-						SELECT MIN(id) 
-						FROM {$table} 
-						GROUP BY quote_type, item_key
-					) AS temp
-				)
-			" );
-
-			$after = $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
-
-			wp_send_json_success( array(
-				'deleted' => $before - $after,
-				'remaining' => $after,
-			) );
-		}
-
-		/**
-		 * Reset all data to defaults.
-		 */
-		public function handle_reset_to_defaults() {
-			if ( ! current_user_can( 'manage_options' ) ) {
-				wp_send_json_error( 'Permission denied.', 403 );
-			}
-
-			check_ajax_referer( 'tqb_fetch_pipelines', 'nonce' );
-
-			global $wpdb;
-
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}tqb_line_items" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}tqb_rate_bands" );
-
-			TQB_Activator::seed_default_data();
-
-			wp_send_json_success( array( 'message' => 'Reset complete.' ) );
-		}
-}
+	}

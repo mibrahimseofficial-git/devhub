@@ -230,6 +230,51 @@ class TQB_DB {
 	}
 
 	/**
+	 * Delete a line item by ID.
+	 */
+	public static function delete_line_item( $id ) {
+		global $wpdb;
+		$table = $wpdb->prefix . TQB_TABLE_LINE_ITEMS;
+		return $wpdb->delete( $table, array( 'id' => absint( $id ) ), array( '%d' ) );
+	}
+
+	/**
+	 * Add a new line item.
+	 */
+	public static function add_line_item( $quote_type, $item_key, $label, $fee, $pricing_pattern, $tooltip = '', $extra = array() ) {
+		global $wpdb;
+		$table = $wpdb->prefix . TQB_TABLE_LINE_ITEMS;
+
+		// Get max sort_order for this quote_type
+		$max_order = $wpdb->get_var( $wpdb->prepare(
+			"SELECT MAX(sort_order) FROM {$table} WHERE quote_type = %s",
+			$quote_type
+		) );
+		$sort_order = $max_order ? (int) $max_order + 10 : 0;
+
+		$result = $wpdb->insert(
+			$table,
+			array(
+				'quote_type'              => $quote_type,
+				'item_key'                => $item_key,
+				'label'                   => $label,
+				'fee'                     => $fee,
+				'pricing_pattern'          => $pricing_pattern,
+				'hardcoded_value'         => isset( $extra['hardcoded_value'] ) ? $extra['hardcoded_value'] : null,
+				'is_custom_quote_trigger' => isset( $extra['is_custom_quote_trigger'] ) ? $extra['is_custom_quote_trigger'] : 0,
+				'threshold_qty'           => isset( $extra['threshold_qty'] ) ? $extra['threshold_qty'] : null,
+				'threshold_trigger'        => isset( $extra['threshold_trigger'] ) ? $extra['threshold_trigger'] : null,
+				'is_active'               => isset( $extra['is_active'] ) ? $extra['is_active'] : 1,
+				'sort_order'             => $sort_order,
+				'tooltip'                 => $tooltip,
+			),
+			array( '%s', '%s', '%s', '%f', '%s', '%f', '%d', '%f', '%s', '%d', '%d', '%s' )
+		);
+
+		return $result !== false ? $wpdb->insert_id : false;
+	}
+
+	/**
 	 * Update a single rate band row's price (used by the admin dashboard for
 	 * editing the Business asset-band grid and revenue add-ons). Band
 	 * boundaries (min/max/label) are NOT editable here — changing what a

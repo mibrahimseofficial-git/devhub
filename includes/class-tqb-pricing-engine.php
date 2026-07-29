@@ -159,15 +159,22 @@ class TQB_Pricing_Engine {
 		// Uses the selected band's upper bound as the comparison value, since
 		// the front-end form captures a band selection (dropdown), not a raw
 		// dollar figure. See PROJECT_SPEC.md Section 4 for the exact thresholds.
-		$asset_threshold   = ( 'partnership' === $entity_group ) ? 1000000 : 250000;
-		$revenue_threshold = 250000;
+		// These values can be customized in the admin settings.
+		$schedule_l_thresholds = get_option( 'tqb_schedule_l_thresholds', array() );
+		
+		$entity_key = strtolower( str_replace( '-', '_', sanitize_key( $entity_group ) ) );
+		$thresholds = isset( $schedule_l_thresholds[ $entity_key ] ) ? $schedule_l_thresholds[ $entity_key ] : array();
+		
+		$asset_threshold   = isset( $thresholds['asset_threshold'] ) ? (int) $thresholds['asset_threshold'] : 250000;
+		$revenue_threshold = isset( $thresholds['revenue_threshold'] ) ? (int) $thresholds['revenue_threshold'] : 250000;
+		$flat_fee          = isset( $thresholds['flat_fee'] ) ? (float) $thresholds['flat_fee'] : 999.00;
 
 		$schedule_l_not_required =
 			self::band_max_within( $asset_band, $asset_threshold ) &&
 			self::band_max_within( $revenue_band, $revenue_threshold );
 
 		if ( $schedule_l_not_required ) {
-			$base_fee = 999.00;
+			$base_fee = $flat_fee;
 		} else {
 			// --- Step 3: asset-band price + revenue add-on ---
 			$base_fee = (float) $asset_band['price'] + (float) $revenue_band['price'];
