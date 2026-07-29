@@ -174,6 +174,7 @@ class TQB_Public {
 
 		if ( empty( $contact['name'] ) || ! is_email( $contact['email'] ) || empty( $contact['phone'] ) ) {
 			wp_send_json_error( array( 'message' => 'Please provide a valid name, email, and phone number.' ), 400 );
+			return;
 		}
 
 		$answers = $this->sanitize_answers( isset( $_POST['answers'] ) ? (array) $_POST['answers'] : array() ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
