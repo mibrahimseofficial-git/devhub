@@ -9,22 +9,27 @@ WordPress plugin for Tavola Group (tavola.group) that provides a self-service ta
 
 ## Recent Fixes Applied
 
-### 1. Resume Banner (Removed)
+### 1. Validation Error Not Returning (FIXED)
+- In `handle_submit()`, validation errors were not returning after sending error response
+- Added `return;` after `wp_send_json_error()` on line 177
+- This was causing phone validation errors to continue executing
+
+### 2. Resume Banner (Removed)
 - Removed frontend resume banner feature
 - Was causing styling and functionality issues
 - Backend handlers still exist if needed later
 
-### 2. Start Over Button Fix
+### 3. Start Over Button Fix
 - Now calls `dismiss_partial` endpoint on click
 - Marks ALL `in_progress` records for that IP as `abandoned`
 - Prevents "already has quote in progress" warning
 
-### 3. Abandoned Record Protection
+### 4. Abandoned Record Protection
 - `save_partial()` now excludes records with `status = 'abandoned'`
 - Only updates records with `status = 'in_progress'`
 - Prevents accidentally modifying abandoned records
 
-### 4. Duplicate Schedule Call Button
+### 5. Duplicate Schedule Call Button
 - Fixed duplicate "Schedule Call" button on custom quotes
 - Now only one button appears in CTA wrapper
 
