@@ -484,6 +484,14 @@ class TQB_Activator {
 		global $wpdb;
 		$table = $wpdb->prefix . TQB_TABLE_RATE_BANDS;
 
+		// Check existing entries
+		$existing = $wpdb->get_results( "SELECT band_type, entity_group, band_label FROM {$table}", ARRAY_A );
+		$existing_map = array();
+		foreach ( $existing as $row ) {
+			$key = $row['band_type'] . ':' . ( $row['entity_group'] ?: 'null' ) . ':' . $row['band_label'];
+			$existing_map[ $key ] = true;
+		}
+
 		$asset_bands = array(
 			// label, min, max, c_s_corp price, partnership price, is_custom
 			array( 'Under $250K', 0, 250000, 1250, 1250, 0 ),
@@ -499,27 +507,35 @@ class TQB_Activator {
 		foreach ( $asset_bands as $band ) {
 			list( $label, $min, $max, $c_s_price, $p_price, $is_custom ) = $band;
 
-			$wpdb->insert( $table, array(
-				'band_type'    => 'asset_band',
-				'entity_group' => 'c_s_corp',
-				'band_label'   => $label,
-				'band_min'     => $min,
-				'band_max'     => $max,
-				'price'        => $c_s_price,
-				'is_custom'    => $is_custom,
-				'sort_order'   => $sort,
-			) );
+			// C-S Corp
+			$key = 'asset_band:c_s_corp:' . $label;
+			if ( ! isset( $existing_map[ $key ] ) ) {
+				$wpdb->insert( $table, array(
+					'band_type'    => 'asset_band',
+					'entity_group' => 'c_s_corp',
+					'band_label'   => $label,
+					'band_min'     => $min,
+					'band_max'     => $max,
+					'price'        => $c_s_price,
+					'is_custom'    => $is_custom,
+					'sort_order'   => $sort,
+				) );
+			}
 
-			$wpdb->insert( $table, array(
-				'band_type'    => 'asset_band',
-				'entity_group' => 'partnership',
-				'band_label'   => $label,
-				'band_min'     => $min,
-				'band_max'     => $max,
-				'price'        => $p_price,
-				'is_custom'    => $is_custom,
-				'sort_order'   => $sort,
-			) );
+			// Partnership
+			$key = 'asset_band:partnership:' . $label;
+			if ( ! isset( $existing_map[ $key ] ) ) {
+				$wpdb->insert( $table, array(
+					'band_type'    => 'asset_band',
+					'entity_group' => 'partnership',
+					'band_label'   => $label,
+					'band_min'     => $min,
+					'band_max'     => $max,
+					'price'        => $p_price,
+					'is_custom'    => $is_custom,
+					'sort_order'   => $sort,
+				) );
+			}
 
 			$sort += 10;
 		}
@@ -534,16 +550,19 @@ class TQB_Activator {
 		foreach ( $revenue_addons as $band ) {
 			list( $label, $min, $max, $addon ) = $band;
 
-			$wpdb->insert( $table, array(
-				'band_type'    => 'revenue_addon',
-				'entity_group' => null,
-				'band_label'   => $label,
-				'band_min'     => $min,
-				'band_max'     => $max,
-				'price'        => $addon,
-				'is_custom'    => 0,
-				'sort_order'   => $sort,
-			) );
+			$key = 'revenue_addon:null:' . $label;
+			if ( ! isset( $existing_map[ $key ] ) ) {
+				$wpdb->insert( $table, array(
+					'band_type'    => 'revenue_addon',
+					'entity_group' => null,
+					'band_label'   => $label,
+					'band_min'     => $min,
+					'band_max'     => $max,
+					'price'        => $addon,
+					'is_custom'    => 0,
+					'sort_order'   => $sort,
+				) );
+			}
 
 			$sort += 10;
 		}
