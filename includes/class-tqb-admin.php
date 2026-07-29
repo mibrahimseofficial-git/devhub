@@ -27,6 +27,10 @@ class TQB_Admin {
 		add_action( 'admin_post_tqb_delete_submission', array( $this, 'handle_delete_submission' ) );
 		add_action( 'admin_post_tqb_delete_submissions', array( $this, 'handle_bulk_delete_submissions' ) );
 		add_action( 'wp_ajax_tqb_fetch_hubspot_pipelines', array( $this, 'handle_fetch_hubspot_pipelines' ) );
+		add_action( 'wp_ajax_tqb_get_counts', array( $this, 'handle_get_counts' ) );
+		add_action( 'wp_ajax_tqb_cleanup_rate_bands', array( $this, 'handle_cleanup_rate_bands' ) );
+		add_action( 'wp_ajax_tqb_cleanup_line_items', array( $this, 'handle_cleanup_line_items' ) );
+		add_action( 'wp_ajax_tqb_reset_to_defaults', array( $this, 'handle_reset_to_defaults' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_saved_notice' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 	}
@@ -437,4 +441,112 @@ class TQB_Admin {
 
 		wp_send_json_success( array( 'pipelines' => $pipelines ) );
 	}
+
+		/**
+		 * Get current row counts for cleanup UI.
+		 */
+		public function handle_get_counts() {
+			if ( ! current_user_can( 'manage_options' ) ) {
+				wp_send_json_error( 'Permission denied.', 403 );
+			}
+
+			check_ajax_referer( 'tqb_fetch_pipelines', 'nonce' );
+
+			global $wpdb;
+			$rate_bands_count = $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}tqb_rate_bands" );
+			$line_items_count = $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}tqb_line_items" );
+
+			wp_send_json_success( array(
+				'rate_bands' => (int) $rate_bands_count,
+				'line_items' => (int) $line_items_count,
+			) );
+		}
+
+		/**
+		 * Remove duplicate rate bands.
+		 */
+		public function handle_cleanup_rate_bands() {
+			if ( ! current_user_can( 'manage_options' ) ) {
+				wp_send_json_error( 'Permission denied.', 403 );
+			}
+
+			check_ajax_referer( 'tqb_fetch_pipelines', 'nonce' );
+
+			global $wpdb;
+			$table = $wpdb->prefix . 'tqb_rate_bands';
+
+			$before = $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+
+			$wpdb->query( "
+				DELETE FROM {$table} 
+				WHERE id NOT IN (
+					SELECT * FROM (
+						SELECT MIN(id) 
+						FROM {$table} 
+						GROUP BY band_type, COALESCE(entity_group, ''), band_label
+					) AS temp
+				)
+			" );
+
+			$after = $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+
+			wp_send_json_success( array(
+				'deleted' => $before - $after,
+				'remaining' => $after,
+			) );
+		}
+
+		/**
+		 * Remove duplicate line items.
+		 */
+		public function handle_cleanup_line_items() {
+			if ( ! current_user_can( 'manage_options' ) ) {
+				wp_send_json_error( 'Permission denied.', 403 );
+			}
+
+			check_ajax_referer( 'tqb_fetch_pipelines', 'nonce' );
+
+			global $wpdb;
+			$table = $wpdb->prefix . 'tqb_line_items';
+
+			$before = $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+
+			$wpdb->query( "
+				DELETE FROM {$table} 
+				WHERE id NOT IN (
+					SELECT * FROM (
+						SELECT MIN(id) 
+						FROM {$table} 
+						GROUP BY quote_type, item_key
+					) AS temp
+				)
+			" );
+
+			$after = $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+
+			wp_send_json_success( array(
+				'deleted' => $before - $after,
+				'remaining' => $after,
+			) );
+		}
+
+		/**
+		 * Reset all data to defaults.
+		 */
+		public function handle_reset_to_defaults() {
+			if ( ! current_user_can( 'manage_options' ) ) {
+				wp_send_json_error( 'Permission denied.', 403 );
+			}
+
+			check_ajax_referer( 'tqb_fetch_pipelines', 'nonce' );
+
+			global $wpdb;
+
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}tqb_line_items" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}tqb_rate_bands" );
+
+			TQB_Activator::seed_default_data();
+
+			wp_send_json_success( array( 'message' => 'Reset complete.' ) );
+		}
 }

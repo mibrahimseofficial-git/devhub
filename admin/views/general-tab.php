@@ -151,3 +151,134 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<button type="submit" class="button button-primary">Save Settings</button>
 	</p>
 </form>
+
+<h2 style="margin-top: 40px;">Database Maintenance</h2>
+<p class="description">Use these tools to clean up duplicate entries or reset data.</p>
+
+<div style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; max-width: 800px; margin-top: 15px;">
+	<table class="form-table" role="presentation">
+		<tr>
+			<th scope="row" style="width: 300px;">Remove Duplicate Rate Bands</th>
+			<td>
+				<p style="margin: 0 0 10px 0;">Removes duplicate entries from the rate bands table. Current count: <strong id="tqb-rate-bands-count">Loading...</strong></p>
+				<button type="button" id="tqb-cleanup-rate-bands" class="button">Remove Duplicates</button>
+				<span id="tqb-rate-bands-status" style="margin-left: 10px;"></span>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">Remove Duplicate Line Items</th>
+			<td>
+				<p style="margin: 0 0 10px 0;">Removes duplicate entries from the line items table. Current count: <strong id="tqb-line-items-count">Loading...</strong></p>
+				<button type="button" id="tqb-cleanup-line-items" class="button">Remove Duplicates</button>
+				<span id="tqb-line-items-status" style="margin-left: 10px;"></span>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">Reset to Defaults</th>
+			<td>
+				<p style="margin: 0 0 10px 0; color: #b32d2e;"><strong>Warning:</strong> This will delete ALL line items, rate bands, and settings, then re-seed from default data.</p>
+				<button type="button" id="tqb-reset-all" class="button button-secondary" style="border-color: #b32d2e; color: #b32d2e;">Reset Everything</button>
+				<span id="tqb-reset-status" style="margin-left: 10px;"></span>
+			</td>
+		</tr>
+	</table>
+</div>
+
+<script>
+(function() {
+	// Load counts on page load
+	fetch(tqbAdminData.ajaxUrl, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+		body: 'action=tqb_get_counts&nonce=' + tqbAdminData.nonce
+	})
+	.then(r => r.json())
+	.then(d => {
+		if (d.success) {
+			document.getElementById('tqb-rate-bands-count').textContent = d.data.rate_bands + ' entries';
+			document.getElementById('tqb-line-items-count').textContent = d.data.line_items + ' entries';
+		}
+	});
+
+	// Cleanup rate bands
+	document.getElementById('tqb-cleanup-rate-bands').onclick = function() {
+		if (!confirm('Remove duplicate rate bands? This cannot be undone.')) return;
+		var btn = this;
+		var status = document.getElementById('tqb-rate-bands-status');
+		btn.disabled = true;
+		status.textContent = 'Working...';
+		fetch(tqbAdminData.ajaxUrl, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: 'action=tqb_cleanup_rate_bands&nonce=' + tqbAdminData.nonce
+		})
+		.then(r => r.json())
+		.then(d => {
+			btn.disabled = false;
+			if (d.success) {
+				status.textContent = 'Done! Removed ' + d.data.deleted + ' duplicates.';
+				status.style.color = '#2f6f4e';
+				// Refresh count
+				document.getElementById('tqb-rate-bands-count').textContent = d.data.remaining + ' entries';
+			} else {
+				status.textContent = 'Error: ' + (d.data || 'Unknown error');
+				status.style.color = '#b32d2e';
+			}
+		});
+	};
+
+	// Cleanup line items
+	document.getElementById('tqb-cleanup-line-items').onclick = function() {
+		if (!confirm('Remove duplicate line items? This cannot be undone.')) return;
+		var btn = this;
+		var status = document.getElementById('tqb-line-items-status');
+		btn.disabled = true;
+		status.textContent = 'Working...';
+		fetch(tqbAdminData.ajaxUrl, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: 'action=tqb_cleanup_line_items&nonce=' + tqbAdminData.nonce
+		})
+		.then(r => r.json())
+		.then(d => {
+			btn.disabled = false;
+			if (d.success) {
+				status.textContent = 'Done! Removed ' + d.data.deleted + ' duplicates.';
+				status.style.color = '#2f6f4e';
+				// Refresh count
+				document.getElementById('tqb-line-items-count').textContent = d.data.remaining + ' entries';
+			} else {
+				status.textContent = 'Error: ' + (d.data || 'Unknown error');
+				status.style.color = '#b32d2e';
+			}
+		});
+	};
+
+	// Reset all
+	document.getElementById('tqb-reset-all').onclick = function() {
+		if (!confirm('RESET EVERYTHING?\n\nThis will delete all line items, rate bands, and settings, then re-seed defaults.\n\nThis cannot be undone!')) return;
+		if (!confirm('Are you REALLY sure? Type "RESET" to confirm.')) return;
+		var btn = this;
+		var status = document.getElementById('tqb-reset-status');
+		btn.disabled = true;
+		status.textContent = 'Resetting...';
+		fetch(tqbAdminData.ajaxUrl, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: 'action=tqb_reset_to_defaults&nonce=' + tqbAdminData.nonce
+		})
+		.then(r => r.json())
+		.then(d => {
+			btn.disabled = false;
+			if (d.success) {
+				status.textContent = 'Done! Reset complete.';
+				status.style.color = '#2f6f4e';
+				location.reload();
+			} else {
+				status.textContent = 'Error: ' + (d.data || 'Unknown error');
+				status.style.color = '#b32d2e';
+			}
+		});
+	};
+})();
+</script>
