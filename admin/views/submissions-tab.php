@@ -196,6 +196,7 @@ function tqb_get_sort_indicator( $column ) {
 							?>
 						</td>
 						<td>
+							<button type="button" class="button button-small tqb-view-details" data-id="<?php echo esc_attr( $sub['id'] ); ?>">View</button>
 							<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=tqb_delete_submission&id=' . $sub['id'] ), 'tqb_delete_sub_' . $sub['id'] ) ); ?>" class="button button-small" style="color: #b32d2e;" onclick="return confirm('Delete this submission? This cannot be undone.');">Delete</a>
 						</td>
 						<td>
@@ -347,4 +348,382 @@ jQuery(document).ready(function($) {
 .widefat thead th a {
 	font-weight: 600;
 }
+
+/* Modal Styles */
+.tqb-modal-overlay {
+	display: none;
+	position: fixed;
+	z-index: 100000;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	background-color: rgba(0, 0, 0, 0.5);
+}
+.tqb-modal-overlay.is-visible {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.tqb-modal {
+	background: #fff;
+	border-radius: 8px;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+	max-width: 800px;
+	width: 95%;
+	max-height: 90vh;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+}
+.tqb-modal-header {
+	background: #1e3a5f;
+	color: #fff;
+	padding: 20px 24px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.tqb-modal-header h2 {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 600;
+}
+.tqb-modal-close {
+	background: none;
+	border: none;
+	color: #fff;
+	font-size: 28px;
+	cursor: pointer;
+	padding: 0;
+	line-height: 1;
+	opacity: 0.8;
+}
+.tqb-modal-close:hover {
+	opacity: 1;
+}
+.tqb-modal-body {
+	padding: 24px;
+	overflow-y: auto;
+	max-height: calc(90vh - 70px);
+}
+.tqb-modal-section {
+	margin-bottom: 24px;
+}
+.tqb-modal-section:last-child {
+	margin-bottom: 0;
+}
+.tqb-modal-section h3 {
+	margin: 0 0 12px;
+	font-size: 14px;
+	font-weight: 600;
+	color: #1e3a5f;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	border-bottom: 2px solid #c9a84c;
+	padding-bottom: 8px;
+}
+.tqb-modal-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 16px;
+}
+.tqb-modal-field {
+	background: #f8f9fa;
+	padding: 12px;
+	border-radius: 6px;
+	border-left: 3px solid #c9a84c;
+}
+.tqb-modal-field label {
+	display: block;
+	font-size: 11px;
+	font-weight: 600;
+	color: #666;
+	text-transform: uppercase;
+	margin-bottom: 4px;
+}
+.tqb-modal-field .value {
+	font-size: 14px;
+	color: #333;
+	font-weight: 500;
+}
+.tqb-modal-answers table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 13px;
+}
+.tqb-modal-answers th,
+.tqb-modal-answers td {
+	padding: 10px 12px;
+	text-align: left;
+	border-bottom: 1px solid #eee;
+}
+.tqb-modal-answers th {
+	background: #f1f1f1;
+	font-weight: 600;
+	color: #333;
+}
+.tqb-modal-answers tr:nth-child(even) {
+	background: #f8f9fa;
+}
+.tqb-modal-answers .yes {
+	color: #2e7d32;
+	font-weight: 600;
+}
+.tqb-modal-answers .no {
+	color: #888;
+}
+.tqb-modal-loading {
+	text-align: center;
+	padding: 40px;
+	color: #666;
+}
+.tqb-status-badge {
+	display: inline-block;
+	padding: 3px 10px;
+	border-radius: 4px;
+	font-size: 12px;
+	font-weight: 600;
+}
+.tqb-status-badge--completed {
+	background: #e8f5e9;
+	color: #2e7d32;
+}
+.tqb-status-badge--in_progress {
+	background: #fff8e1;
+	color: #f57f17;
+}
+.tqb-status-badge--abandoned {
+	background: #ffebee;
+	color: #c62828;
+}
+.tqb-hubspot-badge {
+	display: inline-block;
+	padding: 3px 10px;
+	border-radius: 4px;
+	font-size: 11px;
+	font-weight: 600;
+}
+.tqb-hubspot-badge--synced {
+	background: #e8f5e9;
+	color: #2e7d32;
+}
+.tqb-hubspot-badge--pending {
+	background: #fff8e1;
+	color: #f57f17;
+}
+.tqb-hubspot-badge--failed {
+	background: #ffebee;
+	color: #c62828;
+}
+.tqb-email-status {
+	display: flex;
+	gap: 20px;
+	flex-wrap: wrap;
+}
+.tqb-email-status-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+}
+.tqb-email-status-item .icon {
+	font-size: 16px;
+}
+.tqb-email-status-item.sent .icon {
+	color: #2e7d32;
+}
+.tqb-email-status-item.pending .icon {
+	color: #f57f17;
+}
 </style>
+
+<!-- View Details Modal -->
+<div class="tqb-modal-overlay" id="tqb-details-modal">
+	<div class="tqb-modal">
+		<div class="tqb-modal-header">
+			<h2>Submission Details <span id="tqb-modal-id"></span></h2>
+			<button type="button" class="tqb-modal-close" aria-label="Close">&times;</button>
+		</div>
+		<div class="tqb-modal-body" id="tqb-modal-body">
+			<div class="tqb-modal-loading">Loading...</div>
+		</div>
+	</div>
+</div>
+
+<script>
+jQuery(document).ready(function($) {
+	// Submission data passed from PHP
+	var submissionsData = <?php echo json_encode(array_values($submissions)); ?>;
+
+	// Create lookup by ID
+	var submissionsById = {};
+	submissionsData.forEach(function(sub) {
+		submissionsById[sub.id] = sub;
+	});
+
+	// Open modal
+	$('.tqb-view-details').on('click', function() {
+		var id = $(this).data('id');
+		var sub = submissionsById[id];
+		if (!sub) return;
+
+		$('#tqb-modal-id').text('#' + id);
+		
+		var answersHtml = '';
+		try {
+			var answers = typeof sub.answers === 'string' ? JSON.parse(sub.answers) : sub.answers;
+			if (answers && answers.answers) {
+				var answerItems = answers.answers;
+			} else if (answers) {
+				var answerItems = answers;
+			} else {
+				var answerItems = {};
+			}
+
+			if (Object.keys(answerItems).length > 0) {
+				answersHtml = '<table><thead><tr><th>Item</th><th>Selected</th><th>Quantity</th><th>Details</th></tr></thead><tbody>';
+				for (var key in answerItems) {
+					if (answerItems.hasOwnProperty(key)) {
+						var item = answerItems[key];
+						var selected = item.selected ? 'Yes' : 'No';
+						var selectedClass = item.selected ? 'yes' : 'no';
+						var qty = item.qty ? item.qty : (item.volume ? item.volume : '-');
+						var details = item.thresholdNote ? item.thresholdNote : '-';
+						answersHtml += '<tr><td>' + key.replace(/_/g, ' ') + '</td><td class="' + selectedClass + '">' + selected + '</td><td>' + qty + '</td><td>' + details + '</td></tr>';
+					}
+				}
+				answersHtml += '</tbody></table>';
+			} else {
+				answersHtml = '<p style="color: #888;">No answers recorded for this submission.</p>';
+			}
+		} catch (e) {
+			answersHtml = '<p style="color: #888;">Unable to parse answers data.</p>';
+		}
+
+		// Handle business data if present
+		var businessHtml = '';
+		try {
+			var answers = typeof sub.answers === 'string' ? JSON.parse(sub.answers) : sub.answers;
+			if (answers && answers.businesses && answers.businesses.length > 0) {
+				businessHtml = '<div class="tqb-modal-section"><h3>Business Information</h3>';
+				answers.businesses.forEach(function(biz, idx) {
+					businessHtml += '<div style="margin-bottom: 16px; padding: 16px; background: #f8f9fa; border-radius: 6px;">';
+					businessHtml += '<strong style="color: #7b1fa2;">Business ' + (idx + 1) + '</strong><br/>';
+					businessHtml += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 10px;">';
+					businessHtml += '<div><label>Entity Type</label><div>' + (biz.entity_type || '-') + '</div></div>';
+					businessHtml += '<div><label>Asset Band</label><div>' + (biz.asset_band || '-') + '</div></div>';
+					businessHtml += '<div><label>Revenue Band</label><div>' + (biz.revenue_band || '-') + '</div></div>';
+					businessHtml += '</div>';
+					businessHtml += '</div>';
+				});
+				businessHtml += '</div>';
+			}
+		} catch (e) {
+			// No business data
+		}
+
+		// Quote result
+		var quoteResult = sub.is_custom_quote == 1 ? 
+			'<span style="color: #c9a84c; font-weight: 600;">Custom Quote (' + (sub.custom_quote_reason || 'Required') + ')</span>' :
+			(sub.calculated_total ? '$' + parseFloat(sub.calculated_total).toLocaleString('en-US', {minimumFractionDigits: 2}) : '-');
+
+		// Status badge
+		var statusClass = sub.status === 'completed' ? 'completed' : (sub.status === 'abandoned' ? 'abandoned' : 'in_progress');
+		var statusLabel = sub.status === 'completed' ? 'Completed' : (sub.status === 'abandoned' ? 'Abandoned' : 'In Progress');
+
+		// HubSpot status
+		var hubspotHtml = '';
+		if (sub.hubspot_synced == 1) {
+			hubspotHtml = '<span class="tqb-hubspot-badge tqb-hubspot-badge--synced">✓ Synced</span>';
+			if (sub.hubspot_deal_id) {
+				hubspotHtml += ' <small>Deal ID: ' + sub.hubspot_deal_id + '</small>';
+			}
+		} else {
+			hubspotHtml = '<span class="tqb-hubspot-badge tqb-hubspot-badge--pending">⏳ Not Synced</span>';
+		}
+
+		// Email statuses
+		var emailHtml = '<div class="tqb-email-status">';
+		emailHtml += '<div class="tqb-email-status-item ' + (sub.confirmation_email_sent == 1 ? 'sent' : 'pending') + '">';
+		emailHtml += '<span class="icon">' + (sub.confirmation_email_sent == 1 ? '✓' : '○') + '</span> Confirmation Email';
+		emailHtml += '</div>';
+		emailHtml += '<div class="tqb-email-status-item ' + (sub.reminder_email_sent == 1 ? 'sent' : 'pending') + '">';
+		emailHtml += '<span class="icon">' + (sub.reminder_email_sent == 1 ? '✓' : '○') + '</span> Reminder Email';
+		emailHtml += '</div>';
+		emailHtml += '<div class="tqb-email-status-item ' + (sub.followup_email_sent == 1 ? 'sent' : 'pending') + '">';
+		emailHtml += '<span class="icon">' + (sub.followup_email_sent == 1 ? '✓' : '○') + '</span> Follow-up Email';
+		emailHtml += '</div>';
+		emailHtml += '<div class="tqb-email-status-item ' + (sub.final_email_sent == 1 ? 'sent' : 'pending') + '">';
+		emailHtml += '<span class="icon">' + (sub.final_email_sent == 1 ? '✓' : '○') + '</span> Final Email';
+		emailHtml += '</div>';
+		emailHtml += '</div>';
+
+		// Timestamps
+		var createdDate = sub.created_at ? new Date(sub.created_at).toLocaleString('en-US', {timeZone: 'America/Chicago'}) + ' CT' : '-';
+		var updatedDate = sub.updated_at ? new Date(sub.updated_at).toLocaleString('en-US', {timeZone: 'America/Chicago'}) + ' CT' : '-';
+
+		var bodyContent = '';
+		bodyContent += '<div class="tqb-modal-section"><h3>Contact Information</h3>';
+		bodyContent += '<div class="tqb-modal-grid">';
+		bodyContent += '<div class="tqb-modal-field"><label>Full Name</label><div class="value">' + (sub.contact_name || '-') + '</div></div>';
+		bodyContent += '<div class="tqb-modal-field"><label>Email</label><div class="value"><a href="mailto:' + (sub.contact_email || '') + '">' + (sub.contact_email || '-') + '</a></div></div>';
+		bodyContent += '<div class="tqb-modal-field"><label>Phone</label><div class="value">' + (sub.contact_phone || '-') + '</div></div>';
+		bodyContent += '<div class="tqb-modal-field"><label>IP Address</label><div class="value">' + (sub.user_ip || '-') + '</div></div>';
+		bodyContent += '</div></div>';
+
+		bodyContent += '<div class="tqb-modal-section"><h3>Quote Information</h3>';
+		bodyContent += '<div class="tqb-modal-grid">';
+		bodyContent += '<div class="tqb-modal-field"><label>Quote Type</label><div class="value"><span class="tqb-badge tqb-badge--' + (sub.quote_type || '') + '">' + ((sub.quote_type || '').charAt(0).toUpperCase() + (sub.quote_type || '').slice(1)) + '</span></div></div>';
+		bodyContent += '<div class="tqb-modal-field"><label>Status</label><div class="value"><span class="tqb-status-badge tqb-status-badge--' + statusClass + '">' + statusLabel + '</span></div></div>';
+		bodyContent += '<div class="tqb-modal-field"><label>Quote Result</label><div class="value">' + quoteResult + '</div></div>';
+		bodyContent += '<div class="tqb-modal-field"><label>HubSpot</label><div class="value">' + hubspotHtml + '</div></div>';
+		bodyContent += '</div></div>';
+
+		bodyContent += businessHtml;
+
+		bodyContent += '<div class="tqb-modal-section"><h3>Email Status</h3>';
+		bodyContent += emailHtml;
+		bodyContent += '</div>';
+
+		bodyContent += '<div class="tqb-modal-section"><h3>Answers</h3>';
+		bodyContent += '<div class="tqb-modal-answers">' + answersHtml + '</div>';
+		bodyContent += '</div>';
+
+		bodyContent += '<div class="tqb-modal-section"><h3>Timestamps</h3>';
+		bodyContent += '<div class="tqb-modal-grid">';
+		bodyContent += '<div class="tqb-modal-field"><label>Created</label><div class="value">' + createdDate + '</div></div>';
+		bodyContent += '<div class="tqb-modal-field"><label>Last Updated</label><div class="value">' + updatedDate + '</div></div>';
+		if (sub.reminder_email_sent_at) {
+			var reminderDate = new Date(sub.reminder_email_sent_at).toLocaleString('en-US', {timeZone: 'America/Chicago'}) + ' CT';
+			bodyContent += '<div class="tqb-modal-field"><label>Reminder Sent</label><div class="value">' + reminderDate + '</div></div>';
+		}
+		if (sub.followup_email_sent_at) {
+			var followupDate = new Date(sub.followup_email_sent_at).toLocaleString('en-US', {timeZone: 'America/Chicago'}) + ' CT';
+			bodyContent += '<div class="tqb-modal-field"><label>Follow-up Sent</label><div class="value">' + followupDate + '</div></div>';
+		}
+		if (sub.final_email_sent_at) {
+			var finalDate = new Date(sub.final_email_sent_at).toLocaleString('en-US', {timeZone: 'America/Chicago'}) + ' CT';
+			bodyContent += '<div class="tqb-modal-field"><label>Final Email Sent</label><div class="value">' + finalDate + '</div></div>';
+		}
+		bodyContent += '</div></div>';
+
+		$('#tqb-modal-body').html(bodyContent);
+		$('#tqb-details-modal').addClass('is-visible');
+	});
+
+	// Close modal
+	$('.tqb-modal-close, .tqb-modal-overlay').on('click', function(e) {
+		if (e.target === this) {
+			$('#tqb-details-modal').removeClass('is-visible');
+		}
+	});
+
+	// Close on Escape key
+	$(document).on('keydown', function(e) {
+		if (e.key === 'Escape') {
+			$('#tqb-details-modal').removeClass('is-visible');
+		}
+	});
+});
+</script>
