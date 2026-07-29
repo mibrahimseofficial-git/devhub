@@ -554,177 +554,178 @@ jQuery(document).ready(function($) {
 
 <script>
 jQuery(document).ready(function($) {
-	// Submission data passed from PHP
-	var submissionsData = <?php echo json_encode(array_values($submissions)); ?>;
+// Submission data passed from PHP (answers already decoded by PHP)
+var submissionsData = <?php echo json_encode(array_values($submissions)); ?>;
 
-	// Create lookup by ID
-	var submissionsById = {};
-	submissionsData.forEach(function(sub) {
-		submissionsById[sub.id] = sub;
-	});
+// Create lookup by ID
+var submissionsById = {};
+submissionsData.forEach(function(sub) {
+submissionsById[sub.id] = sub;
+});
 
-	// Open modal
-	$('.tqb-view-details').on('click', function() {
-		var id = $(this).data('id');
-		var sub = submissionsById[id];
-		if (!sub) return;
+// Open modal
+$('.tqb-view-details').on('click', function() {
+var id = $(this).data('id');
+var sub = submissionsById[id];
+if (!sub) return;
 
-		$('#tqb-modal-id').text('#' + id);
-		
-		var answersHtml = '';
-		try {
-			var answers = typeof sub.answers === 'string' ? JSON.parse(sub.answers) : sub.answers;
-			if (answers && answers.answers) {
-				var answerItems = answers.answers;
-			} else if (answers) {
-				var answerItems = answers;
-			} else {
-				var answerItems = {};
-			}
+$('#tqb-modal-id').text('#' + id);
 
-			if (Object.keys(answerItems).length > 0) {
-				answersHtml = '<table><thead><tr><th>Item</th><th>Selected</th><th>Quantity</th><th>Details</th></tr></thead><tbody>';
-				for (var key in answerItems) {
-					if (answerItems.hasOwnProperty(key)) {
-						var item = answerItems[key];
-						var selected = item.selected ? 'Yes' : 'No';
-						var selectedClass = item.selected ? 'yes' : 'no';
-						var qty = item.qty ? item.qty : (item.volume ? item.volume : '-');
-						var details = item.thresholdNote ? item.thresholdNote : '-';
-						answersHtml += '<tr><td>' + key.replace(/_/g, ' ') + '</td><td class="' + selectedClass + '">' + selected + '</td><td>' + qty + '</td><td>' + details + '</td></tr>';
-					}
-				}
-				answersHtml += '</tbody></table>';
-			} else {
-				answersHtml = '<p style="color: #888;">No answers recorded for this submission.</p>';
-			}
-		} catch (e) {
-			answersHtml = '<p style="color: #888;">Unable to parse answers data.</p>';
-		}
+// Parse answers - already decoded by PHP
+var answersHtml = '';
+try {
+// sub.answers is already an object from PHP
+var answersData = sub.answers || {};
 
-		// Handle business data if present
-		var businessHtml = '';
-		try {
-			var answers = typeof sub.answers === 'string' ? JSON.parse(sub.answers) : sub.answers;
-			if (answers && answers.businesses && answers.businesses.length > 0) {
-				businessHtml = '<div class="tqb-modal-section"><h3>Business Information</h3>';
-				answers.businesses.forEach(function(biz, idx) {
-					businessHtml += '<div style="margin-bottom: 16px; padding: 16px; background: #f8f9fa; border-radius: 6px;">';
-					businessHtml += '<strong style="color: #7b1fa2;">Business ' + (idx + 1) + '</strong><br/>';
-					businessHtml += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 10px;">';
-					businessHtml += '<div><label>Entity Type</label><div>' + (biz.entity_type || '-') + '</div></div>';
-					businessHtml += '<div><label>Asset Band</label><div>' + (biz.asset_band || '-') + '</div></div>';
-					businessHtml += '<div><label>Revenue Band</label><div>' + (biz.revenue_band || '-') + '</div></div>';
-					businessHtml += '</div>';
-					businessHtml += '</div>';
-				});
-				businessHtml += '</div>';
-			}
-		} catch (e) {
-			// No business data
-		}
+// Handle nested structure: answers.answers or direct answers
+var answerItems = answersData.answers || answersData;
 
-		// Quote result
-		var quoteResult = sub.is_custom_quote == 1 ? 
-			'<span style="color: #c9a84c; font-weight: 600;">Custom Quote (' + (sub.custom_quote_reason || 'Required') + ')</span>' :
-			(sub.calculated_total ? '$' + parseFloat(sub.calculated_total).toLocaleString('en-US', {minimumFractionDigits: 2}) : '-');
+if (answerItems && typeof answerItems === 'object' && Object.keys(answerItems).length > 0) {
+answersHtml = '<table><thead><tr><th>Item</th><th>Selected</th><th>Quantity</th><th>Details</th></tr></thead><tbody>';
+for (var key in answerItems) {
+if (answerItems.hasOwnProperty(key)) {
+var item = answerItems[key];
+var selected = item && item.selected ? 'Yes' : 'No';
+var selectedClass = item && item.selected ? 'yes' : 'no';
+var qty = item && item.qty ? item.qty : (item && item.volume ? item.volume : '-');
+var details = item && item.thresholdNote ? item.thresholdNote : '-';
+answersHtml += '<tr><td>' + key.replace(/_/g, ' ') + '</td><td class="' + selectedClass + '">' + selected + '</td><td>' + qty + '</td><td>' + details + '</td></tr>';
+}
+}
+answersHtml += '</tbody></table>';
+} else {
+answersHtml = '<p style="color: #888;">No answers recorded for this submission.</p>';
+}
+} catch (e) {
+answersHtml = '<p style="color: #888;">Unable to parse answers data.</p>';
+}
 
-		// Status badge
-		var statusClass = sub.status === 'completed' ? 'completed' : (sub.status === 'abandoned' ? 'abandoned' : 'in_progress');
-		var statusLabel = sub.status === 'completed' ? 'Completed' : (sub.status === 'abandoned' ? 'Abandoned' : 'In Progress');
+// Handle business data if present
+var businessHtml = '';
+try {
+var answersData = sub.answers || {};
+var businesses = answersData.businesses;
+if (businesses && businesses.length > 0) {
+businessHtml = '<div class="tqb-modal-section"><h3>Business Information</h3>';
+businesses.forEach(function(biz, idx) {
+businessHtml += '<div style="margin-bottom: 16px; padding: 16px; background: #f8f9fa; border-radius: 6px;">';
+businessHtml += '<strong style="color: #7b1fa2;">Business ' + (idx + 1) + '</strong><br/>';
+businessHtml += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 10px;">';
+businessHtml += '<div><label>Entity Type</label><div>' + (biz.entity_type || '-') + '</div></div>';
+businessHtml += '<div><label>Asset Band</label><div>' + (biz.asset_band || '-') + '</div></div>';
+businessHtml += '<div><label>Revenue Band</label><div>' + (biz.revenue_band || '-') + '</div></div>';
+businessHtml += '</div>';
+businessHtml += '</div>';
+});
+businessHtml += '</div>';
+}
+} catch (e) {
+// No business data
+}
 
-		// HubSpot status
-		var hubspotHtml = '';
-		if (sub.hubspot_synced == 1) {
-			hubspotHtml = '<span class="tqb-hubspot-badge tqb-hubspot-badge--synced">✓ Synced</span>';
-			if (sub.hubspot_deal_id) {
-				hubspotHtml += ' <small>Deal ID: ' + sub.hubspot_deal_id + '</small>';
-			}
-		} else {
-			hubspotHtml = '<span class="tqb-hubspot-badge tqb-hubspot-badge--pending">⏳ Not Synced</span>';
-		}
+// Quote result
+var quoteResult = sub.is_custom_quote == 1 ?
+'<span style="color: #c9a84c; font-weight: 600;">Custom Quote (' + (sub.custom_quote_reason || 'Required') + ')</span>' :
+(sub.calculated_total ? '$' + parseFloat(sub.calculated_total).toLocaleString('en-US', {minimumFractionDigits: 2}) : '-');
 
-		// Email statuses
-		var emailHtml = '<div class="tqb-email-status">';
-		emailHtml += '<div class="tqb-email-status-item ' + (sub.confirmation_email_sent == 1 ? 'sent' : 'pending') + '">';
-		emailHtml += '<span class="icon">' + (sub.confirmation_email_sent == 1 ? '✓' : '○') + '</span> Confirmation Email';
-		emailHtml += '</div>';
-		emailHtml += '<div class="tqb-email-status-item ' + (sub.reminder_email_sent == 1 ? 'sent' : 'pending') + '">';
-		emailHtml += '<span class="icon">' + (sub.reminder_email_sent == 1 ? '✓' : '○') + '</span> Reminder Email';
-		emailHtml += '</div>';
-		emailHtml += '<div class="tqb-email-status-item ' + (sub.followup_email_sent == 1 ? 'sent' : 'pending') + '">';
-		emailHtml += '<span class="icon">' + (sub.followup_email_sent == 1 ? '✓' : '○') + '</span> Follow-up Email';
-		emailHtml += '</div>';
-		emailHtml += '<div class="tqb-email-status-item ' + (sub.final_email_sent == 1 ? 'sent' : 'pending') + '">';
-		emailHtml += '<span class="icon">' + (sub.final_email_sent == 1 ? '✓' : '○') + '</span> Final Email';
-		emailHtml += '</div>';
-		emailHtml += '</div>';
+// Status badge
+var statusClass = sub.status === 'completed' ? 'completed' : (sub.status === 'abandoned' ? 'abandoned' : 'in_progress');
+var statusLabel = sub.status === 'completed' ? 'Completed' : (sub.status === 'abandoned' ? 'Abandoned' : 'In Progress');
 
-		// Timestamps
-		var createdDate = sub.created_at ? new Date(sub.created_at).toLocaleString('en-US', {timeZone: 'America/Chicago'}) + ' CT' : '-';
-		var updatedDate = sub.updated_at ? new Date(sub.updated_at).toLocaleString('en-US', {timeZone: 'America/Chicago'}) + ' CT' : '-';
+// HubSpot status
+var hubspotHtml = '';
+if (sub.hubspot_synced == 1) {
+hubspotHtml = '<span class="tqb-hubspot-badge tqb-hubspot-badge--synced">&#10003; Synced</span>';
+if (sub.hubspot_deal_id) {
+hubspotHtml += ' <small>Deal ID: ' + sub.hubspot_deal_id + '</small>';
+}
+} else {
+hubspotHtml = '<span class="tqb-hubspot-badge tqb-hubspot-badge--pending">&#8987; Not Synced</span>';
+}
 
-		var bodyContent = '';
-		bodyContent += '<div class="tqb-modal-section"><h3>Contact Information</h3>';
-		bodyContent += '<div class="tqb-modal-grid">';
-		bodyContent += '<div class="tqb-modal-field"><label>Full Name</label><div class="value">' + (sub.contact_name || '-') + '</div></div>';
-		bodyContent += '<div class="tqb-modal-field"><label>Email</label><div class="value"><a href="mailto:' + (sub.contact_email || '') + '">' + (sub.contact_email || '-') + '</a></div></div>';
-		bodyContent += '<div class="tqb-modal-field"><label>Phone</label><div class="value">' + (sub.contact_phone || '-') + '</div></div>';
-		bodyContent += '<div class="tqb-modal-field"><label>IP Address</label><div class="value">' + (sub.user_ip || '-') + '</div></div>';
-		bodyContent += '</div></div>';
+// Email statuses (default to 0 if column doesn't exist)
+var confirmationSent = sub.confirmation_email_sent == 1;
+var reminderSent = sub.reminder_email_sent == 1;
+var followupSent = sub.followup_email_sent == 1;
+var finalSent = sub.final_email_sent == 1;
 
-		bodyContent += '<div class="tqb-modal-section"><h3>Quote Information</h3>';
-		bodyContent += '<div class="tqb-modal-grid">';
-		bodyContent += '<div class="tqb-modal-field"><label>Quote Type</label><div class="value"><span class="tqb-badge tqb-badge--' + (sub.quote_type || '') + '">' + ((sub.quote_type || '').charAt(0).toUpperCase() + (sub.quote_type || '').slice(1)) + '</span></div></div>';
-		bodyContent += '<div class="tqb-modal-field"><label>Status</label><div class="value"><span class="tqb-status-badge tqb-status-badge--' + statusClass + '">' + statusLabel + '</span></div></div>';
-		bodyContent += '<div class="tqb-modal-field"><label>Quote Result</label><div class="value">' + quoteResult + '</div></div>';
-		bodyContent += '<div class="tqb-modal-field"><label>HubSpot</label><div class="value">' + hubspotHtml + '</div></div>';
-		bodyContent += '</div></div>';
+var emailHtml = '<div class="tqb-email-status">';
+emailHtml += '<div class="tqb-email-status-item ' + (confirmationSent ? 'sent' : 'pending') + '">';
+emailHtml += '<span class="icon">' + (confirmationSent ? '&#10003;' : '&#9675;') + '</span> Confirmation Email';
+emailHtml += '</div>';
+emailHtml += '<div class="tqb-email-status-item ' + (reminderSent ? 'sent' : 'pending') + '">';
+emailHtml += '<span class="icon">' + (reminderSent ? '&#10003;' : '&#9675;') + '</span> Reminder Email';
+emailHtml += '</div>';
+emailHtml += '<div class="tqb-email-status-item ' + (followupSent ? 'sent' : 'pending') + '">';
+emailHtml += '<span class="icon">' + (followupSent ? '&#10003;' : '&#9675;') + '</span> Follow-up Email';
+emailHtml += '</div>';
+emailHtml += '<div class="tqb-email-status-item ' + (finalSent ? 'sent' : 'pending') + '">';
+emailHtml += '<span class="icon">' + (finalSent ? '&#10003;' : '&#9675;') + '</span> Final Email';
+emailHtml += '</div>';
+emailHtml += '</div>';
 
-		bodyContent += businessHtml;
+// Timestamps
+var createdDate = sub.created_at ? new Date(sub.created_at).toLocaleString('en-US', {timeZone: 'America/Chicago'}) + ' CT' : '-';
+var updatedDate = sub.updated_at ? new Date(sub.updated_at).toLocaleString('en-US', {timeZone: 'America/Chicago'}) + ' CT' : '-';
 
-		bodyContent += '<div class="tqb-modal-section"><h3>Email Status</h3>';
-		bodyContent += emailHtml;
-		bodyContent += '</div>';
+var bodyContent = '';
+bodyContent += '<div class="tqb-modal-section"><h3>Contact Information</h3>';
+bodyContent += '<div class="tqb-modal-grid">';
+bodyContent += '<div class="tqb-modal-field"><label>Full Name</label><div class="value">' + (sub.contact_name || '-') + '</div></div>';
+bodyContent += '<div class="tqb-modal-field"><label>Email</label><div class="value"><a href="mailto:' + (sub.contact_email || '') + '">' + (sub.contact_email || '-') + '</a></div></div>';
+bodyContent += '<div class="tqb-modal-field"><label>Phone</label><div class="value">' + (sub.contact_phone || '-') + '</div></div>';
+bodyContent += '<div class="tqb-modal-field"><label>IP Address</label><div class="value">' + (sub.user_ip || '-') + '</div></div>';
+bodyContent += '</div></div>';
 
-		bodyContent += '<div class="tqb-modal-section"><h3>Answers</h3>';
-		bodyContent += '<div class="tqb-modal-answers">' + answersHtml + '</div>';
-		bodyContent += '</div>';
+bodyContent += '<div class="tqb-modal-section"><h3>Quote Information</h3>';
+bodyContent += '<div class="tqb-modal-grid">';
+bodyContent += '<div class="tqb-modal-field"><label>Quote Type</label><div class="value"><span class="tqb-badge tqb-badge--' + (sub.quote_type || '') + '">' + ((sub.quote_type || '').charAt(0).toUpperCase() + (sub.quote_type || '').slice(1)) + '</span></div></div>';
+bodyContent += '<div class="tqb-modal-field"><label>Status</label><div class="value"><span class="tqb-status-badge tqb-status-badge--' + statusClass + '">' + statusLabel + '</span></div></div>';
+bodyContent += '<div class="tqb-modal-field"><label>Quote Result</label><div class="value">' + quoteResult + '</div></div>';
+bodyContent += '<div class="tqb-modal-field"><label>HubSpot</label><div class="value">' + hubspotHtml + '</div></div>';
+bodyContent += '</div></div>';
 
-		bodyContent += '<div class="tqb-modal-section"><h3>Timestamps</h3>';
-		bodyContent += '<div class="tqb-modal-grid">';
-		bodyContent += '<div class="tqb-modal-field"><label>Created</label><div class="value">' + createdDate + '</div></div>';
-		bodyContent += '<div class="tqb-modal-field"><label>Last Updated</label><div class="value">' + updatedDate + '</div></div>';
-		if (sub.reminder_email_sent_at) {
-			var reminderDate = new Date(sub.reminder_email_sent_at).toLocaleString('en-US', {timeZone: 'America/Chicago'}) + ' CT';
-			bodyContent += '<div class="tqb-modal-field"><label>Reminder Sent</label><div class="value">' + reminderDate + '</div></div>';
-		}
-		if (sub.followup_email_sent_at) {
-			var followupDate = new Date(sub.followup_email_sent_at).toLocaleString('en-US', {timeZone: 'America/Chicago'}) + ' CT';
-			bodyContent += '<div class="tqb-modal-field"><label>Follow-up Sent</label><div class="value">' + followupDate + '</div></div>';
-		}
-		if (sub.final_email_sent_at) {
-			var finalDate = new Date(sub.final_email_sent_at).toLocaleString('en-US', {timeZone: 'America/Chicago'}) + ' CT';
-			bodyContent += '<div class="tqb-modal-field"><label>Final Email Sent</label><div class="value">' + finalDate + '</div></div>';
-		}
-		bodyContent += '</div></div>';
+bodyContent += businessHtml;
 
-		$('#tqb-modal-body').html(bodyContent);
-		$('#tqb-details-modal').addClass('is-visible');
-	});
+bodyContent += '<div class="tqb-modal-section"><h3>Email Status</h3>';
+bodyContent += emailHtml;
+bodyContent += '</div>';
 
-	// Close modal
-	$('.tqb-modal-close, .tqb-modal-overlay').on('click', function(e) {
-		if (e.target === this) {
-			$('#tqb-details-modal').removeClass('is-visible');
-		}
-	});
+bodyContent += '<div class="tqb-modal-section"><h3>Answers</h3>';
+bodyContent += '<div class="tqb-modal-answers">' + answersHtml + '</div>';
+bodyContent += '</div>';
 
-	// Close on Escape key
-	$(document).on('keydown', function(e) {
-		if (e.key === 'Escape') {
-			$('#tqb-details-modal').removeClass('is-visible');
-		}
-	});
+bodyContent += '<div class="tqb-modal-section"><h3>Timestamps</h3>';
+bodyContent += '<div class="tqb-modal-grid">';
+bodyContent += '<div class="tqb-modal-field"><label>Created</label><div class="value">' + createdDate + '</div></div>';
+bodyContent += '<div class="tqb-modal-field"><label>Last Updated</label><div class="value">' + updatedDate + '</div></div>';
+if (sub.reminder_email_sent_at) {
+bodyContent += '<div class="tqb-modal-field"><label>Reminder Sent</label><div class="value">' + new Date(sub.reminder_email_sent_at).toLocaleString('en-US', {timeZone: 'America/Chicago'}) + ' CT</div></div>';
+}
+if (sub.followup_email_sent_at) {
+bodyContent += '<div class="tqb-modal-field"><label>Follow-up Sent</label><div class="value">' + new Date(sub.followup_email_sent_at).toLocaleString('en-US', {timeZone: 'America/Chicago'}) + ' CT</div></div>';
+}
+if (sub.final_email_sent_at) {
+bodyContent += '<div class="tqb-modal-field"><label>Final Email Sent</label><div class="value">' + new Date(sub.final_email_sent_at).toLocaleString('en-US', {timeZone: 'America/Chicago'}) + ' CT</div></div>';
+}
+bodyContent += '</div></div>';
+
+$('#tqb-modal-body').html(bodyContent);
+$('#tqb-details-modal').addClass('is-visible');
+});
+
+// Close modal
+$('.tqb-modal-close, .tqb-modal-overlay').on('click', function(e) {
+if (e.target === this) {
+$('#tqb-details-modal').removeClass('is-visible');
+}
+});
+
+// Close on Escape key
+$(document).on('keydown', function(e) {
+if (e.key === 'Escape') {
+$('#tqb-details-modal').removeClass('is-visible');
+}
+});
 });
 </script>
