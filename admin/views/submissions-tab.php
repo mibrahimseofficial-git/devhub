@@ -388,6 +388,7 @@ jQuery(document).ready(function($) {
 	margin: 0;
 	font-size: 18px;
 	font-weight: 600;
+	color: #fff;
 }
 .tqb-modal-close {
 	background: none;
