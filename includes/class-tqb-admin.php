@@ -345,19 +345,96 @@ class TQB_Admin {
 
 		check_admin_referer( self::NONCE_ACTION_RATE_BANDS, 'tqb_nonce' );
 
-		$bands = isset( $_POST['bands'] ) ? (array) $_POST['bands'] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		// Handle deleted asset bands
+		$deleted_asset = isset( $_POST['deleted_asset_bands'] ) ? $_POST['deleted_asset_bands'] : '';
+		if ( ! empty( $deleted_asset ) ) {
+			$deleted_ids = array_filter( array_map( 'absint', explode( ',', $deleted_asset ) ) );
+			foreach ( $deleted_ids as $del_id ) {
+				TQB_DB::delete_rate_band( $del_id );
+			}
+		}
 
-		foreach ( $bands as $band_id => $fields ) {
+		// Handle deleted revenue addons
+		$deleted_revenue = isset( $_POST['deleted_revenue_addons'] ) ? $_POST['deleted_revenue_addons'] : '';
+		if ( ! empty( $deleted_revenue ) ) {
+			$deleted_ids = array_filter( array_map( 'absint', explode( ',', $deleted_revenue ) ) );
+			foreach ( $deleted_ids as $del_id ) {
+				TQB_DB::delete_rate_band( $del_id );
+			}
+		}
+
+		// Update existing asset bands
+		$asset_bands = isset( $_POST['asset_bands'] ) ? (array) $_POST['asset_bands'] : array();
+		foreach ( $asset_bands as $band_id => $fields ) {
 			$band_id = absint( $band_id );
+			$label = isset( $fields['label'] ) ? sanitize_text_field( wp_unslash( $fields['label'] ) ) : '';
+			$min = isset( $fields['min'] ) ? (int) $fields['min'] : 0;
+			$max = isset( $fields['max'] ) ? ( '' !== $fields['max'] ? (int) $fields['max'] : null ) : null;
+			$c_s_price = isset( $fields['c_s_price'] ) ? ( '' !== $fields['c_s_price'] ? (float) $fields['c_s_price'] : null ) : null;
+			$p_price = isset( $fields['p_price'] ) ? ( '' !== $fields['p_price'] ? (float) $fields['p_price'] : null ) : null;
+			$sort_order = isset( $fields['sort_order'] ) ? (int) $fields['sort_order'] : 0;
 
-			// Empty string / "Custom" checkbox means: store as NULL price
-			// (the band stays marked is_custom via its seeded value — this
-			// MVP admin UI edits prices only, not the is_custom flag itself,
-			// to avoid accidentally breaking the Schedule L / custom-quote
-			// routing logic from the dashboard).
-			$price = ( isset( $fields['price'] ) && '' !== $fields['price'] ) ? (float) $fields['price'] : null;
+			TQB_DB::update_rate_band_full( $band_id, array(
+				'band_label' => $label,
+				'band_min' => $min,
+				'band_max' => $max,
+				'price' => $c_s_price, // Will be ignored for partnership
+				'sort_order' => $sort_order,
+			) );
 
-			TQB_DB::update_rate_band_price( $band_id, $price );
+			// Update partnership price separately
+			TQB_DB::update_rate_band_price_by_type( $band_id, $p_price, 'partnership' );
+		}
+
+		// Add new asset bands
+		$new_asset_bands = isset( $_POST['new_asset_bands'] ) ? (array) $_POST['new_asset_bands'] : array();
+		foreach ( $new_asset_bands as $temp_id => $fields ) {
+			$label = isset( $fields['label'] ) ? sanitize_text_field( wp_unslash( $fields['label'] ) ) : '';
+			if ( empty( $label ) ) continue;
+
+			$min = isset( $fields['min'] ) ? (int) $fields['min'] : 0;
+			$max = isset( $fields['max'] ) ? ( '' !== $fields['max'] ? (int) $fields['max'] : null ) : null;
+			$c_s_price = isset( $fields['c_s_price'] ) ? ( '' !== $fields['c_s_price'] ? (float) $fields['c_s_price'] : null ) : null;
+			$p_price = isset( $fields['p_price'] ) ? ( '' !== $fields['p_price'] ? (float) $fields['p_price'] : null ) : null;
+			$sort_order = isset( $fields['sort_order'] ) ? (int) $fields['sort_order'] : 100;
+
+			// Add for C-S Corp
+			TQB_DB::add_rate_band( 'asset_band', 'c_s_corp', $label, $min, $max, $c_s_price, $sort_order );
+			// Add for Partnership
+			TQB_DB::add_rate_band( 'asset_band', 'partnership', $label, $min, $max, $p_price, $sort_order );
+		}
+
+		// Update existing revenue addons
+		$revenue_addons = isset( $_POST['revenue_addons'] ) ? (array) $_POST['revenue_addons'] : array();
+		foreach ( $revenue_addons as $addon_id => $fields ) {
+			$addon_id = absint( $addon_id );
+			$label = isset( $fields['label'] ) ? sanitize_text_field( wp_unslash( $fields['label'] ) ) : '';
+			$min = isset( $fields['min'] ) ? (int) $fields['min'] : 0;
+			$max = isset( $fields['max'] ) ? ( '' !== $fields['max'] ? (int) $fields['max'] : null ) : null;
+			$price = isset( $fields['price'] ) ? (float) $fields['price'] : 0;
+			$sort_order = isset( $fields['sort_order'] ) ? (int) $fields['sort_order'] : 0;
+
+			TQB_DB::update_rate_band_full( $addon_id, array(
+				'band_label' => $label,
+				'band_min' => $min,
+				'band_max' => $max,
+				'price' => $price,
+				'sort_order' => $sort_order,
+			) );
+		}
+
+		// Add new revenue addons
+		$new_revenue_addons = isset( $_POST['new_revenue_addons'] ) ? (array) $_POST['new_revenue_addons'] : array();
+		foreach ( $new_revenue_addons as $temp_id => $fields ) {
+			$label = isset( $fields['label'] ) ? sanitize_text_field( wp_unslash( $fields['label'] ) ) : '';
+			if ( empty( $label ) ) continue;
+
+			$min = isset( $fields['min'] ) ? (int) $fields['min'] : 0;
+			$max = isset( $fields['max'] ) ? ( '' !== $fields['max'] ? (int) $fields['max'] : null ) : null;
+			$price = isset( $fields['price'] ) ? (float) $fields['price'] : 0;
+			$sort_order = isset( $fields['sort_order'] ) ? (int) $fields['sort_order'] : 100;
+
+			TQB_DB::add_rate_band( 'revenue_addon', null, $label, $min, $max, $price, $sort_order );
 		}
 
 		wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=business&tqb_saved=1' ) );

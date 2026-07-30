@@ -301,6 +301,104 @@ class TQB_DB {
 	}
 
 	/**
+	 * Update a rate band row with full details.
+	 */
+	public static function update_rate_band_full( $id, $data ) {
+		global $wpdb;
+		$table = $wpdb->prefix . TQB_TABLE_RATE_BANDS;
+
+		$set = array();
+		$formats = array();
+
+		if ( isset( $data['band_label'] ) ) {
+			$set['band_label'] = $data['band_label'];
+			$formats[] = '%s';
+		}
+		if ( isset( $data['band_min'] ) ) {
+			$set['band_min'] = $data['band_min'];
+			$formats[] = '%d';
+		}
+		if ( array_key_exists( 'band_max', $data ) ) {
+			$set['band_max'] = $data['band_max'];
+			$formats[] = is_null( $data['band_max'] ) ? '%s' : '%d';
+		}
+		if ( isset( $data['price'] ) ) {
+			$set['price'] = $data['price'];
+			$formats[] = is_null( $data['price'] ) ? '%s' : '%f';
+		}
+		if ( isset( $data['sort_order'] ) ) {
+			$set['sort_order'] = $data['sort_order'];
+			$formats[] = '%d';
+		}
+
+		if ( empty( $set ) ) {
+			return false;
+		}
+
+		$updated = $wpdb->update(
+			$table,
+			$set,
+			array( 'id' => absint( $id ) ),
+			$formats,
+			array( '%d' )
+		);
+
+		return false !== $updated;
+	}
+
+	/**
+	 * Update rate band price by ID and entity group (for asset bands that have both C-S Corp and Partnership prices).
+	 */
+	public static function update_rate_band_price_by_type( $id, $price, $entity_group ) {
+		global $wpdb;
+		$table = $wpdb->prefix . TQB_TABLE_RATE_BANDS;
+
+		$updated = $wpdb->update(
+			$table,
+			array( 'price' => $price ),
+			array( 'id' => absint( $id ), 'entity_group' => $entity_group ),
+			array( is_null( $price ) ? '%s' : '%f' ),
+			array( '%d', '%s' )
+		);
+
+		return false !== $updated;
+	}
+
+	/**
+	 * Delete a rate band by ID.
+	 */
+	public static function delete_rate_band( $id ) {
+		global $wpdb;
+		$table = $wpdb->prefix . TQB_TABLE_RATE_BANDS;
+		return $wpdb->delete( $table, array( 'id' => absint( $id ) ), array( '%d' ) );
+	}
+
+	/**
+	 * Add a new rate band.
+	 */
+	public static function add_rate_band( $band_type, $entity_group, $label, $min, $max, $price, $sort_order = 0 ) {
+		global $wpdb;
+		$table = $wpdb->prefix . TQB_TABLE_RATE_BANDS;
+
+		$result = $wpdb->insert(
+			$table,
+			array(
+				'band_type' => $band_type,
+				'entity_group' => $entity_group,
+				'band_label' => $label,
+				'band_min' => $min,
+				'band_max' => $max,
+				'price' => $price,
+				'is_custom' => is_null( $price ) ? 1 : 0,
+				'sort_order' => $sort_order,
+			),
+			array( '%s', is_null( $entity_group ) ? '%s' : '%s', '%s', '%d', is_null( $max ) ? '%s' : '%d', is_null( $price ) ? '%s' : '%f', '%d', '%d' )
+		);
+
+		return $result !== false ? $wpdb->insert_id : false;
+	}
+
+	/**
 	 * Get all rate band rows of a given type (asset_band or revenue_addon),
 	 * optionally filtered by entity_group. Used by the admin dashboard to
 	 * render the editable grid.
