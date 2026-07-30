@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Tavola Quote Builder
  * Description: Self-service pricing questionnaire for Individual and Business tax return quotes. Generates instant proposals or routes out-of-range submissions to a custom-quote path.
- * Version: 0.4.4
+ * Version: 0.4.5
  * Author: Sabeeh
  * Text Domain: tavola-quote-builder
  *

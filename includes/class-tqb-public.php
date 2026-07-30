@@ -178,6 +178,10 @@ class TQB_Public {
 		}
 
 		$answers = $this->sanitize_answers( isset( $_POST['answers'] ) ? (array) $_POST['answers'] : array() ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+                
+                // DEBUG: Log what we received
+                error_log( 'TQB DEBUG answers received: ' . print_r( $answers, true ) );
+                error_log( 'TQB DEBUG raw POST answers: ' . ( isset( $_POST['answers'] ) ? 'SET: ' . print_r( $_POST['answers'], true ) : 'NOT SET' ) );
 
 		// Get business data for each business section
 		$businesses = array();
