@@ -21,6 +21,7 @@ class TQB_Admin {
         add_action("wp_ajax_tqb_update_status",array($this,"ajax_update_status"));
         add_action("wp_ajax_tqb_bulk_status",array($this,"ajax_bulk_status"));
         add_action("wp_ajax_tqb_bulk_delete",array($this,"ajax_bulk_delete"));
+        add_action("wp_ajax_tqb_delete_submission",array($this,"ajax_delete_submission"));
         add_action("wp_ajax_tqb_send_email",array($this,"ajax_send_email"));
         add_action("admin_notices",array($this,"maybe_show_saved_notice"));
         add_action("admin_enqueue_scripts",array($this,"enqueue_admin_assets"));
@@ -224,6 +225,14 @@ class TQB_Admin {
         if(empty($ids)){wp_send_json_error("No IDs provided.");}
         global $wpdb;$table=$wpdb->prefix."tqb_submissions";$placeholders=implode(",",array_fill(0,count($ids),"%d"));
         $wpdb->query($wpdb->prepare("DELETE FROM {$table} WHERE id IN ($placeholders)",$ids));
+        wp_send_json_success();
+    }
+    public function ajax_delete_submission() {
+        if(!current_user_can("manage_options")){wp_send_json_error("Permission denied.");}
+        check_ajax_referer(self::NONCE_ACTION_ADMIN,"nonce");
+        $id=isset($_POST["id"])?absint($_POST["id"]):0;
+        if(empty($id)){wp_send_json_error("No ID provided.");}
+        global $wpdb;$wpdb->delete($wpdb->prefix."tqb_submissions",array("id"=>$id),array("%d"));
         wp_send_json_success();
     }
     public function ajax_send_email() {
