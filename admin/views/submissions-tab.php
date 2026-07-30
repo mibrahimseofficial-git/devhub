@@ -201,6 +201,9 @@ function tqb_get_sort_indicator( $column ) {
 						</td>
 						<td>
 							<?php echo esc_html( ! empty( $sub['user_ip'] ) ? $sub['user_ip'] : '-' ); ?>
+							<td style="font-size:10px; max-width:150px; overflow:hidden;">
+							<?php $a=$sub["answers"]??""; echo "<pre style='margin:0;white-space:pre-wrap;word-break:break-all;'>".esc_html($a)."</pre>"; ?>
+							</td>
 						</td>
 					</tr>
 				<?php endforeach; ?>
@@ -352,32 +355,32 @@ jQuery(document).ready(function($) {
 
 <!-- View Details Modal -->
 <style>
-#tqb-modal-overlay-v2{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;}
-#tqb-modal-v2{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;width:90%;max-width:800px;max-height:85vh;border-radius:4px;box-shadow:0 5px 15px rgba(0,0,0,0.2);z-index:99999;overflow:hidden;border:1px solid #c3c4c7;}
-.tqb-modal-header{background:#f6f7f7;border-bottom:1px solid #c3c4c7;padding:15px 20px;display:flex;justify-content:space-between;align-items:center;}
-.tqb-modal-header h2{margin:0;font-size:16px;font-weight:600;color:#1d2329;}
-.tqb-modal-body{padding:20px;overflow-y:auto;max-height:calc(85vh - 52px);}
-.tqb-section{margin-bottom:20px;}
-.tqb-section-title{font-size:13px;font-weight:600;color:#1d2329;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #dcdcde;}
-.tqb-info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
-.tqb-info-item{background:#f6f7f7;padding:10px 12px;border-radius:4px;}
+#tqb-modal-overlay-v2{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99998;}
+#tqb-modal-v2{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;width:90%;max-width:850px;max-height:85vh;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);z-index:99999;overflow:hidden;}
+.tqb-modal-header{background:linear-gradient(135deg,#001a44 0%,#002d6e 100%);color:#fff;padding:20px 25px;display:flex;justify-content:space-between;align-items:center;}
+.tqb-modal-header h2{margin:0;font-size:18px;font-weight:600;}
+.tqb-modal-body{padding:25px;overflow-y:auto;max-height:calc(85vh - 70px);}
+.tqb-section{margin-bottom:25px;}
+.tqb-section-title{font-size:13px;font-weight:600;color:#001a44;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #DCE6EE;}
+.tqb-info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+.tqb-info-item{background:#F9FCFF;padding:12px 15px;border-radius:8px;border-left:3px solid #001a44;}
 .tqb-info-item.full-width,.tqb-info-item.wide{grid-column:1 / -1;}
-.tqb-info-label{font-size:11px;font-weight:500;color:#646970;text-transform:uppercase;margin-bottom:3px;}
-.tqb-info-value{font-size:14px;color:#1d2329;}
-.tqb-status-badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:12px;font-weight:500;}
-.tqb-status-completed{background:#d4edda;color:#155724;}
+.tqb-info-label{font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;}
+.tqb-info-value{font-size:14px;color:#001a44;font-weight:500;}
+.tqb-status-badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;text-transform:capitalize;}
+.tqb-status-completed{background:#E8F5E9;color:#198754;}
 .tqb-status-in_progress{background:#fff3cd;color:#856404;}
 .tqb-status-abandoned{background:#f8d7da;color:#721c24;}
 .tqb-answers-table{width:100%;border-collapse:collapse;font-size:13px;}
-.tqb-answers-table th{text-align:left;padding:8px 10px;background:#f6f7f7;border-bottom:1px solid #dcdcde;font-weight:600;color:#1d2329;}
-.tqb-answers-table td{padding:8px 10px;border-bottom:1px solid #eee;}
-.tqb-answers-table tr:hover td{background:#fafafa;}
-.tqb-answer-q{font-weight:500;color:#50575e;}
-.tqb-answer-a{color:#1d2329;}
-.tqb-close-btn{background:none;border:1px solid #c3c4c7;color:#50575e;padding:0 10px;height:30px;border-radius:3px;cursor:pointer;font-size:13px;}
-.tqb-close-btn:hover{background:#f6f7f7;}
-.tqb-loading{text-align:center;padding:40px;color:#646970;}
-.tqb-loading-spinner{display:inline-block;width:20px;height:20px;border:2px solid #dcdcde;border-top-color:#2271b1;border-radius:50%;animation:spin 1s linear infinite;}
+.tqb-answers-table th{text-align:left;padding:10px 12px;background:#F9FCFF;border-bottom:2px solid #DCE6EE;font-weight:600;color:#001a44;}
+.tqb-answers-table td{padding:10px 12px;border-bottom:1px solid #E5E7EB;}
+.tqb-answers-table tr:hover td{background:#F9FCFF;}
+.tqb-answer-q{font-weight:500;color:#475569;}
+.tqb-answer-a{color:#001a44;}
+.tqb-close-btn{background:rgba(255,255,255,0.2);border:none;color:#fff;width:32px;height:32px;border-radius:6px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.2s;}
+.tqb-close-btn:hover{background:rgba(255,255,255,0.3);}
+.tqb-loading{text-align:center;padding:40px;color:#475569;}
+.tqb-loading-spinner{width:40px;height:40px;border:3px solid #DCE6EE;border-top-color:#001a44;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 15px;}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (max-width:600px){.tqb-info-grid{grid-template-columns:1fr;}}
 </style>
@@ -386,10 +389,10 @@ jQuery(document).ready(function($) {
 <div id="tqb-modal-v2">
 	<div class="tqb-modal-header">
 		<h2>Submission Details</h2>
-		<button class="tqb-close-btn" id="tqb-close-modal">Close</button>
+		<button class="tqb-close-btn" id="tqb-close-modal">&times;</button>
 	</div>
 	<div class="tqb-modal-body" id="tqb-modal-content">
-		<div class="tqb-loading"><span class="tqb-loading-spinner"></span> Loading...</div>
+		<div class="tqb-loading"><div class="tqb-loading-spinner"></div>Loading...</div>
 	</div>
 </div>
 
@@ -432,7 +435,7 @@ jQuery(document).ready(function($){
 		}
 		h+='</div></div>';
 
-		// Form Answers - show all answers
+		// Form Answers
 		if(Object.keys(ans).length>0){
 			h+='<div class="tqb-section"><div class="tqb-section-title">Submitted Answers</div>';
 			h+='<table class="tqb-answers-table"><thead><tr><th>Question</th><th>Answer</th></tr></thead><tbody>';
@@ -443,6 +446,8 @@ jQuery(document).ready(function($){
 				h+='<tr><td class="tqb-answer-q">'+escHtml(q)+'</td><td class="tqb-answer-a">'+escHtml(String(v))+'</td></tr>';
 			}
 			h+='</tbody></table></div>';
+		}else{
+			h+='<div class="tqb-section"><div class="tqb-section-title">Submitted Answers</div><p style="color:#475569;">No answers found in data.</p><p style="font-size:11px;color:#999;">Raw answers: <pre style="background:#f5f5f5;padding:10px;overflow:auto;">'+escHtml(d.answers||'empty')+'</pre></p></div>';
 		}
 
 		// Timestamps

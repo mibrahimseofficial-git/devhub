@@ -369,6 +369,11 @@ above.
 
 ## 10. Changelog
 
+### v0.4.3 (2026-07-29)
+- Modal styled with plugin navy color theme (#001a44)
+- Added debug column to show raw answers in submissions table
+- Added fallback to show raw answers data when JSON parsing fails
+
 ### v0.4.2 (2026-07-29)
 - Modal now uses WordPress admin colors
 - Removed HubSpot info from popup
