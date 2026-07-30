@@ -52,6 +52,8 @@ class TQB_Admin {
     }
     private function render_line_items_tab() {
         $extra_items=TQB_DB::get_line_items("individual",false);
+        $heading="Individual Return - Line Items";
+        $quote_type="individual";
         include TQB_PLUGIN_DIR."admin/views/line-items-tab.php";
     }
     private function render_business_tab() {
