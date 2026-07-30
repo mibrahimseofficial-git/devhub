@@ -352,45 +352,44 @@ jQuery(document).ready(function($) {
 
 <!-- View Details Modal -->
 <style>
-#tqb-modal-overlay-v2{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99998;}
-#tqb-modal-v2{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;width:90%;max-width:850px;max-height:85vh;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);z-index:99999;overflow:hidden;}
-.tqb-modal-header{background:linear-gradient(135deg,#2271b1 0%,#1d4e89 100%);color:#fff;padding:20px 25px;display:flex;justify-content:space-between;align-items:center;}
-.tqb-modal-header h2{margin:0;font-size:18px;font-weight:600;}
-.tqb-modal-body{padding:25px;overflow-y:auto;max-height:calc(85vh - 70px);}
-.tqb-section{margin-bottom:25px;}
-.tqb-section-title{font-size:13px;font-weight:600;color:#1d4e89;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;}
-.tqb-info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
-.tqb-info-item{background:#f8fafc;padding:12px 15px;border-radius:8px;border-left:3px solid #2271b1;}
-.tqb-info-item.full-width{grid-column:1 / -1;}
-.tqb-info-item.wide{grid-column:1 / -1;}
-.tqb-info-label{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;}
-.tqb-info-value{font-size:14px;color:#1e293b;font-weight:500;}
-.tqb-status-badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;text-transform:capitalize;}
-.tqb-status-completed{background:#dcfce7;color:#166534;}
-.tqb-status-in_progress{background:#fef3c7;color:#92400e;}
-.tqb-status-abandoned{background:#fee2e2;color:#991b1b;}
-.tqb-answers-list{list-style:none;padding:0;margin:0;columns:2;column-gap:15px;}
-.tqb-answer-item{background:#f8fafc;padding:12px;border-radius:8px;margin-bottom:10px;break-inside:avoid;border:1px solid #e2e8f0;}
-.tqb-answer-question{font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px;}
-.tqb-answer-response{font-size:13px;color:#1e293b;}
-.tqb-close-btn{background:rgba(255,255,255,0.2);border:none;color:#fff;width:32px;height:32px;border-radius:6px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.2s;}
-.tqb-close-btn:hover{background:rgba(255,255,255,0.3);}
-.tqb-loading{text-align:center;padding:40px;color:#64748b;}
-.tqb-loading-spinner{width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#2271b1;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 15px;}
+#tqb-modal-overlay-v2{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;}
+#tqb-modal-v2{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;width:90%;max-width:800px;max-height:85vh;border-radius:4px;box-shadow:0 5px 15px rgba(0,0,0,0.2);z-index:99999;overflow:hidden;border:1px solid #c3c4c7;}
+.tqb-modal-header{background:#f6f7f7;border-bottom:1px solid #c3c4c7;padding:15px 20px;display:flex;justify-content:space-between;align-items:center;}
+.tqb-modal-header h2{margin:0;font-size:16px;font-weight:600;color:#1d2329;}
+.tqb-modal-body{padding:20px;overflow-y:auto;max-height:calc(85vh - 52px);}
+.tqb-section{margin-bottom:20px;}
+.tqb-section-title{font-size:13px;font-weight:600;color:#1d2329;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #dcdcde;}
+.tqb-info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+.tqb-info-item{background:#f6f7f7;padding:10px 12px;border-radius:4px;}
+.tqb-info-item.full-width,.tqb-info-item.wide{grid-column:1 / -1;}
+.tqb-info-label{font-size:11px;font-weight:500;color:#646970;text-transform:uppercase;margin-bottom:3px;}
+.tqb-info-value{font-size:14px;color:#1d2329;}
+.tqb-status-badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:12px;font-weight:500;}
+.tqb-status-completed{background:#d4edda;color:#155724;}
+.tqb-status-in_progress{background:#fff3cd;color:#856404;}
+.tqb-status-abandoned{background:#f8d7da;color:#721c24;}
+.tqb-answers-table{width:100%;border-collapse:collapse;font-size:13px;}
+.tqb-answers-table th{text-align:left;padding:8px 10px;background:#f6f7f7;border-bottom:1px solid #dcdcde;font-weight:600;color:#1d2329;}
+.tqb-answers-table td{padding:8px 10px;border-bottom:1px solid #eee;}
+.tqb-answers-table tr:hover td{background:#fafafa;}
+.tqb-answer-q{font-weight:500;color:#50575e;}
+.tqb-answer-a{color:#1d2329;}
+.tqb-close-btn{background:none;border:1px solid #c3c4c7;color:#50575e;padding:0 10px;height:30px;border-radius:3px;cursor:pointer;font-size:13px;}
+.tqb-close-btn:hover{background:#f6f7f7;}
+.tqb-loading{text-align:center;padding:40px;color:#646970;}
+.tqb-loading-spinner{display:inline-block;width:20px;height:20px;border:2px solid #dcdcde;border-top-color:#2271b1;border-radius:50%;animation:spin 1s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg)}}
-.tqb-email-yes{color:#16a34a;font-weight:600;}
-.tqb-email-no{color:#dc2626;font-weight:600;}
-@media (max-width:600px){.tqb-info-grid{grid-template-columns:1fr;}.tqb-answers-list{columns:1;}}
+@media (max-width:600px){.tqb-info-grid{grid-template-columns:1fr;}}
 </style>
 
 <div id="tqb-modal-overlay-v2"></div>
 <div id="tqb-modal-v2">
 	<div class="tqb-modal-header">
-		<h2>📋 Submission Details</h2>
-		<button class="tqb-close-btn" id="tqb-close-modal">&times;</button>
+		<h2>Submission Details</h2>
+		<button class="tqb-close-btn" id="tqb-close-modal">Close</button>
 	</div>
 	<div class="tqb-modal-body" id="tqb-modal-content">
-		<div class="tqb-loading"><div class="tqb-loading-spinner"></div>Loading...</div>
+		<div class="tqb-loading"><span class="tqb-loading-spinner"></span> Loading...</div>
 	</div>
 </div>
 
@@ -412,52 +411,46 @@ jQuery(document).ready(function($){
 	function render(d){
 		var ans={};
 		try{ans=JSON.parse(d.answers||'{}');}catch(e){}
-		var icon=d.quote_type==='business'?'🏢':'👤';
-		var typeCol=d.quote_type==='business'?'#7c3aed':'#0891b2';
-		var h='<div class="tqb-section"><div class="tqb-section-title">👤 Contact</div><div class="tqb-info-grid">';
+		var h='';
+
+		// Contact Info
+		h+='<div class="tqb-section"><div class="tqb-section-title">Contact Information</div><div class="tqb-info-grid">';
 		h+='<div class="tqb-info-item"><div class="tqb-info-label">Name</div><div class="tqb-info-value">'+escHtml(d.contact_name||'-')+'</div></div>';
 		h+='<div class="tqb-info-item"><div class="tqb-info-label">Email</div><div class="tqb-info-value"><a href="mailto:'+escAttr(d.contact_email||'')+'">'+escHtml(d.contact_email||'-')+'</a></div></div>';
 		h+='<div class="tqb-info-item"><div class="tqb-info-label">Phone</div><div class="tqb-info-value">'+escHtml(d.contact_phone||'-')+'</div></div>';
-		h+='<div class="tqb-info-item"><div class="tqb-info-label">IP Address</div><div class="tqb-info-value">'+escHtml(d.user_ip||'-')+'</div></div>';
+		h+='<div class="tqb-info-item"><div class="tqb-info-label">Type</div><div class="tqb-info-value">'+ucfirst(d.quote_type||'-')+'</div></div>';
 		h+='</div></div>';
 
-		h+='<div class="tqb-section"><div class="tqb-section-title">💰 Quote</div><div class="tqb-info-grid">';
-		h+='<div class="tqb-info-item"><div class="tqb-info-label">Type</div><div class="tqb-info-value" style="color:'+typeCol+';font-weight:600">'+icon+' '+ucfirst(d.quote_type||'-')+'</div></div>';
+		// Quote Details
+		h+='<div class="tqb-section"><div class="tqb-section-title">Quote Details</div><div class="tqb-info-grid">';
 		h+='<div class="tqb-info-item"><div class="tqb-info-label">Status</div><div class="tqb-info-value">'+badge(d.status)+'</div></div>';
 		if(d.is_custom_quote==1){
-			h+='<div class="tqb-info-item wide"><div class="tqb-info-label">Quote</div><div class="tqb-info-value" style="color:#dc2626;font-size:18px;font-weight:700">Custom Quote Required</div></div>';
-			if(d.custom_quote_reason)h+='<div class="tqb-info-item wide"><div class="tqb-info-label">Reason</div><div class="tqb-info-value">'+escHtml(d.custom_quote_reason)+'</div></div>';
+			h+='<div class="tqb-info-item full-width"><div class="tqb-info-label">Quote Amount</div><div class="tqb-info-value">Custom Quote Required</div></div>';
+			if(d.custom_quote_reason)h+='<div class="tqb-info-item full-width"><div class="tqb-info-label">Reason</div><div class="tqb-info-value">'+escHtml(d.custom_quote_reason)+'</div></div>';
 		}else{
-			h+='<div class="tqb-info-item wide"><div class="tqb-info-label">Quote Amount</div><div class="tqb-info-value" style="color:#059669;font-size:22px;font-weight:700">$'+parseFloat(d.calculated_total||0).toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+			h+='<div class="tqb-info-item full-width"><div class="tqb-info-label">Quote Amount</div><div class="tqb-info-value">$'+(d.calculated_total?parseFloat(d.calculated_total).toFixed(2):'0.00')+'</div></div>';
 		}
-		h+='<div class="tqb-info-item"><div class="tqb-info-label">Progress</div><div class="tqb-info-value">Step '+(d.last_completed_step||0)+' of 5</div></div>';
 		h+='</div></div>';
 
-		h+='<div class="tqb-section"><div class="tqb-section-title">📬 Notifications & Sync</div><div class="tqb-info-grid">';
-		h+='<div class="tqb-info-item"><div class="tqb-info-label">Confirmation Email</div><div class="tqb-info-value">'+(d.confirmation_email_sent?'<span class="tqb-email-yes">✓ Sent</span>':'<span class="tqb-email-no">✗ Not sent</span>')+'</div></div>';
-		h+='<div class="tqb-info-item"><div class="tqb-info-label">HubSpot</div><div class="tqb-info-value">'+(d.hubspot_synced?'<span class="tqb-email-yes">✓ Synced</span>':'<span class="tqb-email-no">✗ Not synced</span>')+'</div></div>';
-		if(d.hubspot_contact_id)h+='<div class="tqb-info-item"><div class="tqb-info-label">HubSpot Contact</div><div class="tqb-info-value">'+escHtml(d.hubspot_contact_id)+'</div></div>';
-		if(d.hubspot_deal_id)h+='<div class="tqb-info-item"><div class="tqb-info-label">HubSpot Deal</div><div class="tqb-info-value">'+escHtml(d.hubspot_deal_id)+'</div></div>';
-		h+='</div></div>';
-
-		h+='<div class="tqb-section"><div class="tqb-section-title">📅 Timeline</div><div class="tqb-info-grid">';
-		h+='<div class="tqb-info-item"><div class="tqb-info-label">Created</div><div class="tqb-info-value">'+fmtDate(d.created_at)+'</div></div>';
-		h+='<div class="tqb-info-item"><div class="tqb-info-label">Updated</div><div class="tqb-info-value">'+fmtDate(d.updated_at)+'</div></div>';
-		if(d.reminder_email_sent_at)h+='<div class="tqb-info-item"><div class="tqb-info-label">Reminder Sent</div><div class="tqb-info-value">'+fmtDate(d.reminder_email_sent_at)+'</div></div>';
-		if(d.followup_email_sent_at)h+='<div class="tqb-info-item"><div class="tqb-info-label">Follow-up Sent</div><div class="tqb-info-value">'+fmtDate(d.followup_email_sent_at)+'</div></div>';
-		if(d.final_email_sent_at)h+='<div class="tqb-info-item"><div class="tqb-info-label">Final Email Sent</div><div class="tqb-info-value">'+fmtDate(d.final_email_sent_at)+'</div></div>';
-		h+='</div></div>';
-
+		// Form Answers - show all answers
 		if(Object.keys(ans).length>0){
-			h+='<div class="tqb-section"><div class="tqb-section-title">📝 Form Responses</div><ul class="tqb-answers-list">';
+			h+='<div class="tqb-section"><div class="tqb-section-title">Submitted Answers</div>';
+			h+='<table class="tqb-answers-table"><thead><tr><th>Question</th><th>Answer</th></tr></thead><tbody>';
 			for(var k in ans){
 				var v=ans[k];
 				if(typeof v==='object')v=JSON.stringify(v);
 				var q=k.replace(/_/g,' ').replace(/\b\w/g,function(l){return l.toUpperCase()});
-				h+='<li class="tqb-answer-item"><div class="tqb-answer-question">'+escHtml(q)+'</div><div class="tqb-answer-response">'+escHtml(String(v))+'</div></li>';
+				h+='<tr><td class="tqb-answer-q">'+escHtml(q)+'</td><td class="tqb-answer-a">'+escHtml(String(v))+'</td></tr>';
 			}
-			h+='</ul></div>';
+			h+='</tbody></table></div>';
 		}
+
+		// Timestamps
+		h+='<div class="tqb-section"><div class="tqb-section-title">Timestamps</div><div class="tqb-info-grid">';
+		h+='<div class="tqb-info-item"><div class="tqb-info-label">Submitted</div><div class="tqb-info-value">'+fmtDate(d.created_at)+'</div></div>';
+		h+='<div class="tqb-info-item"><div class="tqb-info-label">Last Updated</div><div class="tqb-info-value">'+fmtDate(d.updated_at)+'</div></div>';
+		h+='</div></div>';
+
 		return h;
 	}
 	function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}

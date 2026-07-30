@@ -369,6 +369,12 @@ above.
 
 ## 10. Changelog
 
+### v0.4.2 (2026-07-29)
+- Modal now uses WordPress admin colors
+- Removed HubSpot info from popup
+- Fixed answers display using proper table format
+- Clean, native WordPress admin look
+
 ### v0.4.1 (2026-07-29)
 - Added View Details modal in admin submissions list
 - Professional modal UI with sections: Contact, Quote, Notifications, Timeline, Form Responses
