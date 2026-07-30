@@ -19,6 +19,7 @@ class TQB_Admin {
 	const NONCE_ACTION_RATE_BANDS = 'tqb_save_rate_bands';
 	const NONCE_ACTION_GENERAL = 'tqb_save_general_settings';
 	const NONCE_ACTION_SCHEDULE_L = 'tqb_save_schedule_l';
+	const NONCE_ACTION_ADMIN = 'tqb_admin_nonce';
 
 	public function __construct() {
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
@@ -29,6 +30,12 @@ class TQB_Admin {
 		add_action( 'admin_post_tqb_delete_submission', array( $this, 'handle_delete_submission' ) );
 		add_action( 'admin_post_tqb_delete_submissions', array( $this, 'handle_bulk_delete_submissions' ) );
 		add_action( 'wp_ajax_tqb_fetch_hubspot_pipelines', array( $this, 'handle_fetch_hubspot_pipelines' ) );
+		add_action( 'wp_ajax_tqb_get_submission', array( $this, 'ajax_get_submission' ) );
+		add_action( 'wp_ajax_tqb_get_submission_email', array( $this, 'ajax_get_submission_email' ) );
+		add_action( 'wp_ajax_tqb_update_status', array( $this, 'ajax_update_status' ) );
+		add_action( 'wp_ajax_tqb_bulk_status', array( $this, 'ajax_bulk_status' ) );
+		add_action( 'wp_ajax_tqb_bulk_delete', array( $this, 'ajax_bulk_delete' ) );
+		add_action( 'wp_ajax_tqb_send_email', array( $this, 'ajax_send_email' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_saved_notice' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 	}
@@ -48,7 +55,7 @@ class TQB_Admin {
 
 		wp_localize_script( 'tqb-admin', 'tqbAdminData', array(
 			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-			'nonce'   => wp_create_nonce( 'tqb_fetch_pipelines' ),
+			'nonce'   => wp_create_nonce( self::NONCE_ACTION_ADMIN ),
 		) );
 	}
 
@@ -240,7 +247,8 @@ class TQB_Admin {
 			'abandoned' => $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'abandoned'" ),
 		);
 
-		include TQB_PLUGIN_DIR . 'admin/views/submissions-tab.php';
+		// Use new professional dashboard
+		include TQB_PLUGIN_DIR . 'admin/views/submissions-dashboard.php';
 	}
 
 	/**
@@ -542,53 +550,364 @@ class TQB_Admin {
 	public function handle_fetch_hubspot_pipelines() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => 'Permission denied.' ), 403 );
-		}
-
-		check_ajax_referer( 'tqb_fetch_pipelines', 'nonce' );
-
-		$service_key = get_option( 'tqb_hubspot_service_key', '' );
-
-		if ( empty( $service_key ) ) {
-			wp_send_json_error( array( 'message' => 'Save a HubSpot Service Key first, then refresh.' ), 400 );
-		}
-
-		$pipelines = TQB_Hubspot::get_pipelines( $service_key );
-
-		if ( is_wp_error( $pipelines ) ) {
-			wp_send_json_error( array( 'message' => $pipelines->get_error_message() ), 400 );
-		}
-
-		wp_send_json_success( array( 'pipelines' => $pipelines ) );
-	}
 
 		/**
-		 * Save Schedule L thresholds.
+		 * AJAX: Get submission details for modal view.
 		 */
-		public function handle_save_schedule_l() {
+		public function ajax_get_submission() {
 			if ( ! current_user_can( 'manage_options' ) ) {
-				wp_die( esc_html__( 'Permission denied.', 'tavola-quote-builder' ) );
+				wp_send_json_error( 'Permission denied.' );
 			}
 
-			check_admin_referer( self::NONCE_ACTION_SCHEDULE_L, 'tqb_schedule_l_nonce' );
+			check_ajax_referer( 'tqb_admin_nonce', 'nonce' );
 
-			$schedule_l = isset( $_POST['schedule_l'] ) ? (array) $_POST['schedule_l'] : array();
+			$id = isset( $_POST['id'] ) ? absint( $_POST['id'] ) : 0;
+			if ( ! $id ) {
+				wp_send_json_error( 'Invalid ID.' );
+			}
 
-			$thresholds = array();
-			$entities = array( 'c_corp', 's_corp', 'partnership' );
+			$submission = TQB_DB::get_submission( $id );
+			if ( ! $submission ) {
+				wp_send_json_error( 'Submission not found.' );
+			}
 
-			foreach ( $entities as $entity ) {
-				if ( isset( $schedule_l[ $entity ] ) ) {
-					$thresholds[ $entity ] = array(
-						'asset_threshold'   => isset( $schedule_l[ $entity ]['asset_threshold'] ) ? (int) $schedule_l[ $entity ]['asset_threshold'] : 0,
-						'revenue_threshold' => isset( $schedule_l[ $entity ]['revenue_threshold'] ) ? (int) $schedule_l[ $entity ]['revenue_threshold'] : 0,
-						'flat_fee'         => isset( $schedule_l[ $entity ]['flat_fee'] ) ? (float) $schedule_l[ $entity ]['flat_fee'] : 999,
-					);
+			// Parse answers
+			$answers = array();
+			if ( ! empty( $submission['answers'] ) ) {
+				$decoded = json_decode( $submission['answers'], true );
+				if ( is_array( $decoded ) ) {
+					$answers = $decoded;
 				}
 			}
 
-			update_option( 'tqb_schedule_l_thresholds', $thresholds );
+			// Build HTML
+			ob_start();
+			?>
+			<div class="tqb-submission-details">
+				<!-- Contact Info -->
+				<div class="tqb-detail-section">
+					<h3><span class="dashicons dashicons-admin-users"></span> Contact Information</h3>
+					<div class="tqb-detail-grid">
+						<div class="tqb-detail-item">
+							<label>Name</label>
+							<span><?php echo esc_html( $submission['contact_name'] ?: '-' ); ?></span>
+						</div>
+						<div class="tqb-detail-item">
+							<label>Email</label>
+							<a href="mailto:<?php echo esc_attr( $submission['contact_email'] ); ?>"><?php echo esc_html( $submission['contact_email'] ); ?></a>
+						</div>
+						<div class="tqb-detail-item">
+							<label>Phone</label>
+							<span><?php echo esc_html( $submission['contact_phone'] ?: '-' ); ?></span>
+						</div>
+						<div class="tqb-detail-item">
+							<label>IP Address</label>
+							<span><?php echo esc_html( $submission['user_ip'] ?: '-' ); ?></span>
+						</div>
+					</div>
+				</div>
 
-			wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=business&tqb_saved=1' ) );
-			exit;
+				<!-- Quote Details -->
+				<div class="tqb-detail-section">
+					<h3><span class="dashicons dashicons-clipboard"></span> Quote Details</h3>
+					<div class="tqb-detail-grid">
+						<div class="tqb-detail-item">
+							<label>Type</label>
+							<span class="tqb-type-badge tqb-type-<?php echo esc_attr( strtolower( $submission['quote_type'] ) ); ?>">
+								<?php echo esc_html( ucfirst( $submission['quote_type'] ) ); ?>
+							</span>
+						</div>
+						<div class="tqb-detail-item">
+							<label>Total</label>
+							<strong class="tqb-total">
+								<?php 
+								if ( ! empty( $submission['calculated_total'] ) ) {
+									echo '$' . number_format( (float) $submission['calculated_total'], 2 );
+								} else {
+									echo '-';
+								}
+								?>
+							</strong>
+						</div>
+						<div class="tqb-detail-item">
+							<label>Custom Quote</label>
+							<span><?php echo $submission['is_custom_quote'] ? 'Yes - ' . esc_html( $submission['custom_quote_reason'] ) : 'No'; ?></span>
+						</div>
+						<div class="tqb-detail-item">
+							<label>HubSpot</label>
+							<span><?php echo $submission['hubspot_synced'] ? '✓ Synced' : '○ Not Synced'; ?></span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Answers / Form Data -->
+				<div class="tqb-detail-section">
+					<h3><span class="dashicons dashicons-list-view"></span> Form Answers</h3>
+					<?php if ( ! empty( $answers ) ) : ?>
+						<table class="tqb-answers-table">
+							<thead>
+								<tr>
+									<th>Item</th>
+									<th>Value</th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php foreach ( $answers as $key => $value ) : ?>
+									<tr>
+										<td><strong><?php echo esc_html( ucwords( str_replace( '_', ' ', $key ) ) ); ?></strong></td>
+										<td>
+											<?php 
+											if ( is_array( $value ) ) {
+												echo esc_html( json_encode( $value ) );
+											} else {
+												echo esc_html( $value );
+											}
+											?>
+										</td>
+									</tr>
+								<?php endforeach; ?>
+							</tbody>
+						</table>
+					<?php else : ?>
+						<p class="tqb-no-data">No form answers recorded.</p>
+					<?php endif; ?>
+				</div>
+
+				<!-- Timestamps -->
+				<div class="tqb-detail-section">
+					<h3><span class="dashicons dashicons-clock"></span> Timeline</h3>
+					<div class="tqb-detail-grid">
+						<div class="tqb-detail-item">
+							<label>Created</label>
+							<span><?php echo $submission['created_at'] ? date( 'M j, Y g:i A', strtotime( $submission['created_at'] ) ) : '-'; ?></span>
+						</div>
+						<div class="tqb-detail-item">
+							<label>Last Updated</label>
+							<span><?php echo $submission['updated_at'] ? date( 'M j, Y g:i A', strtotime( $submission['updated_at'] ) ) : '-'; ?></span>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<style>
+			.tqb-submission-details { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+			.tqb-detail-section { margin-bottom: 24px; }
+			.tqb-detail-section h3 {
+				margin: 0 0 12px 0;
+				font-size: 14px;
+				font-weight: 600;
+				color: #1e293b;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				padding-bottom: 8px;
+				border-bottom: 2px solid #e2e8f0;
+			}
+			.tqb-detail-section h3 .dashicons { color: #3b82f6; }
+			.tqb-detail-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+				gap: 16px;
+			}
+			.tqb-detail-item { display: flex; flex-direction: column; gap: 4px; }
+			.tqb-detail-item label {
+				font-size: 11px;
+				font-weight: 600;
+				color: #64748b;
+				text-transform: uppercase;
+			}
+			.tqb-detail-item span, .tqb-detail-item a {
+				font-size: 14px;
+				color: #1e293b;
+			}
+			.tqb-detail-item a { color: #3b82f6; text-decoration: none; }
+			.tqb-detail-item a:hover { text-decoration: underline; }
+			.tqb-total { font-size: 20px !important; color: #10b981 !important; }
+			.tqb-type-badge {
+				display: inline-block;
+				padding: 4px 10px;
+				border-radius: 6px;
+				font-size: 12px;
+				font-weight: 600;
+			}
+			.tqb-type-individual { background: #eff6ff; color: #3b82f6; }
+			.tqb-type-business { background: #f5f3ff; color: #8b5cf6; }
+			.tqb-type-combined { background: #fff7ed; color: #f97316; }
+			.tqb-answers-table { width: 100%; border-collapse: collapse; }
+			.tqb-answers-table th, .tqb-answers-table td {
+				padding: 10px 12px;
+				text-align: left;
+				border-bottom: 1px solid #f1f5f9;
+			}
+			.tqb-answers-table th { background: #f8fafc; font-size: 12px; color: #64748b; }
+			.tqb-answers-table td { font-size: 13px; }
+			.tqb-no-data { color: #94a3b8; font-style: italic; }
+			</style>
+			<?php
+			$html = ob_get_clean();
+
+			wp_send_json_success( array( 'html' => $html ) );
 		}
-	}
+
+		/**
+		 * AJAX: Get submission email for pre-fill.
+		 */
+		public function ajax_get_submission_email() {
+			if ( ! current_user_can( 'manage_options' ) ) {
+				wp_send_json_error( 'Permission denied.' );
+			}
+
+			check_ajax_referer( 'tqb_admin_nonce', 'nonce' );
+
+			$id = isset( $_POST['id'] ) ? absint( $_POST['id'] ) : 0;
+			$submission = TQB_DB::get_submission( $id );
+
+			if ( ! $submission ) {
+				wp_send_json_error( 'Not found.' );
+			}
+
+			wp_send_json_success( array(
+				'email' => $submission['contact_email'],
+				'name' => $submission['contact_name'],
+			) );
+		}
+
+		/**
+		 * AJAX: Update single submission status.
+		 */
+		public function ajax_update_status() {
+			if ( ! current_user_can( 'manage_options' ) ) {
+				wp_send_json_error( 'Permission denied.' );
+			}
+
+			check_ajax_referer( 'tqb_admin_nonce', 'nonce' );
+
+			$id = isset( $_POST['id'] ) ? absint( $_POST['id'] ) : 0;
+			$status = isset( $_POST['status'] ) ? sanitize_key( $_POST['status'] ) : '';
+
+			global $wpdb;
+			$table = $wpdb->prefix . 'tqb_submissions';
+
+			$result = $wpdb->update(
+				$table,
+				array( 'status' => $status, 'updated_at' => current_time( 'mysql' ) ),
+				array( 'id' => $id ),
+				array( '%s', '%s' ),
+				array( '%d' )
+			);
+
+			if ( $result !== false ) {
+				wp_send_json_success();
+			} else {
+				wp_send_json_error();
+			}
+		}
+
+		/**
+		 * AJAX: Bulk update status.
+		 */
+		public function ajax_bulk_status() {
+			if ( ! current_user_can( 'manage_options' ) ) {
+				wp_send_json_error( 'Permission denied.' );
+			}
+
+			check_ajax_referer( 'tqb_admin_nonce', 'nonce' );
+
+			$ids = isset( $_POST['ids'] ) ? array_filter( array_map( 'absint', explode( ',', $_POST['ids'] ) ) ) : array();
+			$status = isset( $_POST['status'] ) ? sanitize_key( $_POST['status'] ) : '';
+
+			if ( empty( $ids ) || empty( $status ) ) {
+				wp_send_json_error( 'Invalid parameters.' );
+			}
+
+			global $wpdb;
+			$table = $wpdb->prefix . 'tqb_submissions';
+			$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' );
+
+			$result = $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$table} SET status = %s, updated_at = %s WHERE id IN ($placeholders)",
+					array_merge( array( $status, current_time( 'mysql' ) ), $ids )
+				)
+			);
+
+			if ( $result !== false ) {
+				wp_send_json_success();
+			} else {
+				wp_send_json_error();
+			}
+		}
+
+		/**
+		 * AJAX: Bulk delete.
+		 */
+		public function ajax_bulk_delete() {
+			if ( ! current_user_can( 'manage_options' ) ) {
+				wp_send_json_error( 'Permission denied.' );
+			}
+
+			check_ajax_referer( 'tqb_admin_nonce', 'nonce' );
+
+			$ids = isset( $_POST['ids'] ) ? array_filter( array_map( 'absint', explode( ',', $_POST['ids'] ) ) ) : array();
+
+			if ( empty( $ids ) ) {
+				wp_send_json_error( 'No IDs provided.' );
+			}
+
+			global $wpdb;
+			$table = $wpdb->prefix . 'tqb_submissions';
+			$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' );
+
+			$result = $wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$table} WHERE id IN ($placeholders)",
+					$ids
+				)
+			);
+
+			if ( $result !== false ) {
+				wp_send_json_success();
+			} else {
+				wp_send_json_error();
+			}
+		}
+
+		/**
+		 * AJAX: Send email to submission contact(s).
+		 */
+		public function ajax_send_email() {
+			if ( ! current_user_can( 'manage_options' ) ) {
+				wp_send_json_error( 'Permission denied.' );
+			}
+
+			$to = isset( $_POST['to_email'] ) ? sanitize_email( $_POST['to_email'] ) : '';
+			$subject = isset( $_POST['subject'] ) ? sanitize_text_field( $_POST['subject'] ) : '';
+			$message = isset( $_POST['message'] ) ? sanitize_textarea_field( $_POST['message'] ) : '';
+
+			if ( empty( $to ) || empty( $subject ) || empty( $message ) ) {
+				wp_send_json_error( 'All fields are required.' );
+			}
+
+			// Get submission data for placeholder replacement
+			$ids = isset( $_POST['submission_ids'] ) ? array_filter( array_map( 'absint', explode( ',', $_POST['submission_ids'] ) ) ) : array();
+			if ( ! empty( $ids ) ) {
+				$submission = TQB_DB::get_submission( $ids[0] );
+				if ( $submission ) {
+					$message = str_replace( '{name}', $submission['contact_name'] ?: 'Customer', $message );
+					$message = str_replace( '{email}', $submission['contact_email'], $message );
+					$message = str_replace( '{phone}', $submission['contact_phone'] ?: 'N/A', $message );
+					$message = str_replace( '{quote_type}', ucfirst( $submission['quote_type'] ), $message );
+					$message = str_replace( '{total}', $submission['calculated_total'] ? '$' . number_format( $submission['calculated_total'], 2 ) : 'TBD', $message );
+				}
+			}
+
+			$headers = array( 'Content-Type: text/plain; charset=UTF-8' );
+			$sent = wp_mail( $to, $subject, $message, $headers );
+
+			if ( $sent ) {
+				wp_send_json_success();
+			} else {
+				wp_send_json_error( 'Failed to send email.' );
+			}
+		}
+}
