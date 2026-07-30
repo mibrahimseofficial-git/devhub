@@ -351,75 +351,130 @@ jQuery(document).ready(function($) {
 </style>
 
 <!-- View Details Modal -->
-<div id="tqb-view-modal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:25px; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.15); z-index:100000; max-width:600px; width:90%; max-height:80vh; overflow-y:auto;">
-	<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid #eee; padding-bottom:15px;">
-		<h2 style="margin:0;">Submission Details</h2>
-		<button id="tqb-modal-close" style="background:none; border:none; font-size:24px; cursor:pointer;">&times;</button>
+<style>
+#tqb-modal-overlay-v2{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99998;}
+#tqb-modal-v2{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;width:90%;max-width:850px;max-height:85vh;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);z-index:99999;overflow:hidden;}
+.tqb-modal-header{background:linear-gradient(135deg,#2271b1 0%,#1d4e89 100%);color:#fff;padding:20px 25px;display:flex;justify-content:space-between;align-items:center;}
+.tqb-modal-header h2{margin:0;font-size:18px;font-weight:600;}
+.tqb-modal-body{padding:25px;overflow-y:auto;max-height:calc(85vh - 70px);}
+.tqb-section{margin-bottom:25px;}
+.tqb-section-title{font-size:13px;font-weight:600;color:#1d4e89;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;}
+.tqb-info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+.tqb-info-item{background:#f8fafc;padding:12px 15px;border-radius:8px;border-left:3px solid #2271b1;}
+.tqb-info-item.full-width{grid-column:1 / -1;}
+.tqb-info-item.wide{grid-column:1 / -1;}
+.tqb-info-label{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;}
+.tqb-info-value{font-size:14px;color:#1e293b;font-weight:500;}
+.tqb-status-badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;text-transform:capitalize;}
+.tqb-status-completed{background:#dcfce7;color:#166534;}
+.tqb-status-in_progress{background:#fef3c7;color:#92400e;}
+.tqb-status-abandoned{background:#fee2e2;color:#991b1b;}
+.tqb-answers-list{list-style:none;padding:0;margin:0;columns:2;column-gap:15px;}
+.tqb-answer-item{background:#f8fafc;padding:12px;border-radius:8px;margin-bottom:10px;break-inside:avoid;border:1px solid #e2e8f0;}
+.tqb-answer-question{font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px;}
+.tqb-answer-response{font-size:13px;color:#1e293b;}
+.tqb-close-btn{background:rgba(255,255,255,0.2);border:none;color:#fff;width:32px;height:32px;border-radius:6px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.2s;}
+.tqb-close-btn:hover{background:rgba(255,255,255,0.3);}
+.tqb-loading{text-align:center;padding:40px;color:#64748b;}
+.tqb-loading-spinner{width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#2271b1;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 15px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tqb-email-yes{color:#16a34a;font-weight:600;}
+.tqb-email-no{color:#dc2626;font-weight:600;}
+@media (max-width:600px){.tqb-info-grid{grid-template-columns:1fr;}.tqb-answers-list{columns:1;}}
+</style>
+
+<div id="tqb-modal-overlay-v2"></div>
+<div id="tqb-modal-v2">
+	<div class="tqb-modal-header">
+		<h2>📋 Submission Details</h2>
+		<button class="tqb-close-btn" id="tqb-close-modal">&times;</button>
 	</div>
-	<div id="tqb-modal-content">
-		<p>Loading...</p>
+	<div class="tqb-modal-body" id="tqb-modal-content">
+		<div class="tqb-loading"><div class="tqb-loading-spinner"></div>Loading...</div>
 	</div>
 </div>
-<div id="tqb-modal-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:99999;"></div>
 
 <script>
-jQuery(document).ready(function($) {
-	// View button click
-	$('.tqb-view-btn').on('click', function() {
-		var id = $(this).data('id');
-		var $modal = $('#tqb-view-modal');
-		var $overlay = $('#tqb-modal-overlay');
-		var $content = $('#tqb-modal-content');
+jQuery(document).ready(function($){
+	var $modal=$('#tqb-modal-v2'),$overlay=$('#tqb-modal-overlay-v2'),$content=$('#tqb-modal-content');
 
-		$content.html('<p>Loading...</p>');
-		$modal.fadeIn();
-		$overlay.fadeIn();
+	function fmtDate(s){
+		if(!s)return'<span style="color:#999">N/A</span>';
+		var d=new Date(s);
+		return d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+	}
+	function badge(s){
+		var c='completed',l='Completed';
+		if(s==='in_progress'){c='in_progress';l='In Progress';}
+		else if(s==='abandoned'){c='abandoned';l='Abandoned';}
+		return'<span class="tqb-status-badge tqb-status-'+c+'">'+l+'</span>';
+	}
+	function render(d){
+		var ans={};
+		try{ans=JSON.parse(d.answers||'{}');}catch(e){}
+		var icon=d.quote_type==='business'?'🏢':'👤';
+		var typeCol=d.quote_type==='business'?'#7c3aed':'#0891b2';
+		var h='<div class="tqb-section"><div class="tqb-section-title">👤 Contact</div><div class="tqb-info-grid">';
+		h+='<div class="tqb-info-item"><div class="tqb-info-label">Name</div><div class="tqb-info-value">'+escHtml(d.contact_name||'-')+'</div></div>';
+		h+='<div class="tqb-info-item"><div class="tqb-info-label">Email</div><div class="tqb-info-value"><a href="mailto:'+escAttr(d.contact_email||'')+'">'+escHtml(d.contact_email||'-')+'</a></div></div>';
+		h+='<div class="tqb-info-item"><div class="tqb-info-label">Phone</div><div class="tqb-info-value">'+escHtml(d.contact_phone||'-')+'</div></div>';
+		h+='<div class="tqb-info-item"><div class="tqb-info-label">IP Address</div><div class="tqb-info-value">'+escHtml(d.user_ip||'-')+'</div></div>';
+		h+='</div></div>';
 
-		$.post(tqbAdminData.ajaxUrl, {
-			action: 'tqb_get_submission',
-			id: id,
-			nonce: tqbAdminData.nonce
-		}, function(response) {
-			if (response.success) {
-				var data = response.data;
-				var html = '<table style="width:100%;">';
-				html += '<tr><td style="padding:8px; font-weight:bold; width:35%;">ID</td><td style="padding:8px;">' + data.id + '</td></tr>';
-				html += '<tr style="background:#f9f9f9;"><td style="padding:8px; font-weight:bold;">Name</td><td style="padding:8px;">' + (data.contact_name || '-') + '</td></tr>';
-				html += '<tr><td style="padding:8px; font-weight:bold;">Email</td><td style="padding:8px;">' + (data.contact_email || '-') + '</td></tr>';
-				html += '<tr style="background:#f9f9f9;"><td style="padding:8px; font-weight:bold;">Phone</td><td style="padding:8px;">' + (data.contact_phone || '-') + '</td></tr>';
-				html += '<tr><td style="padding:8px; font-weight:bold;">Type</td><td style="padding:8px;">' + (data.quote_type || '-') + '</td></tr>';
-				html += '<tr style="background:#f9f9f9;"><td style="padding:8px; font-weight:bold;">Status</td><td style="padding:8px;">' + (data.status || '-') + '</td></tr>';
-				html += '<tr><td style="padding:8px; font-weight:bold;">Quote Total</td><td style="padding:8px;">' + (data.calculated_total ? '$' + parseFloat(data.calculated_total).toFixed(2) : '-') + '</td></tr>';
-				html += '<tr style="background:#f9f9f9;"><td style="padding:8px; font-weight:bold;">Custom Quote</td><td style="padding:8px;">' + (data.is_custom_quote ? 'Yes' : 'No') + '</td></tr>';
-				html += '<tr><td style="padding:8px; font-weight:bold;">Created</td><td style="padding:8px;">' + (data.created_at || '-') + '</td></tr>';
-				html += '<tr style="background:#f9f9f9;"><td style="padding:8px; font-weight:bold;">Updated</td><td style="padding:8px;">' + (data.updated_at || '-') + '</td></tr>';
-				html += '<tr><td style="padding:8px; font-weight:bold;">IP Address</td><td style="padding:8px;">' + (data.user_ip || '-') + '</td></tr>';
-				html += '</table>';
-
-				if (data.form_data) {
-					html += '<h3 style="margin-top:20px;">Form Data</h3>';
-					html += '<pre style="background:#f5f5f5; padding:15px; border-radius:4px; overflow:auto; max-height:200px;">' + JSON.stringify(JSON.parse(data.form_data), null, 2) + '</pre>';
-				}
-
-				$content.html(html);
-			} else {
-				$content.html('<p style="color:red;">Error loading submission.</p>');
-			}
-		}, 'json');
-	});
-
-	// Close modal
-	$('#tqb-modal-close, #tqb-modal-overlay').on('click', function() {
-		$('#tqb-view-modal').fadeOut();
-		$('#tqb-modal-overlay').fadeOut();
-	});
-
-	// Close on Escape
-	$(document).on('keydown', function(e) {
-		if (e.key === 'Escape') {
-			$('#tqb-view-modal').fadeOut();
-			$('#tqb-modal-overlay').fadeOut();
+		h+='<div class="tqb-section"><div class="tqb-section-title">💰 Quote</div><div class="tqb-info-grid">';
+		h+='<div class="tqb-info-item"><div class="tqb-info-label">Type</div><div class="tqb-info-value" style="color:'+typeCol+';font-weight:600">'+icon+' '+ucfirst(d.quote_type||'-')+'</div></div>';
+		h+='<div class="tqb-info-item"><div class="tqb-info-label">Status</div><div class="tqb-info-value">'+badge(d.status)+'</div></div>';
+		if(d.is_custom_quote==1){
+			h+='<div class="tqb-info-item wide"><div class="tqb-info-label">Quote</div><div class="tqb-info-value" style="color:#dc2626;font-size:18px;font-weight:700">Custom Quote Required</div></div>';
+			if(d.custom_quote_reason)h+='<div class="tqb-info-item wide"><div class="tqb-info-label">Reason</div><div class="tqb-info-value">'+escHtml(d.custom_quote_reason)+'</div></div>';
+		}else{
+			h+='<div class="tqb-info-item wide"><div class="tqb-info-label">Quote Amount</div><div class="tqb-info-value" style="color:#059669;font-size:22px;font-weight:700">$'+parseFloat(d.calculated_total||0).toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
 		}
+		h+='<div class="tqb-info-item"><div class="tqb-info-label">Progress</div><div class="tqb-info-value">Step '+(d.last_completed_step||0)+' of 5</div></div>';
+		h+='</div></div>';
+
+		h+='<div class="tqb-section"><div class="tqb-section-title">📬 Notifications & Sync</div><div class="tqb-info-grid">';
+		h+='<div class="tqb-info-item"><div class="tqb-info-label">Confirmation Email</div><div class="tqb-info-value">'+(d.confirmation_email_sent?'<span class="tqb-email-yes">✓ Sent</span>':'<span class="tqb-email-no">✗ Not sent</span>')+'</div></div>';
+		h+='<div class="tqb-info-item"><div class="tqb-info-label">HubSpot</div><div class="tqb-info-value">'+(d.hubspot_synced?'<span class="tqb-email-yes">✓ Synced</span>':'<span class="tqb-email-no">✗ Not synced</span>')+'</div></div>';
+		if(d.hubspot_contact_id)h+='<div class="tqb-info-item"><div class="tqb-info-label">HubSpot Contact</div><div class="tqb-info-value">'+escHtml(d.hubspot_contact_id)+'</div></div>';
+		if(d.hubspot_deal_id)h+='<div class="tqb-info-item"><div class="tqb-info-label">HubSpot Deal</div><div class="tqb-info-value">'+escHtml(d.hubspot_deal_id)+'</div></div>';
+		h+='</div></div>';
+
+		h+='<div class="tqb-section"><div class="tqb-section-title">📅 Timeline</div><div class="tqb-info-grid">';
+		h+='<div class="tqb-info-item"><div class="tqb-info-label">Created</div><div class="tqb-info-value">'+fmtDate(d.created_at)+'</div></div>';
+		h+='<div class="tqb-info-item"><div class="tqb-info-label">Updated</div><div class="tqb-info-value">'+fmtDate(d.updated_at)+'</div></div>';
+		if(d.reminder_email_sent_at)h+='<div class="tqb-info-item"><div class="tqb-info-label">Reminder Sent</div><div class="tqb-info-value">'+fmtDate(d.reminder_email_sent_at)+'</div></div>';
+		if(d.followup_email_sent_at)h+='<div class="tqb-info-item"><div class="tqb-info-label">Follow-up Sent</div><div class="tqb-info-value">'+fmtDate(d.followup_email_sent_at)+'</div></div>';
+		if(d.final_email_sent_at)h+='<div class="tqb-info-item"><div class="tqb-info-label">Final Email Sent</div><div class="tqb-info-value">'+fmtDate(d.final_email_sent_at)+'</div></div>';
+		h+='</div></div>';
+
+		if(Object.keys(ans).length>0){
+			h+='<div class="tqb-section"><div class="tqb-section-title">📝 Form Responses</div><ul class="tqb-answers-list">';
+			for(var k in ans){
+				var v=ans[k];
+				if(typeof v==='object')v=JSON.stringify(v);
+				var q=k.replace(/_/g,' ').replace(/\b\w/g,function(l){return l.toUpperCase()});
+				h+='<li class="tqb-answer-item"><div class="tqb-answer-question">'+escHtml(q)+'</div><div class="tqb-answer-response">'+escHtml(String(v))+'</div></li>';
+			}
+			h+='</ul></div>';
+		}
+		return h;
+	}
+	function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+	function escAttr(s){if(!s)return'';return String(s).replace(/"/g,'&quot;');}
+	function ucfirst(s){if(!s)return'';return s.charAt(0).toUpperCase()+s.slice(1);}
+
+	$('.tqb-view-btn').on('click',function(){
+		var id=$(this).data('id');
+		$content.html('<div class="tqb-loading"><div class="tqb-loading-spinner"></div>Loading...</div>');
+		$modal.fadeIn(200);$overlay.fadeIn(200);$('body').css('overflow','hidden');
+		$.post(tqbAdminData.ajaxUrl,{action:'tqb_get_submission',id:id,nonce:tqbAdminData.nonce},function(resp){
+			if(resp.success)$content.html(render(resp.data));
+			else $content.html('<div style="text-align:center;padding:40px;color:#dc2626"><h3>Error</h3><p>'+(resp.data||'Could not load')+'</p></div>');
+		},'json');
 	});
+	function closeModal(){$modal.fadeOut(200);$overlay.fadeOut(200);$('body').css('overflow','');}
+	$('#tqb-close-modal, #tqb-modal-overlay-v2').on('click',closeModal);
+	$(document).on('keydown',function(e){if(e.key==='Escape'&&$modal.is(':visible'))closeModal();});
 });
 </script>
