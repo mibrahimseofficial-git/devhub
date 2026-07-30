@@ -41,7 +41,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 			$c_band = $row['c_s_band'];
 			$p_band = $row['partnership_band'];
 		?>
-			<div class="tqb-asset-band-row" data-id="<?php echo esc_attr( $c_band['id'] ); ?>" data-is-custom="<?php echo esc_attr( $c_band['is_custom'] ); ?>">
+			<div class="tqb-asset-band-row" data-id="<?php echo esc_attr( $c_band['id'] ); ?>" data-is-new="0" data-is-custom="<?php echo esc_attr( $c_band['is_custom'] ); ?>">
 				<table class="widefat" style="margin-bottom: 8px;">
 					<tr>
 						<td style="width: 20%;">
@@ -98,7 +98,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 	<div id="tqb-revenue-addons-repeater">
 		<?php foreach ( $revenue_addons as $addon ) : ?>
-			<div class="tqb-revenue-row" data-id="<?php echo esc_attr( $addon['id'] ); ?>">
+			<div class="tqb-revenue-row" data-id="<?php echo esc_attr( $addon['id'] ); ?>" data-is-new="0">
 				<table class="widefat" style="margin-bottom: 8px;">
 					<tr>
 						<td style="width: 25%;">
