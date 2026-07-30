@@ -399,25 +399,50 @@ class TQB_Activator {
 
 		$line_items_table = $wpdb->prefix . TQB_TABLE_LINE_ITEMS;
 
-		// All default line items
+		// Only seed if table is empty — avoids overwriting admin edits on reactivation.
+		$existing_count = $wpdb->get_var( "SELECT COUNT(*) FROM {$line_items_table}" );
+		if ( $existing_count > 0 ) {
+			return;
+		}
+
 		$individual_items = array(
 			array( 'w2_wages', 'W-2 wage income', 350, 'qty_times_fee', null, 0, null, null, 1, 0, 'Your W-2 form shows wages you earned as an employee. This applies to everyone filing a personal return.' ),
 			array( 'multi_state', 'Lived or worked in more than one state', 150, 'qty_times_fee', null, 0, null, null, 1, 10, 'If you earned income or worked in a state other than your primary residence, additional state filings may be required.' ),
-			array( 'interest_dividends', 'Bank or investment account interest/dividend statements (1099-INT/1099-DIV)', 25, 'flat', null, 0, null, null, 1, 20, 'Look for 1099-INT (interest) and 1099-DIV (dividends) forms from your banks and investment accounts.' ),
-			array( 'brokerage_sales', 'Brokerage statement showing stock or investment sales (1099-B)', 25, 'qty_times_fee', null, 0, null, null, 1, 30, 'If you sold stocks, bonds, or other investments, you should receive a 1099-B form from your brokerage.' ),
+			array( 'interest_dividends', 'Bank or investment account interest/dividend statements', 25, 'flat', null, 0, null, null, 1, 20, 'Look for 1099-INT (interest) and 1099-DIV (dividends) forms from your banks and investment accounts.' ),
+			array( 'brokerage_sales', 'Brokerage statement showing stock or investment sales', 25, 'qty_times_fee', null, 0, null, null, 1, 30, 'If you sold stocks, bonds, or other investments, you should receive a 1099-B form from your brokerage.' ),
 			array( 'rental_property', 'Owns rental property', 200, 'qty_times_fee', null, 0, null, null, 1, 40, 'Income and expenses from rental properties need to be reported on your tax return.' ),
 			array( 'self_employed', 'Self-employed or owns a small business / single-member LLC', 200, 'qty_times_fee', null, 0, null, null, 1, 50, 'If you run your own business or are a sole proprietor, your business income and expenses are reported on a Schedule C.' ),
 			array( 'farm_income', 'Farm income', 275, 'qty_times_fee', null, 0, null, null, 1, 60, 'Income from farming activities, including livestock, crops, and other agricultural products.' ),
-			array( 'k1_received', 'Received a K-1 (from a partnership, S-corp, trust, or estate)', 50, 'qty_times_fee', null, 0, null, null, 1, 70, 'A K-1 form reports income from partnerships, S-corporations, or estates/trusts. Per K-1.' ),
+			array( 'k1_received', 'Received a K-1', 50, 'qty_times_fee', null, 0, null, null, 1, 70, 'A K-1 form reports income from partnerships, S-corporations, or estates/trusts.' ),
 			array( 'foreign_accounts', 'Has foreign bank accounts or foreign income (FBAR)', 250, 'qty_times_fee', null, 1, null, null, 1, 80, 'If you have foreign bank accounts exceeding $10,000 at any point during the year, you may need to file an FBAR (FinCEN Form 114).' ),
 			array( 'crypto', 'Bought, sold, or traded cryptocurrency', 250, 'qty_times_fee', null, 0, 100, 'above', 1, 90, 'Cryptocurrency transactions (buying, selling, trading) are taxable and must be reported on your return. Trading more than $100K may require a custom quote.' ),
 			array( 'tuition', 'Paid college tuition (1098-T)', 25, 'flat', null, 0, null, null, 1, 100, 'You should receive a 1098-T form from your educational institution showing tuition paid.' ),
 			array( 'childcare', 'Paid for childcare or dependent care', 25, 'flat', null, 0, null, null, 1, 110, 'Child and dependent care expenses may qualify for a tax credit. You will need the provider\'s name and tax ID.' ),
-			array( 'hsa', 'Has an HSA - Health Savings Account (1099-SA/5498-SA)', 25, 'qty_times_fee', null, 0, null, null, 1, 120, 'Health Savings Account contributions and distributions are reported on Form 8889.' ),
+			array( 'hsa', 'Has an HSA', 25, 'qty_times_fee', null, 0, null, null, 1, 120, 'Health Savings Account contributions and distributions are reported on Form 8889.' ),
 			array( 'home_sale', 'Sold any home during the year (1099-S)', 150, 'qty_times_fee', null, 0, null, null, 1, 130, 'If you sold a home, you should receive a 1099-S form. There may be capital gains implications.' ),
 			array( 'retirement_distributions', 'Retirement Distributions (401K, IRA, ROTH IRA etc.)', 25, 'hardcoded', 100, 0, null, null, 1, 140, 'Distributions from retirement accounts like 401(k)s, IRAs, and Roth IRAs are taxable.' ),
 			array( 'meetings', 'Meetings (end of year recap, tax return review, misc.)', 250, 'qty_times_fee', null, 0, null, null, 0, 150, 'Internal use only.' ),
 		);
+
+		foreach ( $individual_items as $item ) {
+			$wpdb->insert(
+				$line_items_table,
+				array(
+					'quote_type'              => 'individual',
+					'item_key'                => $item[0],
+					'label'                   => $item[1],
+					'fee'                     => $item[2],
+					'pricing_pattern'         => $item[3],
+					'hardcoded_value'         => $item[4],
+					'is_custom_quote_trigger' => $item[5],
+					'threshold_qty'           => $item[6],
+					'threshold_trigger'        => $item[7],
+					'is_active'               => $item[8],
+					'sort_order'              => $item[9],
+					'tooltip'                 => $item[10],
+				)
+			);
+		}
 
 		$business_items = array(
 			array( 'extra_k1s', 'Multiple partners/owners (extra K-1s to issue)', 25, 'qty_times_fee', null, 0, null, null, 1, 10, 'Each additional partner or owner requires a separate K-1 form to be issued.' ),
@@ -429,43 +454,24 @@ class TQB_Activator {
 			array( 'audit_support', 'Under IRS audit / needs audit support', 350, 'qty_times_fee', null, 0, null, null, 0, 70, 'Audit representation is not included in standard engagement.' ),
 		);
 
-		// Check existing items and add missing ones (using REPLACE to update if needed)
-		$existing_items = $wpdb->get_results( "SELECT item_key, quote_type FROM {$line_items_table}", ARRAY_A );
-		$existing_map = array();
-		foreach ( $existing_items as $row ) {
-			$existing_map[ $row['quote_type'] . ':' . $row['item_key'] ] = true;
-		}
-
-		$all_items = array_merge(
-			array_map( function( $i ) { $i[] = 'individual'; return $i; }, $individual_items ),
-			array_map( function( $i ) { $i[] = 'business'; return $i; }, $business_items )
-		);
-
-		foreach ( $all_items as $item ) {
-			$key = end( $item ); // quote_type is last element
-			$item_key = $item[0];
-			$exists = isset( $existing_map[ $key . ':' . $item_key ] );
-
-			// Only insert if it doesn't exist (preserves admin edits)
-			if ( ! $exists ) {
-				$wpdb->insert(
-					$line_items_table,
-					array(
-						'quote_type'              => $key,
-						'item_key'                => $item[0],
-						'label'                   => $item[1],
-						'fee'                     => $item[2],
-						'pricing_pattern'         => $item[3],
-						'hardcoded_value'         => $item[4],
-						'is_custom_quote_trigger' => $item[5],
-						'threshold_qty'           => $item[6],
-						'threshold_trigger'        => $item[7],
-						'is_active'               => $item[8],
-						'sort_order'              => $item[9],
-						'tooltip'                 => $item[10],
-					)
-				);
-			}
+		foreach ( $business_items as $item ) {
+			$wpdb->insert(
+				$line_items_table,
+				array(
+					'quote_type'              => 'business',
+					'item_key'                => $item[0],
+					'label'                   => $item[1],
+					'fee'                     => $item[2],
+					'pricing_pattern'         => $item[3],
+					'hardcoded_value'         => $item[4],
+					'is_custom_quote_trigger' => $item[5],
+					'threshold_qty'           => $item[6],
+					'threshold_trigger'        => $item[7],
+					'is_active'               => $item[8],
+					'sort_order'              => $item[9],
+					'tooltip'                 => $item[10],
+				)
+			);
 		}
 
 		self::seed_rate_bands();
@@ -484,14 +490,6 @@ class TQB_Activator {
 		global $wpdb;
 		$table = $wpdb->prefix . TQB_TABLE_RATE_BANDS;
 
-		// Check existing entries
-		$existing = $wpdb->get_results( "SELECT band_type, entity_group, band_label FROM {$table}", ARRAY_A );
-		$existing_map = array();
-		foreach ( $existing as $row ) {
-			$key = $row['band_type'] . ':' . ( $row['entity_group'] ?: 'null' ) . ':' . $row['band_label'];
-			$existing_map[ $key ] = true;
-		}
-
 		$asset_bands = array(
 			// label, min, max, c_s_corp price, partnership price, is_custom
 			array( 'Under $250K', 0, 250000, 1250, 1250, 0 ),
@@ -507,35 +505,27 @@ class TQB_Activator {
 		foreach ( $asset_bands as $band ) {
 			list( $label, $min, $max, $c_s_price, $p_price, $is_custom ) = $band;
 
-			// C-S Corp
-			$key = 'asset_band:c_s_corp:' . $label;
-			if ( ! isset( $existing_map[ $key ] ) ) {
-				$wpdb->insert( $table, array(
-					'band_type'    => 'asset_band',
-					'entity_group' => 'c_s_corp',
-					'band_label'   => $label,
-					'band_min'     => $min,
-					'band_max'     => $max,
-					'price'        => $c_s_price,
-					'is_custom'    => $is_custom,
-					'sort_order'   => $sort,
-				) );
-			}
+			$wpdb->insert( $table, array(
+				'band_type'    => 'asset_band',
+				'entity_group' => 'c_s_corp',
+				'band_label'   => $label,
+				'band_min'     => $min,
+				'band_max'     => $max,
+				'price'        => $c_s_price,
+				'is_custom'    => $is_custom,
+				'sort_order'   => $sort,
+			) );
 
-			// Partnership
-			$key = 'asset_band:partnership:' . $label;
-			if ( ! isset( $existing_map[ $key ] ) ) {
-				$wpdb->insert( $table, array(
-					'band_type'    => 'asset_band',
-					'entity_group' => 'partnership',
-					'band_label'   => $label,
-					'band_min'     => $min,
-					'band_max'     => $max,
-					'price'        => $p_price,
-					'is_custom'    => $is_custom,
-					'sort_order'   => $sort,
-				) );
-			}
+			$wpdb->insert( $table, array(
+				'band_type'    => 'asset_band',
+				'entity_group' => 'partnership',
+				'band_label'   => $label,
+				'band_min'     => $min,
+				'band_max'     => $max,
+				'price'        => $p_price,
+				'is_custom'    => $is_custom,
+				'sort_order'   => $sort,
+			) );
 
 			$sort += 10;
 		}
@@ -550,19 +540,16 @@ class TQB_Activator {
 		foreach ( $revenue_addons as $band ) {
 			list( $label, $min, $max, $addon ) = $band;
 
-			$key = 'revenue_addon:null:' . $label;
-			if ( ! isset( $existing_map[ $key ] ) ) {
-				$wpdb->insert( $table, array(
-					'band_type'    => 'revenue_addon',
-					'entity_group' => null,
-					'band_label'   => $label,
-					'band_min'     => $min,
-					'band_max'     => $max,
-					'price'        => $addon,
-					'is_custom'    => 0,
-					'sort_order'   => $sort,
-				) );
-			}
+			$wpdb->insert( $table, array(
+				'band_type'    => 'revenue_addon',
+				'entity_group' => null,
+				'band_label'   => $label,
+				'band_min'     => $min,
+				'band_max'     => $max,
+				'price'        => $addon,
+				'is_custom'    => 0,
+				'sort_order'   => $sort,
+			) );
 
 			$sort += 10;
 		}

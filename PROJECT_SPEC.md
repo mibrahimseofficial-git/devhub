@@ -1,7 +1,7 @@
 # Tavola Group — Self-Service Quote Builder Plugin
 ## Project Specification (source of truth — paste this into every new AI session)
 
-Last updated: 2026-07-29
+Last updated: 2026-07-17
 
 ---
 
@@ -364,30 +364,3 @@ above.
 5. Improve lead capture / automated follow-up for incomplete submissions
 
 (HubSpot training was mentioned separately, not numbered in their priority list.)
-
----
-
-## 10. Changelog
-
-### v0.4.0 (2026-07-29)
-**Admin Dashboard Redesign:**
-- Complete professional dashboard UI with card-based layout
-- Stats overview (Total, Completed, In Progress, Abandoned)
-- Status tabs: All, New, Contacted, Quote Sent, Won, Lost, Follow Up
-- Bulk actions: change status, send email, delete multiple submissions
-- Individual status change with inline dropdown
-- Modal for viewing submission details with all form data
-- Email modal with templates (Quote Confirmation, Follow Up, Custom Quote, Thank You)
-- Search and type filtering
-- Color-coded status badges
-
-**Bug Fixes:**
-- Fixed PHP syntax errors in class-tqb-admin.php
-- Fixed submission data capture (form answers now display correctly)
-
-### v0.3.0 (2026-07-17)
-- Initial release with Individual/Business pricing
-- HubSpot integration
-- Line items repeater fields
-- Asset bands and revenue add-ons management
-- Schedule L thresholds configuration

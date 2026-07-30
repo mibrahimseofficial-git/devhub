@@ -196,8 +196,8 @@ function tqb_get_sort_indicator( $column ) {
 							?>
 						</td>
 						<td>
-							<button type="button" class="button button-small tqb-view-details" data-id="<?php echo esc_attr( $sub['id'] ); ?>">View</button>
-							<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=tqb_delete_submission&id=' . $sub['id'] ), 'tqb_delete_sub_' . $sub['id'] ) ); ?>" class="button button-small" style="color: #b32d2e;" onclick="return confirm('Delete this submission? This cannot be undone.');">Delete</a>
+							<button type="button" class="button button-small tqb-view-btn" data-id="<?php echo esc_attr( $sub['id'] ); ?>">View</button>
+<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=tqb_delete_submission&id=' . $sub['id'] ), 'tqb_delete_sub_' . $sub['id'] ) ); ?>" class="button button-small" style="color: #b32d2e;" onclick="return confirm('Delete this submission? This cannot be undone.');">Delete</a>
 						</td>
 						<td>
 							<?php echo esc_html( ! empty( $sub['user_ip'] ) ? $sub['user_ip'] : '-' ); ?>
@@ -298,152 +298,8 @@ function tqb_get_sort_indicator( $column ) {
 
 <script>
 jQuery(document).ready(function($) {
-	// Select all functionality
 	$('#tqb-select-all').on('change', function() {
 		$('.tqb-delete-checkbox').prop('checked', $(this).prop('checked'));
-	});
-
-	// Submission data passed from PHP
-	var submissionsData = <?php echo json_encode(array_values($submissions)); ?>;
-
-	// Create lookup by ID
-	var submissionsById = {};
-	submissionsData.forEach(function(sub) {
-		submissionsById[sub.id] = sub;
-	});
-
-	// Open modal
-	$('.tqb-view-details').on('click', function() {
-		var id = $(this).data('id');
-		var sub = submissionsById[id];
-		if (!sub) return;
-
-		$('#tqb-modal-id').text('#' + id);
-
-		// Parse answers
-		var answersHtml = '';
-		try {
-			var answersData = sub.answers || {};
-			var answerItems = answersData.answers || answersData;
-
-			if (answerItems && typeof answerItems === 'object' && Object.keys(answerItems).length > 0) {
-				answersHtml = '<table><thead><tr><th>Item</th><th>Selected</th><th>Quantity</th><th>Details</th></tr></thead><tbody>';
-				for (var key in answerItems) {
-					if (answerItems.hasOwnProperty(key)) {
-						var item = answerItems[key];
-						var selected = item && item.selected ? 'Yes' : 'No';
-						var selectedClass = item && item.selected ? 'yes' : 'no';
-						var qty = item && item.qty ? item.qty : (item && item.volume ? item.volume : '-');
-						var details = item && item.thresholdNote ? item.thresholdNote : '-';
-						answersHtml += '<tr><td>' + key.replace(/_/g, ' ') + '</td><td class="' + selectedClass + '">' + selected + '</td><td>' + qty + '</td><td>' + details + '</td></tr>';
-					}
-				}
-				answersHtml += '</tbody></table>';
-			} else {
-				answersHtml = '<p style="color: #888;">No answers recorded for this submission.</p>';
-			}
-		} catch (e) {
-			answersHtml = '<p style="color: #888;">Unable to parse answers data.</p>';
-		}
-
-		// Handle business data
-		var businessHtml = '';
-		try {
-			var answersData = sub.answers || {};
-			var businesses = answersData.businesses;
-			if (businesses && businesses.length > 0) {
-				businessHtml = '<div class="tqb-modal-section"><h3>Business Information</h3>';
-				businesses.forEach(function(biz, idx) {
-					businessHtml += '<div class="tqb-modal-grid">';
-					businessHtml += '<div class="tqb-modal-item"><label>Entity Type</label><span>' + (biz.entity_type || '-') + '</span></div>';
-					businessHtml += '<div class="tqb-modal-item"><label>Asset Band</label><span>' + (biz.asset_band || '-') + '</span></div>';
-					businessHtml += '<div class="tqb-modal-item"><label>Revenue Band</label><span>' + (biz.revenue_band || '-') + '</span></div>';
-					businessHtml += '</div>';
-				});
-				businessHtml += '</div>';
-			}
-		} catch (e) {}
-
-		// Format email status
-		function formatEmailStatus(status) {
-			if (status === 'sent') return '<span class="status-yes">&#10003; Sent</span>';
-			if (status === 'failed') return '<span class="status-no">&#10007; Failed</span>';
-			return '<span class="status-no">&#9711; Pending</span>';
-		}
-
-		// Build modal content
-		var bodyHtml = '';
-
-		// Contact Info
-		bodyHtml += '<div class="tqb-modal-section"><h3>Contact Information</h3>';
-		bodyHtml += '<div class="tqb-modal-grid">';
-		bodyHtml += '<div class="tqb-modal-item"><label>Name</label><span>' + (sub.contact_name || '-') + '</span></div>';
-		bodyHtml += '<div class="tqb-modal-item"><label>Email</label><span>' + (sub.contact_email || '-') + '</span></div>';
-		bodyHtml += '<div class="tqb-modal-item"><label>Phone</label><span>' + (sub.contact_phone || '-') + '</span></div>';
-		bodyHtml += '<div class="tqb-modal-item"><label>IP Address</label><span>' + (sub.user_ip || '-') + '</span></div>';
-		bodyHtml += '</div></div>';
-
-		// Quote Details
-		bodyHtml += '<div class="tqb-modal-section"><h3>Quote Details</h3>';
-		bodyHtml += '<div class="tqb-modal-grid">';
-		bodyHtml += '<div class="tqb-modal-item"><label>Quote Type</label><span>' + (sub.quote_type || '-') + '</span></div>';
-		bodyHtml += '<div class="tqb-modal-item"><label>Status</label><span>' + (sub.status || '-') + '</span></div>';
-		bodyHtml += '<div class="tqb-modal-item"><label>Result</label><span>' + (sub.quote_result || '-') + '</span></div>';
-		bodyHtml += '<div class="tqb-modal-item"><label>HubSpot Sync</label><span>' + (sub.hubspot_synced ? '&#10003; Synced' : '&#9711; Not Synced') + '</span></div>';
-		bodyHtml += '</div></div>';
-
-		// Business Info
-		if (businessHtml) {
-			bodyHtml += businessHtml;
-		}
-
-		// Email Statuses
-		bodyHtml += '<div class="tqb-modal-section"><h3>Email Statuses</h3>';
-		bodyHtml += '<div class="tqb-modal-grid">';
-		bodyHtml += '<div class="tqb-modal-item"><label>Confirmation</label><span>' + formatEmailStatus(sub.confirmation_sent) + '</span></div>';
-		bodyHtml += '<div class="tqb-modal-item"><label>Reminder</label><span>' + formatEmailStatus(sub.reminder_sent) + '</span></div>';
-		bodyHtml += '<div class="tqb-modal-item"><label>Follow-up</label><span>' + formatEmailStatus(sub.followup_sent) + '</span></div>';
-		bodyHtml += '<div class="tqb-modal-item"><label>Final</label><span>' + formatEmailStatus(sub.final_sent) + '</span></div>';
-		bodyHtml += '</div></div>';
-
-		// Answers
-		bodyHtml += '<div class="tqb-modal-section"><h3>Answers</h3>' + answersHtml + '</div>';
-
-		// Timestamps
-		bodyHtml += '<div class="tqb-modal-section"><h3>Timestamps</h3>';
-		bodyHtml += '<div class="tqb-modal-grid">';
-		if (sub.created_at) {
-			var createdDate = new Date(sub.created_at);
-			bodyHtml += '<div class="tqb-modal-item"><label>Created</label><span>' + createdDate.toLocaleString() + '</span></div>';
-		}
-		if (sub.updated_at) {
-			var updatedDate = new Date(sub.updated_at);
-			bodyHtml += '<div class="tqb-modal-item"><label>Last Updated</label><span>' + updatedDate.toLocaleString() + '</span></div>';
-		}
-		if (sub.confirmation_sent_at && sub.confirmation_sent === 'sent') {
-			var confDate = new Date(sub.confirmation_sent_at);
-			bodyHtml += '<div class="tqb-modal-item"><label>Confirmation Sent</label><span>' + confDate.toLocaleString() + '</span></div>';
-		}
-		if (sub.followup_sent_at && sub.followup_sent === 'sent') {
-			var followupDate = new Date(sub.followup_sent_at);
-			bodyHtml += '<div class="tqb-modal-item"><label>Follow-up Sent</label><span>' + followupDate.toLocaleString() + '</span></div>';
-		}
-		bodyHtml += '</div></div>';
-
-		$('#tqb-modal-body').html(bodyHtml);
-		$('#tqb-modal-overlay, #tqb-view-modal').fadeIn();
-	});
-
-	// Close modal
-	$('#tqb-modal-close, #tqb-modal-overlay').on('click', function() {
-		$('#tqb-modal-overlay, #tqb-view-modal').fadeOut();
-	});
-
-	// Close on Escape
-	$(document).on('keydown', function(e) {
-		if (e.key === 'Escape') {
-			$('#tqb-modal-overlay, #tqb-view-modal').fadeOut();
-		}
 	});
 });
 </script>
@@ -492,137 +348,78 @@ jQuery(document).ready(function($) {
 .widefat thead th a {
 	font-weight: 600;
 }
-
-/* Modal Styles */
-.tqb-modal-overlay {
-	display: none;
-	position: fixed;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	background: rgba(0, 0, 0, 0.6);
-	z-index: 100000;
-}
-.tqb-modal {
-	display: none;
-	position: fixed;
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%);
-	background: #fff;
-	width: 90%;
-	max-width: 700px;
-	max-height: 85vh;
-	overflow-y: auto;
-	border-radius: 8px;
-	box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-	z-index: 100001;
-	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-.tqb-modal-header {
-	background: linear-gradient(135deg, #1a365d 0%, #2d4a77 100%);
-	color: #fff;
-	padding: 20px 25px;
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-}
-.tqb-modal-header h2 {
-	margin: 0;
-	font-size: 18px;
-	font-weight: 600;
-	color: #fff;
-}
-.tqb-modal-close {
-	background: none;
-	border: none;
-	color: #fff;
-	font-size: 28px;
-	cursor: pointer;
-	padding: 0;
-	line-height: 1;
-	opacity: 0.8;
-}
-.tqb-modal-close:hover {
-	opacity: 1;
-}
-.tqb-modal-body {
-	padding: 25px;
-}
-.tqb-modal-section {
-	margin-bottom: 25px;
-}
-.tqb-modal-section h3 {
-	margin: 0 0 12px 0;
-	font-size: 14px;
-	color: #1a365d;
-	border-bottom: 2px solid #d4af37;
-	padding-bottom: 6px;
-	text-transform: uppercase;
-	font-weight: 600;
-}
-.tqb-modal-grid {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 15px;
-}
-.tqb-modal-item {
-	display: flex;
-	flex-direction: column;
-	gap: 3px;
-}
-.tqb-modal-item label {
-	font-size: 11px;
-	color: #666;
-	text-transform: uppercase;
-	font-weight: 600;
-}
-.tqb-modal-item span {
-	font-size: 14px;
-	color: #333;
-}
-.tqb-modal-item span.status-yes {
-	color: #2e7d32;
-	font-weight: 600;
-}
-.tqb-modal-item span.status-no {
-	color: #c62828;
-}
-.tqb-modal table {
-	width: 100%;
-	border-collapse: collapse;
-	font-size: 13px;
-}
-.tqb-modal table th {
-	background: #f8f9fa;
-	padding: 8px 12px;
-	text-align: left;
-	border: 1px solid #e0e0e0;
-	color: #1a365d;
-	font-weight: 600;
-}
-.tqb-modal table td {
-	padding: 8px 12px;
-	border: 1px solid #e0e0e0;
-}
-.tqb-modal table td.yes {
-	color: #2e7d32;
-	font-weight: 600;
-}
-.tqb-modal table td.no {
-	color: #c62828;
-}
 </style>
 
 <!-- View Details Modal -->
-<div class="tqb-modal-overlay" id="tqb-modal-overlay"></div>
-<div class="tqb-modal" id="tqb-view-modal">
-	<div class="tqb-modal-header">
-		<h2>Submission Details <span id="tqb-modal-id"></span></h2>
-		<button type="button" class="tqb-modal-close" id="tqb-modal-close">&times;</button>
+<div id="tqb-view-modal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:25px; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.15); z-index:100000; max-width:600px; width:90%; max-height:80vh; overflow-y:auto;">
+	<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid #eee; padding-bottom:15px;">
+		<h2 style="margin:0;">Submission Details</h2>
+		<button id="tqb-modal-close" style="background:none; border:none; font-size:24px; cursor:pointer;">&times;</button>
 	</div>
-	<div class="tqb-modal-body" id="tqb-modal-body">
-		<!-- Content loaded via JavaScript -->
+	<div id="tqb-modal-content">
+		<p>Loading...</p>
 	</div>
 </div>
+<div id="tqb-modal-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:99999;"></div>
+
+<script>
+jQuery(document).ready(function($) {
+	// View button click
+	$('.tqb-view-btn').on('click', function() {
+		var id = $(this).data('id');
+		var $modal = $('#tqb-view-modal');
+		var $overlay = $('#tqb-modal-overlay');
+		var $content = $('#tqb-modal-content');
+
+		$content.html('<p>Loading...</p>');
+		$modal.fadeIn();
+		$overlay.fadeIn();
+
+		$.post(tqbAdminData.ajaxUrl, {
+			action: 'tqb_get_submission',
+			id: id,
+			nonce: tqbAdminData.nonce
+		}, function(response) {
+			if (response.success) {
+				var data = response.data;
+				var html = '<table style="width:100%;">';
+				html += '<tr><td style="padding:8px; font-weight:bold; width:35%;">ID</td><td style="padding:8px;">' + data.id + '</td></tr>';
+				html += '<tr style="background:#f9f9f9;"><td style="padding:8px; font-weight:bold;">Name</td><td style="padding:8px;">' + (data.contact_name || '-') + '</td></tr>';
+				html += '<tr><td style="padding:8px; font-weight:bold;">Email</td><td style="padding:8px;">' + (data.contact_email || '-') + '</td></tr>';
+				html += '<tr style="background:#f9f9f9;"><td style="padding:8px; font-weight:bold;">Phone</td><td style="padding:8px;">' + (data.contact_phone || '-') + '</td></tr>';
+				html += '<tr><td style="padding:8px; font-weight:bold;">Type</td><td style="padding:8px;">' + (data.quote_type || '-') + '</td></tr>';
+				html += '<tr style="background:#f9f9f9;"><td style="padding:8px; font-weight:bold;">Status</td><td style="padding:8px;">' + (data.status || '-') + '</td></tr>';
+				html += '<tr><td style="padding:8px; font-weight:bold;">Quote Total</td><td style="padding:8px;">' + (data.calculated_total ? '$' + parseFloat(data.calculated_total).toFixed(2) : '-') + '</td></tr>';
+				html += '<tr style="background:#f9f9f9;"><td style="padding:8px; font-weight:bold;">Custom Quote</td><td style="padding:8px;">' + (data.is_custom_quote ? 'Yes' : 'No') + '</td></tr>';
+				html += '<tr><td style="padding:8px; font-weight:bold;">Created</td><td style="padding:8px;">' + (data.created_at || '-') + '</td></tr>';
+				html += '<tr style="background:#f9f9f9;"><td style="padding:8px; font-weight:bold;">Updated</td><td style="padding:8px;">' + (data.updated_at || '-') + '</td></tr>';
+				html += '<tr><td style="padding:8px; font-weight:bold;">IP Address</td><td style="padding:8px;">' + (data.user_ip || '-') + '</td></tr>';
+				html += '</table>';
+
+				if (data.form_data) {
+					html += '<h3 style="margin-top:20px;">Form Data</h3>';
+					html += '<pre style="background:#f5f5f5; padding:15px; border-radius:4px; overflow:auto; max-height:200px;">' + JSON.stringify(JSON.parse(data.form_data), null, 2) + '</pre>';
+				}
+
+				$content.html(html);
+			} else {
+				$content.html('<p style="color:red;">Error loading submission.</p>');
+			}
+		}, 'json');
+	});
+
+	// Close modal
+	$('#tqb-modal-close, #tqb-modal-overlay').on('click', function() {
+		$('#tqb-view-modal').fadeOut();
+		$('#tqb-modal-overlay').fadeOut();
+	});
+
+	// Close on Escape
+	$(document).on('keydown', function(e) {
+		if (e.key === 'Escape') {
+			$('#tqb-view-modal').fadeOut();
+			$('#tqb-modal-overlay').fadeOut();
+		}
+	});
+});
+</script>
