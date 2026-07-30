@@ -546,10 +546,8 @@ class TQB_Admin {
 	 * Service Key is currently saved (not one from the form — the key
 	 * must already be saved for this to work, since it reads via
 	 * get_option, not from $_POST).
-	 */
-	public function handle_fetch_hubspot_pipelines() {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( array( 'message' => 'Permission denied.' ), 403 );
+
+		}
 
 		/**
 		 * AJAX: Get submission details for modal view.
@@ -559,7 +557,7 @@ class TQB_Admin {
 				wp_send_json_error( 'Permission denied.' );
 			}
 
-			check_ajax_referer( 'tqb_admin_nonce', 'nonce' );
+			check_ajax_referer( self::NONCE_ACTION_ADMIN, 'nonce' );
 
 			$id = isset( $_POST['id'] ) ? absint( $_POST['id'] ) : 0;
 			if ( ! $id ) {
@@ -571,7 +569,6 @@ class TQB_Admin {
 				wp_send_json_error( 'Submission not found.' );
 			}
 
-			// Parse answers
 			$answers = array();
 			if ( ! empty( $submission['answers'] ) ) {
 				$decoded = json_decode( $submission['answers'], true );
@@ -580,172 +577,26 @@ class TQB_Admin {
 				}
 			}
 
-			// Build HTML
 			ob_start();
-			?>
-			<div class="tqb-submission-details">
-				<!-- Contact Info -->
-				<div class="tqb-detail-section">
-					<h3><span class="dashicons dashicons-admin-users"></span> Contact Information</h3>
-					<div class="tqb-detail-grid">
-						<div class="tqb-detail-item">
-							<label>Name</label>
-							<span><?php echo esc_html( $submission['contact_name'] ?: '-' ); ?></span>
-						</div>
-						<div class="tqb-detail-item">
-							<label>Email</label>
-							<a href="mailto:<?php echo esc_attr( $submission['contact_email'] ); ?>"><?php echo esc_html( $submission['contact_email'] ); ?></a>
-						</div>
-						<div class="tqb-detail-item">
-							<label>Phone</label>
-							<span><?php echo esc_html( $submission['contact_phone'] ?: '-' ); ?></span>
-						</div>
-						<div class="tqb-detail-item">
-							<label>IP Address</label>
-							<span><?php echo esc_html( $submission['user_ip'] ?: '-' ); ?></span>
-						</div>
-					</div>
-				</div>
-
-				<!-- Quote Details -->
-				<div class="tqb-detail-section">
-					<h3><span class="dashicons dashicons-clipboard"></span> Quote Details</h3>
-					<div class="tqb-detail-grid">
-						<div class="tqb-detail-item">
-							<label>Type</label>
-							<span class="tqb-type-badge tqb-type-<?php echo esc_attr( strtolower( $submission['quote_type'] ) ); ?>">
-								<?php echo esc_html( ucfirst( $submission['quote_type'] ) ); ?>
-							</span>
-						</div>
-						<div class="tqb-detail-item">
-							<label>Total</label>
-							<strong class="tqb-total">
-								<?php 
-								if ( ! empty( $submission['calculated_total'] ) ) {
-									echo '$' . number_format( (float) $submission['calculated_total'], 2 );
-								} else {
-									echo '-';
-								}
-								?>
-							</strong>
-						</div>
-						<div class="tqb-detail-item">
-							<label>Custom Quote</label>
-							<span><?php echo $submission['is_custom_quote'] ? 'Yes - ' . esc_html( $submission['custom_quote_reason'] ) : 'No'; ?></span>
-						</div>
-						<div class="tqb-detail-item">
-							<label>HubSpot</label>
-							<span><?php echo $submission['hubspot_synced'] ? '✓ Synced' : '○ Not Synced'; ?></span>
-						</div>
-					</div>
-				</div>
-
-				<!-- Answers / Form Data -->
-				<div class="tqb-detail-section">
-					<h3><span class="dashicons dashicons-list-view"></span> Form Answers</h3>
-					<?php if ( ! empty( $answers ) ) : ?>
-						<table class="tqb-answers-table">
-							<thead>
-								<tr>
-									<th>Item</th>
-									<th>Value</th>
-								</tr>
-							</thead>
-							<tbody>
-								<?php foreach ( $answers as $key => $value ) : ?>
-									<tr>
-										<td><strong><?php echo esc_html( ucwords( str_replace( '_', ' ', $key ) ) ); ?></strong></td>
-										<td>
-											<?php 
-											if ( is_array( $value ) ) {
-												echo esc_html( json_encode( $value ) );
-											} else {
-												echo esc_html( $value );
-											}
-											?>
-										</td>
-									</tr>
-								<?php endforeach; ?>
-							</tbody>
-						</table>
-					<?php else : ?>
-						<p class="tqb-no-data">No form answers recorded.</p>
-					<?php endif; ?>
-				</div>
-
-				<!-- Timestamps -->
-				<div class="tqb-detail-section">
-					<h3><span class="dashicons dashicons-clock"></span> Timeline</h3>
-					<div class="tqb-detail-grid">
-						<div class="tqb-detail-item">
-							<label>Created</label>
-							<span><?php echo $submission['created_at'] ? date( 'M j, Y g:i A', strtotime( $submission['created_at'] ) ) : '-'; ?></span>
-						</div>
-						<div class="tqb-detail-item">
-							<label>Last Updated</label>
-							<span><?php echo $submission['updated_at'] ? date( 'M j, Y g:i A', strtotime( $submission['updated_at'] ) ) : '-'; ?></span>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<style>
-			.tqb-submission-details { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-			.tqb-detail-section { margin-bottom: 24px; }
-			.tqb-detail-section h3 {
-				margin: 0 0 12px 0;
-				font-size: 14px;
-				font-weight: 600;
-				color: #1e293b;
-				display: flex;
-				align-items: center;
-				gap: 8px;
-				padding-bottom: 8px;
-				border-bottom: 2px solid #e2e8f0;
+			echo '<div class="tqb-submission-details">';
+			echo '<p><strong>Name:</strong> ' . esc_html( $submission['contact_name'] ?: '-' ) . '</p>';
+			echo '<p><strong>Email:</strong> ' . esc_html( $submission['contact_email'] ) . '</p>';
+			echo '<p><strong>Phone:</strong> ' . esc_html( $submission['contact_phone'] ?: '-' ) . '</p>';
+			echo '<p><strong>Type:</strong> ' . esc_html( ucfirst( $submission['quote_type'] ) ) . '</p>';
+			echo '<p><strong>Total:</strong> ' . ( $submission['calculated_total'] ? '$' . number_format( (float) $submission['calculated_total'], 2 ) : '-' ) . '</p>';
+			
+			if ( ! empty( $answers ) ) {
+				echo '<h4>Form Answers:</h4><ul>';
+				foreach ( $answers as $key => $value ) {
+					$label = ucwords( str_replace( '_', ' ', $key ) );
+					$val = is_array( $value ) ? json_encode( $value ) : $value;
+					echo '<li><strong>' . esc_html( $label ) . ':</strong> ' . esc_html( $val ) . '</li>';
+				}
+				echo '</ul>';
 			}
-			.tqb-detail-section h3 .dashicons { color: #3b82f6; }
-			.tqb-detail-grid {
-				display: grid;
-				grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-				gap: 16px;
-			}
-			.tqb-detail-item { display: flex; flex-direction: column; gap: 4px; }
-			.tqb-detail-item label {
-				font-size: 11px;
-				font-weight: 600;
-				color: #64748b;
-				text-transform: uppercase;
-			}
-			.tqb-detail-item span, .tqb-detail-item a {
-				font-size: 14px;
-				color: #1e293b;
-			}
-			.tqb-detail-item a { color: #3b82f6; text-decoration: none; }
-			.tqb-detail-item a:hover { text-decoration: underline; }
-			.tqb-total { font-size: 20px !important; color: #10b981 !important; }
-			.tqb-type-badge {
-				display: inline-block;
-				padding: 4px 10px;
-				border-radius: 6px;
-				font-size: 12px;
-				font-weight: 600;
-			}
-			.tqb-type-individual { background: #eff6ff; color: #3b82f6; }
-			.tqb-type-business { background: #f5f3ff; color: #8b5cf6; }
-			.tqb-type-combined { background: #fff7ed; color: #f97316; }
-			.tqb-answers-table { width: 100%; border-collapse: collapse; }
-			.tqb-answers-table th, .tqb-answers-table td {
-				padding: 10px 12px;
-				text-align: left;
-				border-bottom: 1px solid #f1f5f9;
-			}
-			.tqb-answers-table th { background: #f8fafc; font-size: 12px; color: #64748b; }
-			.tqb-answers-table td { font-size: 13px; }
-			.tqb-no-data { color: #94a3b8; font-style: italic; }
-			</style>
-			<?php
+			echo '</div>';
+			
 			$html = ob_get_clean();
-
 			wp_send_json_success( array( 'html' => $html ) );
 		}
 
@@ -757,7 +608,7 @@ class TQB_Admin {
 				wp_send_json_error( 'Permission denied.' );
 			}
 
-			check_ajax_referer( 'tqb_admin_nonce', 'nonce' );
+			check_ajax_referer( self::NONCE_ACTION_ADMIN, 'nonce' );
 
 			$id = isset( $_POST['id'] ) ? absint( $_POST['id'] ) : 0;
 			$submission = TQB_DB::get_submission( $id );
@@ -780,7 +631,7 @@ class TQB_Admin {
 				wp_send_json_error( 'Permission denied.' );
 			}
 
-			check_ajax_referer( 'tqb_admin_nonce', 'nonce' );
+			check_ajax_referer( self::NONCE_ACTION_ADMIN, 'nonce' );
 
 			$id = isset( $_POST['id'] ) ? absint( $_POST['id'] ) : 0;
 			$status = isset( $_POST['status'] ) ? sanitize_key( $_POST['status'] ) : '';
@@ -788,7 +639,7 @@ class TQB_Admin {
 			global $wpdb;
 			$table = $wpdb->prefix . 'tqb_submissions';
 
-			$result = $wpdb->update(
+			$wpdb->update(
 				$table,
 				array( 'status' => $status, 'updated_at' => current_time( 'mysql' ) ),
 				array( 'id' => $id ),
@@ -796,11 +647,7 @@ class TQB_Admin {
 				array( '%d' )
 			);
 
-			if ( $result !== false ) {
-				wp_send_json_success();
-			} else {
-				wp_send_json_error();
-			}
+			wp_send_json_success();
 		}
 
 		/**
@@ -811,7 +658,7 @@ class TQB_Admin {
 				wp_send_json_error( 'Permission denied.' );
 			}
 
-			check_ajax_referer( 'tqb_admin_nonce', 'nonce' );
+			check_ajax_referer( self::NONCE_ACTION_ADMIN, 'nonce' );
 
 			$ids = isset( $_POST['ids'] ) ? array_filter( array_map( 'absint', explode( ',', $_POST['ids'] ) ) ) : array();
 			$status = isset( $_POST['status'] ) ? sanitize_key( $_POST['status'] ) : '';
@@ -824,18 +671,14 @@ class TQB_Admin {
 			$table = $wpdb->prefix . 'tqb_submissions';
 			$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' );
 
-			$result = $wpdb->query(
+			$wpdb->query(
 				$wpdb->prepare(
 					"UPDATE {$table} SET status = %s, updated_at = %s WHERE id IN ($placeholders)",
 					array_merge( array( $status, current_time( 'mysql' ) ), $ids )
 				)
 			);
 
-			if ( $result !== false ) {
-				wp_send_json_success();
-			} else {
-				wp_send_json_error();
-			}
+			wp_send_json_success();
 		}
 
 		/**
@@ -846,7 +689,7 @@ class TQB_Admin {
 				wp_send_json_error( 'Permission denied.' );
 			}
 
-			check_ajax_referer( 'tqb_admin_nonce', 'nonce' );
+			check_ajax_referer( self::NONCE_ACTION_ADMIN, 'nonce' );
 
 			$ids = isset( $_POST['ids'] ) ? array_filter( array_map( 'absint', explode( ',', $_POST['ids'] ) ) ) : array();
 
@@ -858,22 +701,18 @@ class TQB_Admin {
 			$table = $wpdb->prefix . 'tqb_submissions';
 			$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' );
 
-			$result = $wpdb->query(
+			$wpdb->query(
 				$wpdb->prepare(
 					"DELETE FROM {$table} WHERE id IN ($placeholders)",
 					$ids
 				)
 			);
 
-			if ( $result !== false ) {
-				wp_send_json_success();
-			} else {
-				wp_send_json_error();
-			}
+			wp_send_json_success();
 		}
 
 		/**
-		 * AJAX: Send email to submission contact(s).
+		 * AJAX: Send email.
 		 */
 		public function ajax_send_email() {
 			if ( ! current_user_can( 'manage_options' ) ) {
@@ -888,19 +727,6 @@ class TQB_Admin {
 				wp_send_json_error( 'All fields are required.' );
 			}
 
-			// Get submission data for placeholder replacement
-			$ids = isset( $_POST['submission_ids'] ) ? array_filter( array_map( 'absint', explode( ',', $_POST['submission_ids'] ) ) ) : array();
-			if ( ! empty( $ids ) ) {
-				$submission = TQB_DB::get_submission( $ids[0] );
-				if ( $submission ) {
-					$message = str_replace( '{name}', $submission['contact_name'] ?: 'Customer', $message );
-					$message = str_replace( '{email}', $submission['contact_email'], $message );
-					$message = str_replace( '{phone}', $submission['contact_phone'] ?: 'N/A', $message );
-					$message = str_replace( '{quote_type}', ucfirst( $submission['quote_type'] ), $message );
-					$message = str_replace( '{total}', $submission['calculated_total'] ? '$' . number_format( $submission['calculated_total'], 2 ) : 'TBD', $message );
-				}
-			}
-
 			$headers = array( 'Content-Type: text/plain; charset=UTF-8' );
 			$sent = wp_mail( $to, $subject, $message, $headers );
 
@@ -910,4 +736,4 @@ class TQB_Admin {
 				wp_send_json_error( 'Failed to send email.' );
 			}
 		}
-}
+	}
