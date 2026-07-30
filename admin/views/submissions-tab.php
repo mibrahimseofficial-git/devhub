@@ -64,6 +64,7 @@ function tqb_get_sort_indicator( $column ) {
 	<strong>Status Guide:</strong>
 	<ul style="margin: 10px 0 0 20px; line-height: 1.8;">
 		<li><span style="background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 3px;">Completed</span> — User finished and submitted the quote</li>
+<li style="margin-top:8px;"><strong>Progress column:</strong> Shows the last step the user completed (1=Type, 2=Contact, 3=Questions, 4=Review, 5=Complete)</li>
 		<li><span style="background: #fff8e1; color: #f57f17; padding: 2px 8px; border-radius: 3px;">In Progress</span> — Started but not finished (will receive follow-up emails)</li>
 		<li><span style="background: #ffebee; color: #c62828; padding: 2px 8px; border-radius: 3px;">Abandoned</span> — Finished all follow-up emails, no further action will be taken</li>
 	</ul>
@@ -141,7 +142,7 @@ function tqb_get_sort_indicator( $column ) {
 					<th style="width: 100px;">
 						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'calculated_total', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'calculated_total' && isset( $_GET['order'] ) && $_GET['order'] === 'ASC' ) ? 'DESC' : 'ASC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">Quote<?php echo tqb_get_sort_indicator( 'calculated_total' ); ?></a>
 					</th>
-					<th style="width: 80px;">Step</th>
+					<th style="width: 90px;">Progress</th>
 					<th style="width: 160px;">
 						<a href="<?php echo esc_url( tqb_build_filter_url( array( 'orderby' => 'created_at', 'order' => ( isset( $_GET['orderby'] ) && $_GET['orderby'] === 'created_at' && isset( $_GET['order'] ) && $_GET['order'] === 'DESC' ) ? 'ASC' : 'DESC', 'paged' => 1 ) ) ); ?>" style="color: inherit; text-decoration: none;">Created<?php echo tqb_get_sort_indicator( 'created_at' ); ?></a>
 					</th>
@@ -358,7 +359,7 @@ jQuery(document).ready(function($) {
 #tqb-modal-overlay-v2{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99998;}
 #tqb-modal-v2{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;width:90%;max-width:850px;max-height:85vh;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);z-index:99999;overflow:hidden;}
 .tqb-modal-header{background:linear-gradient(135deg,#001a44 0%,#002d6e 100%);color:#fff;padding:20px 25px;display:flex;justify-content:space-between;align-items:center;}
-.tqb-modal-header h2{margin:0;font-size:18px;font-weight:600;}
+.tqb-modal-header h2{margin:0;font-size:18px;font-weight:600;color:#fff;}
 .tqb-modal-body{padding:25px;overflow-y:auto;max-height:calc(85vh - 70px);}
 .tqb-section{margin-bottom:25px;}
 .tqb-section-title{font-size:13px;font-weight:600;color:#001a44;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #DCE6EE;}
