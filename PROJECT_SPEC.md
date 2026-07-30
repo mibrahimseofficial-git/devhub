@@ -1,7 +1,7 @@
 # Tavola Group — Self-Service Quote Builder Plugin
 ## Project Specification (source of truth — paste this into every new AI session)
 
-Last updated: 2026-07-17
+Last updated: 2026-07-29
 
 ---
 
@@ -364,3 +364,20 @@ above.
 5. Improve lead capture / automated follow-up for incomplete submissions
 
 (HubSpot training was mentioned separately, not numbered in their priority list.)
+
+---
+
+## 10. Changelog
+
+### v0.4.1 (2026-07-29)
+- Added View Details modal in admin submissions list
+- Professional modal UI with sections: Contact, Quote, Notifications, Timeline, Form Responses
+- All submission data displayed with proper formatting
+- Responsive design for mobile devices
+
+### v0.4.0 (2026-07-29)
+- Initial clean release from main branch
+- Individual and Business pricing configuration
+- HubSpot integration
+- Line items and rate bands management
+- Quote submission tracking
