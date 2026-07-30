@@ -436,8 +436,8 @@ jQuery(document).ready(function($){
 		h+='</div></div>';
 
 		// Form Answers
+		h+='<div class="tqb-section"><div class="tqb-section-title">Submitted Answers</div>';
 		if(Object.keys(ans).length>0){
-			h+='<div class="tqb-section"><div class="tqb-section-title">Submitted Answers</div>';
 			h+='<table class="tqb-answers-table"><thead><tr><th>Question</th><th>Answer</th></tr></thead><tbody>';
 			for(var k in ans){
 				var v=ans[k];
@@ -445,10 +445,19 @@ jQuery(document).ready(function($){
 				var q=k.replace(/_/g,' ').replace(/\b\w/g,function(l){return l.toUpperCase()});
 				h+='<tr><td class="tqb-answer-q">'+escHtml(q)+'</td><td class="tqb-answer-a">'+escHtml(String(v))+'</td></tr>';
 			}
-			h+='</tbody></table></div>';
+			h+='</tbody></table>';
 		}else{
-			h+='<div class="tqb-section"><div class="tqb-section-title">Submitted Answers</div><p style="color:#475569;">No answers found in data.</p><p style="font-size:11px;color:#999;">Raw answers: <pre style="background:#f5f5f5;padding:10px;overflow:auto;">'+escHtml(d.answers||'empty')+'</pre></p></div>';
+			h+='<p style="color:#475569;">No parsed answers available.</p>';
+			h+='<div style="margin-top:15px;padding:15px;background:#fff3cd;border-radius:4px;font-size:12px;">';
+			h+='<strong>Raw Data Debug:</strong><br>';
+			h+='<strong>answers field:</strong> <code>'+escHtml(d.answers||'EMPTY/NULL')+'</code><br>';
+			h+='<strong>All available fields:</strong> ';
+			var fields=[];
+			for(var f in d){fields.push(f);}
+			h+=fields.join(', ')+'<br>';
+			h+='</div>';
 		}
+		h+='</div>';
 
 		// Timestamps
 		h+='<div class="tqb-section"><div class="tqb-section-title">Timestamps</div><div class="tqb-info-grid">';
