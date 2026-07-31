@@ -955,8 +955,17 @@
 				var qtyWrap = document.createElement( 'div' );
 				qtyWrap.className = 'tqb-question-row__qty-wrap';
 
+				// Determine if should be revealed based on reveal_followup flag
+				var shouldReveal = item.reveal_followup === 1 || item.reveal_followup === true;
+
 				// Add threshold label if applicable
-				if ( item.thresholdQty && item.thresholdTrigger ) {
+				if ( item.thresholdRules ) {
+					var thresholdLabel = document.createElement( 'span' );
+					thresholdLabel.className = 'tqb-question-row__qty-label';
+					thresholdLabel.textContent = 'Threshold configured (auto-triggers custom quote)';
+					qtyWrap.appendChild( thresholdLabel );
+				} else if ( item.thresholdQty && item.thresholdTrigger ) {
+					// Legacy format support
 					var thresholdLabel = document.createElement( 'span' );
 					thresholdLabel.className = 'tqb-question-row__qty-label';
 					var thresholdText = item.thresholdTrigger === 'above'
@@ -975,14 +984,26 @@
 				qty.setAttribute( 'data-section-type', type );
 				qty.setAttribute( 'data-section-index', businessIndex );
 				qty.disabled = true;
+				
+				// Apply reveal behavior: hide if reveal_followup=1 and unchecked
+				if ( shouldReveal ) {
+					qtyWrap.style.display = 'none';
+				}
+				
 				qtyWrap.appendChild( qty );
 				row.appendChild( qtyWrap );
 
 				checkbox.addEventListener( 'change', function () {
 					qty.disabled = ! checkbox.checked;
+					// Show/hide qty wrap based on reveal behavior
+					if ( shouldReveal ) {
+						qtyWrap.style.display = checkbox.checked ? 'block' : 'none';
+					}
 				} );
 				qty.addEventListener( 'input', updateSummaryPanel );
 			}
+
+
 
 			container.appendChild( row );
 		} );
@@ -1035,7 +1056,9 @@
 			var sectionIndex = checkbox.getAttribute( 'data-section-index' );
 			var key = checkbox.getAttribute( 'data-item-key' );
 			var compositeKey = type + '-' + sectionIndex + '-' + key;
+			
 			var qtyField = wizard.querySelector( '[data-item-key-qty="' + key + '"][data-section-type="' + type + '"][data-section-index="' + sectionIndex + '"]' );
+			
 			answers[ compositeKey ] = {
 				selected: checkbox.checked,
 				qty: qtyField ? ( parseInt( qtyField.value, 10 ) || 1 ) : 1,
@@ -1186,7 +1209,7 @@
 
 			// Check threshold-based custom quote trigger
 			var qty = ( typeof answer.qty === 'number' ) ? answer.qty : 1;
-			if ( shouldTriggerCustomQuote( item, qty ) ) {
+			if ( shouldTriggerCustomQuote( item, answer ) ) {
 				isCustomQuote = true;
 				customReason = item.key;
 				lineItems.push( {
@@ -1194,7 +1217,7 @@
 					amount: null,
 					qty: item.showQty ? qty : null,
 					isCustomQuote: true,
-					thresholdNote: getThresholdNote( item, qty ),
+					thresholdNote: 'Threshold triggered (custom quote)',
 				} );
 				return;
 			}
@@ -1227,7 +1250,82 @@
 	/**
 	 * Check if an item should trigger a custom quote based on threshold.
 	 */
-	function shouldTriggerCustomQuote( item, qty ) {
+	/**
+	 * Evaluates if thresholds should trigger a custom quote.
+	 * Supports both new JSON format (threshold_rules) and legacy format (thresholdQty + thresholdTrigger).
+	 */
+	function shouldTriggerCustomQuote( item, answer ) {
+		// New JSON format (threshold_rules)
+		if ( item.thresholdRules ) {
+			return evaluateThresholdRulesJSON( item.thresholdRules, answer );
+		}
+
+		// Legacy format (backward compatibility)
+		if ( ! item.thresholdQty || ! item.thresholdTrigger ) {
+			return false;
+		}
+		var threshold = item.thresholdQty;
+		var qty = ( typeof answer === 'object' ) ? ( answer.qty || 1 ) : answer;
+		if ( item.thresholdTrigger === 'above' ) {
+			return qty > threshold;
+		} else if ( item.thresholdTrigger === 'below' ) {
+			return qty < threshold;
+		}
+		return false;
+	}
+
+	/**
+	 * Evaluates new JSON-based threshold rules.
+	 * Supports AND/OR logic with qty conditions.
+	 */
+	function evaluateThresholdRulesJSON( rulesJson, answer ) {
+		if ( ! rulesJson ) {
+			return false;
+		}
+
+		var rules;
+		try {
+			rules = typeof rulesJson === 'string' ? JSON.parse( rulesJson ) : rulesJson;
+		} catch ( e ) {
+			return false;
+		}
+
+		if ( ! rules || ! rules.conditions || ! rules.conditions.length ) {
+			return false;
+		}
+
+		var logic = rules.logic || 'AND';
+		var conditions = rules.conditions;
+		var results = [];
+
+		conditions.forEach( function ( condition ) {
+			var type = condition.type || 'qty';
+			var operator = condition.operator || 'above';
+			var value = parseFloat( condition.value ) || 0;
+
+			var conditionMet = false;
+
+			if ( type === 'qty' ) {
+				var qty = ( typeof answer === 'object' ) ? ( answer.qty || 1 ) : answer;
+				conditionMet = ( operator === 'above' ) ? ( qty > value ) : ( qty < value );
+			}
+
+			results.push( conditionMet );
+		} );
+
+		// Combine with AND or OR logic
+		if ( logic === 'AND' ) {
+			return results.every( function ( r ) { return r; } ); // All must be true
+		} else { // OR
+			return results.some( function ( r ) { return r; } ); // At least one must be true
+		}
+	}
+
+	/**
+	 * DEPRECATED: Kept for backward compatibility only.
+	 * Use shouldTriggerCustomQuote instead.
+	 */
+	function shouldTriggerCustomQuoteOld( item, qty ) {
 		if ( ! item.thresholdQty || ! item.thresholdTrigger ) {
 			return false;
 		}
@@ -1334,6 +1432,11 @@
 				return;
 			}
 			if ( item.isCustomQuoteTrigger ) {
+				isCustomQuote = true;
+				return;
+			}
+			// Check thresholds - pass full answer object (includes qty)
+			if ( shouldTriggerCustomQuote( item, answer ) ) {
 				isCustomQuote = true;
 				return;
 			}

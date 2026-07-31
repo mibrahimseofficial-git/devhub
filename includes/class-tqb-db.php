@@ -179,6 +179,79 @@ class TQB_DB {
 		$table = $wpdb->prefix . TQB_TABLE_SUBMISSIONS;
 		$wpdb->update( $table, array( 'team_notified' => 1 ), array( 'id' => $id ), array( '%d' ), array( '%d' ) );
 	}
+
+	/**
+	 * Inserts a new line item.
+	 *
+	 * @param array $data  Array with keys: quote_type, item_key, label, fee, etc.
+	 *
+	 * @return int|false  Inserted ID or false on failure
+	 */
+	public static function insert_line_item( $data ) {
+		global $wpdb;
+
+		$table = $wpdb->prefix . TQB_TABLE_LINE_ITEMS;
+
+		// Auto-assign sort_order if not provided
+		if ( ! isset( $data['sort_order'] ) || empty( $data['sort_order'] ) ) {
+			$max_sort = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT MAX(sort_order) FROM {$table} WHERE quote_type = %s",
+					$data['quote_type']
+				)
+			);
+			$data['sort_order'] = ( $max_sort ? (int) $max_sort : 0 ) + 10;
+		}
+
+		// Prepare defaults
+		$insert_data = array(
+			'quote_type'              => $data['quote_type'] ?? 'individual',
+			'item_key'                => $data['item_key'] ?? 'custom_item_' . time(),
+			'label'                   => $data['label'] ?? '',
+			'fee'                     => $data['fee'] ?? 0,
+			'pricing_pattern'         => $data['pricing_pattern'] ?? 'qty_times_fee',
+			'hardcoded_value'         => $data['hardcoded_value'] ?? null,
+			'is_custom_quote_trigger' => $data['is_custom_quote_trigger'] ?? 0,
+			'threshold_qty'           => $data['threshold_qty'] ?? null,
+			'threshold_trigger'       => $data['threshold_trigger'] ?? null,
+			'threshold_rules'         => $data['threshold_rules'] ?? null,
+			'reveal_followup'         => isset( $data['reveal_followup'] ) ? (int) $data['reveal_followup'] : 1,
+			'is_active'               => $data['is_active'] ?? 1,
+			'sort_order'              => (int) $data['sort_order'],
+			'tooltip'                 => $data['tooltip'] ?? '',
+			'notes'                   => $data['notes'] ?? '',
+		);
+
+		$result = $wpdb->insert(
+			$table,
+			$insert_data,
+			array( '%s', '%s', '%s', '%f', '%s', '%f', '%d', '%f', '%s', '%s', '%d', '%d', '%d', '%s', '%s' )
+		);
+
+		return $result ? $wpdb->insert_id : false;
+	}
+
+	/**
+	 * Deletes a line item by ID.
+	 *
+	 * @param int $item_id Item ID to delete
+	 *
+	 * @return int|false  Number of rows deleted or false on failure
+	 */
+	public static function delete_line_item( $item_id ) {
+		global $wpdb;
+
+		$table = $wpdb->prefix . TQB_TABLE_LINE_ITEMS;
+
+		$result = $wpdb->delete(
+			$table,
+			array( 'id' => $item_id ),
+			array( '%d' )
+		);
+
+		return $result;
+	}
+
 	/**
 	 * Update a single line item's editable fields (used by the admin dashboard).
 	 * Updates label, tooltip, fee, pricing_pattern, hardcoded_value, and is_active.
@@ -189,7 +262,9 @@ class TQB_DB {
 	 * @param array $data  [ 'label' => string, 'tooltip' => string|null,
 	 *                       'fee' => float, 'pricing_pattern' => string,
 	 *                       'hardcoded_value' => float|null, 'is_active' => 0|1,
-	 *                       'threshold_qty' => float|null, 'threshold_trigger' => string|null ]
+	 *                       'threshold_qty' => float|null, 'threshold_trigger' => string|null,
+	 *                       'threshold_rules' => string|null, 'reveal_followup' => 0|1,
+	 *                       'sort_order' => int ]
 	 * @return bool
 	 */
 	public static function update_line_item( $id, array $data ) {
@@ -207,7 +282,7 @@ class TQB_DB {
 
 		$formats = array( '%s', '%s', '%f', '%s', '%f', '%d' );
 
-		// Add threshold fields if present
+		// Add threshold fields if present (legacy format)
 		if ( array_key_exists( 'threshold_qty', $data ) ) {
 			$set['threshold_qty'] = $data['threshold_qty'];
 			$formats[] = $data['threshold_qty'] === null ? '%s' : '%f';
@@ -216,6 +291,22 @@ class TQB_DB {
 		if ( array_key_exists( 'threshold_trigger', $data ) ) {
 			$set['threshold_trigger'] = $data['threshold_trigger'];
 			$formats[] = $data['threshold_trigger'] === null ? '%s' : '%s';
+		}
+
+		// Add new fields (Task 2)
+		if ( array_key_exists( 'threshold_rules', $data ) ) {
+			$set['threshold_rules'] = $data['threshold_rules'];
+			$formats[] = '%s';
+		}
+
+		if ( array_key_exists( 'reveal_followup', $data ) ) {
+			$set['reveal_followup'] = $data['reveal_followup'];
+			$formats[] = '%d';
+		}
+
+		if ( array_key_exists( 'sort_order', $data ) ) {
+			$set['sort_order'] = $data['sort_order'];
+			$formats[] = '%d';
 		}
 
 		$updated = $wpdb->update(

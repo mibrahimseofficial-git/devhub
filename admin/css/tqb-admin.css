@@ -3,6 +3,145 @@
  * Professional Dashboard Design System
  */
 
+:root {
+	--tqb-navy: #001a44;
+	--tqb-navy-light: #0f3d7a;
+	--tqb-navy-deep: #000f2b;
+	--tqb-gold: #c9a84c;
+	--tqb-gold-light: #e4c876;
+	--tqb-canvas: #f4f6f9;
+	--tqb-surface: #ffffff;
+	--tqb-ink: #1e293b;
+	--tqb-muted: #64748b;
+	--tqb-border: #e2e8f0;
+	--tqb-radius: 12px;
+	--tqb-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px -12px rgba(15, 23, 42, 0.12);
+}
+
+/* Canvas: gives the whole page a distinct backdrop instead of WP's bare white,
+   so the cards inside read as a product surface rather than a settings page. */
+.tqb-admin-wrap {
+	padding: 4px 0 40px;
+}
+
+.tqb-shell {
+	max-width: 1280px;
+}
+
+/* Topbar */
+.tqb-topbar {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 20px;
+	padding: 28px 0 24px;
+}
+
+.tqb-topbar__brand {
+	display: flex;
+	align-items: flex-start;
+	gap: 16px;
+}
+
+.tqb-topbar__mark {
+	flex: none;
+	width: 48px;
+	height: 48px;
+	border-radius: 12px;
+	background: linear-gradient(135deg, var(--tqb-navy) 0%, var(--tqb-navy-light) 100%);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: var(--tqb-shadow);
+}
+
+.tqb-topbar__mark .dashicons {
+	color: var(--tqb-gold-light);
+	font-size: 24px;
+	width: 24px;
+	height: 24px;
+}
+
+.tqb-topbar__title {
+	margin: 0 0 4px;
+	font-size: 22px;
+	line-height: 1.2;
+	font-weight: 700;
+	color: var(--tqb-navy);
+	padding: 0;
+}
+
+.tqb-topbar__subtitle {
+	margin: 0;
+	font-size: 13px;
+	color: var(--tqb-muted);
+	max-width: 560px;
+}
+
+.tqb-topbar__actions {
+	flex: none;
+	padding-top: 4px;
+}
+
+/* Segmented nav — replaces WP's default .nav-tab-wrapper */
+.tqb-nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	background: var(--tqb-surface);
+	border: 1px solid var(--tqb-border);
+	border-radius: 12px;
+	padding: 6px;
+	margin-bottom: 24px;
+	box-shadow: var(--tqb-shadow);
+	width: fit-content;
+}
+
+.tqb-nav__item {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 9px 16px;
+	border-radius: 8px;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--tqb-muted);
+	text-decoration: none;
+	transition: background 0.15s ease, color 0.15s ease;
+	white-space: nowrap;
+}
+
+.tqb-nav__item .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+}
+
+.tqb-nav__item:hover {
+	background: var(--tqb-canvas);
+	color: var(--tqb-navy);
+}
+
+.tqb-nav__item.is-active {
+	background: var(--tqb-navy);
+	color: #fff;
+}
+
+.tqb-nav__item.is-active .dashicons {
+	color: var(--tqb-gold-light);
+}
+
+@media (max-width: 782px) {
+	.tqb-topbar {
+		flex-direction: column;
+	}
+
+	.tqb-nav {
+		width: 100%;
+		overflow-x: auto;
+	}
+}
+
 /* Page Header */
 .tqb-page-header {
 	display: flex;
@@ -34,7 +173,7 @@
 .tqb-card {
 	background: #fff;
 	border-radius: 12px;
-	box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+	box-shadow: var(--tqb-shadow);
 	border: 1px solid #e2e8f0;
 	overflow: hidden;
 	margin-bottom: 24px;
@@ -256,6 +395,80 @@
 .tqb-input-table input[type="checkbox"] {
 	width: 18px;
 	height: 18px;
+}
+
+/* Form Table (label | field rows) — used on General Settings. This class
+   had no styling anywhere, so rows were falling back to raw browser table
+   defaults: no border-radius on inputs, and — the specific issue reported —
+   labels vertically centering against the *whole* cell (input + description
+   paragraph together) instead of lining up with the field itself. */
+.tqb-form-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.tqb-form-table tr {
+	border-bottom: 1px solid var(--tqb-border);
+}
+
+.tqb-form-table tr:last-child {
+	border-bottom: none;
+}
+
+.tqb-form-table th {
+	width: 220px;
+	padding: 22px 16px 22px 0;
+	text-align: left;
+	vertical-align: top;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--tqb-ink);
+}
+
+.tqb-form-table td {
+	padding: 18px 0;
+	vertical-align: top;
+}
+
+.tqb-form-table input[type="text"],
+.tqb-form-table input[type="url"],
+.tqb-form-table input[type="email"],
+.tqb-form-table input[type="password"],
+.tqb-form-table input[type="number"],
+.tqb-form-table textarea,
+.tqb-form-table select {
+	padding: 10px 14px;
+	border: 1px solid var(--tqb-border);
+	border-radius: 8px;
+	font-size: 14px;
+	color: var(--tqb-ink);
+}
+
+.tqb-form-table input:focus,
+.tqb-form-table textarea:focus,
+.tqb-form-table select:focus {
+	outline: none;
+	border-color: var(--tqb-navy);
+	box-shadow: 0 0 0 3px rgba(0, 26, 68, 0.1);
+}
+
+@media (max-width: 782px) {
+	.tqb-form-table,
+	.tqb-form-table tbody,
+	.tqb-form-table tr,
+	.tqb-form-table th,
+	.tqb-form-table td {
+		display: block;
+		width: auto;
+	}
+
+	.tqb-form-table th {
+		padding: 20px 0 6px;
+	}
+
+	.tqb-form-table td {
+		padding: 0 0 20px;
+	}
 }
 
 /* Form Elements */

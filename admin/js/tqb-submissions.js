@@ -34,9 +34,48 @@
             return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
+        var ENTITY_LABELS = {
+            c_corp: 'C-Corp',
+            s_corp: 'S-Corp',
+            partnership: 'Partnership'
+        };
+
+        // Normalizes whatever comes back from the server into:
+        //   { items: { 'individual-0-w2_wages': {selected,qty}, ... }, quoteTypes: [...], businesses: [...] }
+        // Handles three shapes seen in the wild:
+        //   1) data.answers already an object (server decoded it) — current combined format
+        //   2) data.answers a JSON string of the same combined format (older/unpatched server)
+        //   3) data.answers a flat item dict with no quote_types/businesses wrapper (legacy single-type rows)
+        function normalizeAnswers(data) {
+            var raw = data.answers;
+
+            if (typeof raw === 'string') {
+                try { raw = JSON.parse(raw); } catch(e) { raw = {}; }
+            }
+            if (!raw || typeof raw !== 'object') raw = {};
+
+            // Combined shape: has its own nested "answers" plus quote_types/businesses.
+            if (raw.answers && typeof raw.answers === 'object' && !('selected' in raw)) {
+                var items = raw.answers;
+                // Guard against the double-encoded case slipping through as a string.
+                if (typeof items === 'string') {
+                    try { items = JSON.parse(items); } catch(e) { items = {}; }
+                }
+                return {
+                    items: items || {},
+                    quoteTypes: Array.isArray(raw.quote_types) ? raw.quote_types : [],
+                    businesses: Array.isArray(raw.businesses) ? raw.businesses : []
+                };
+            }
+
+            // Legacy flat shape.
+            return { items: raw, quoteTypes: [], businesses: [] };
+        }
+
         function render(data) {
-            var ans = {};
-            try { ans = JSON.parse(data.answers || '{}'); } catch(e) {}
+            var parsed = normalizeAnswers(data);
+            var ans = parsed.items;
+            var businesses = parsed.businesses;
 
             var h = '';
 
@@ -47,7 +86,19 @@
             h += '<div class="tqb-info-card"><div class="tqb-info-label">Full Name</div><div class="tqb-info-value">' + escHtml(data.contact_name || '—') + '</div></div>';
             h += '<div class="tqb-info-card"><div class="tqb-info-label">Email Address</div><div class="tqb-info-value"><a href="mailto:' + escHtml(data.contact_email || '') + '">' + escHtml(data.contact_email || '—') + '</a></div></div>';
             h += '<div class="tqb-info-card"><div class="tqb-info-label">Phone Number</div><div class="tqb-info-value">' + escHtml(data.contact_phone || '—') + '</div></div>';
-            h += '<div class="tqb-info-card"><div class="tqb-info-label">Quote Type</div><div class="tqb-info-value"><span class="tqb-type-badge ' + escHtml(data.quote_type || '') + '">' + (data.quote_type ? data.quote_type.charAt(0).toUpperCase() + data.quote_type.slice(1) : '—') + '</span></div></div>';
+            var quoteTypeLabel = '—';
+            if (parsed.quoteTypes.length > 0) {
+                // e.g. ['individual', 'business', 'business'] -> "Individual + Business (x2)"
+                var counts = {};
+                parsed.quoteTypes.forEach(function(t) { counts[t] = (counts[t] || 0) + 1; });
+                quoteTypeLabel = Object.keys(counts).map(function(t) {
+                    var word = t.charAt(0).toUpperCase() + t.slice(1);
+                    return counts[t] > 1 ? word + ' (x' + counts[t] + ')' : word;
+                }).join(' + ');
+            } else if (data.quote_type) {
+                quoteTypeLabel = data.quote_type.charAt(0).toUpperCase() + data.quote_type.slice(1);
+            }
+            h += '<div class="tqb-info-card"><div class="tqb-info-label">Quote Type</div><div class="tqb-info-value"><span class="tqb-type-badge ' + escHtml(data.quote_type || '') + '">' + escHtml(quoteTypeLabel) + '</span></div></div>';
             h += '</div></div>';
 
             // Quote Details
@@ -71,36 +122,72 @@
             }
             h += '</div></div>';
 
+            // Business Details (only present on combined submissions with a business section)
+            if (businesses.length > 0) {
+                h += '<div class="tqb-modal-section">';
+                h += '<div class="tqb-modal-section-title"><span class="dashicons dashicons-building"></span> Business Details</div>';
+                h += '<div class="tqb-info-grid">';
+                businesses.forEach(function(biz, i) {
+                    var label = businesses.length > 1 ? 'Business ' + (i + 1) : 'Business';
+                    var entityLabel = ENTITY_LABELS[biz.entity_type] || biz.entity_type || '—';
+                    h += '<div class="tqb-info-card"><div class="tqb-info-label">' + escHtml(label) + ' — Entity Type</div><div class="tqb-info-value">' + escHtml(entityLabel) + '</div></div>';
+                    h += '<div class="tqb-info-card"><div class="tqb-info-label">' + escHtml(label) + ' — Total Assets</div><div class="tqb-info-value">' + escHtml(biz.asset_band || '—') + '</div></div>';
+                    h += '<div class="tqb-info-card"><div class="tqb-info-label">' + escHtml(label) + ' — Annual Revenue</div><div class="tqb-info-value">' + escHtml(biz.revenue_band || '—') + '</div></div>';
+                });
+                h += '</div></div>';
+            }
+
             // Submitted Answers
             h += '<div class="tqb-modal-section">';
             h += '<div class="tqb-modal-section-title"><span class="dashicons dashicons-list-view"></span> Submitted Answers</div>';
-            
-            if (Object.keys(ans).length > 0) {
-                h += '<table class="tqb-answers-table"><thead><tr><th>Question</th><th>Answer</th></tr></thead><tbody>';
-                for (var k in ans) {
+
+            var answerKeys = Object.keys(ans);
+            if (answerKeys.length > 0) {
+                var rows = [];
+                var notSelectedLabels = [];
+
+                answerKeys.forEach(function(k) {
                     var v = ans[k];
-                    var displayV = '—';
-                    var answerClass = '';
-                    
+
+                    // Composite keys look like "individual-0-w2_wages" or "business-1-payroll".
+                    // Strip the prefix for the label, but keep a section tag when there's more
+                    // than one business so answers from different businesses aren't conflated.
+                    var sectionMatch = k.match(/^(business|individual)-(\d+)-/);
+                    var q = k.replace(/^(business|individual)-\d+-/, '').replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
+                    if (sectionMatch && sectionMatch[1] === 'business' && businesses.length > 1) {
+                        q = 'Business ' + (parseInt(sectionMatch[2], 10) + 1) + ' — ' + q;
+                    }
+
                     if (typeof v === 'object' && v !== null && 'selected' in v) {
                         if (v.selected) {
-                            displayV = 'Yes';
-                            answerClass = 'tqb-answer-yes';
+                            var displayV = 'Yes';
                             if (v.qty && v.qty > 1) displayV += ' (Qty: ' + v.qty + ')';
+                            rows.push({ q: q, displayV: displayV, cls: 'tqb-answer-yes' });
                         } else {
-                            displayV = 'No';
-                            answerClass = 'tqb-answer-no';
+                            // Collapsed into the summary line below instead of its own
+                            // row — this is what was making the section so tall.
+                            notSelectedLabels.push(q);
                         }
-                    } else if (typeof v === 'object') {
-                        displayV = JSON.stringify(v);
                     } else {
-                        displayV = String(v);
+                        var flatDisplayV = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+                        rows.push({ q: q, displayV: flatDisplayV, cls: '' });
                     }
-                    
-                    var q = k.replace(/^(business|individual)-\d+-/, '').replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
-                    h += '<tr><td class="tqb-question-cell">' + escHtml(q) + '</td><td class="tqb-answer-cell ' + answerClass + '">' + escHtml(displayV) + '</td></tr>';
+                });
+
+                if (rows.length > 0) {
+                    h += '<div class="tqb-answers-table-wrap"><table class="tqb-answers-table"><thead><tr><th>Question</th><th>Answer</th></tr></thead><tbody>';
+                    rows.forEach(function(r) {
+                        h += '<tr><td class="tqb-question-cell">' + escHtml(r.q) + '</td><td class="tqb-answer-cell ' + r.cls + '">' + escHtml(r.displayV) + '</td></tr>';
+                    });
+                    h += '</tbody></table></div>';
                 }
-                h += '</tbody></table>';
+
+                if (notSelectedLabels.length > 0) {
+                    h += '<div class="tqb-answers-not-selected">';
+                    h += '<span class="tqb-answers-not-selected__label">Not selected (' + notSelectedLabels.length + ')</span>';
+                    h += escHtml(notSelectedLabels.join(', '));
+                    h += '</div>';
+                }
             } else {
                 h += '<div style="text-align:center; padding:40px; background:#f8fafc; border-radius:10px; color:#64748b;">';
                 h += '<span class="dashicons dashicons-clipboard" style="font-size:48px; width:48px; height:48px; color:#cbd5e1;"></span>';

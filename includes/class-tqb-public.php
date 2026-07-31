@@ -116,9 +116,12 @@ class TQB_Public {
 				'pricingPattern'       => $item['pricing_pattern'],
 				'hardcodedValue'       => null !== $item['hardcoded_value'] ? (float) $item['hardcoded_value'] : null,
 				'showQty'              => ( 'qty_times_fee' === $item['pricing_pattern'] ),
+				'showDollarValue'      => ( 'qty_times_fee' === $item['pricing_pattern'] ), // Support dollar_value alongside qty
 				'isCustomQuoteTrigger' => (bool) $item['is_custom_quote_trigger'],
 				'thresholdQty'         => null !== $item['threshold_qty'] ? (float) $item['threshold_qty'] : null,
 				'thresholdTrigger'     => ! empty( $item['threshold_trigger'] ) ? $item['threshold_trigger'] : null,
+				'thresholdRules'       => ! empty( $item['threshold_rules'] ) ? $item['threshold_rules'] : null,
+				'reveal_followup'      => (int) ( $item['reveal_followup'] ?? 1 ), // 1 = reveal, 0 = always show
 			);
 		}
 		return $formatted;

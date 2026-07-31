@@ -709,18 +709,27 @@ function tqb_get_sort_indicator( $column ) {
 }
 
 /* Answers Table */
+/* The table itself scrolls within a fixed-height wrapper instead of pushing
+   the whole modal taller — sticky header stays visible while scrolling. */
+.tqb-answers-table-wrap {
+	max-height: 320px;
+	overflow-y: auto;
+	overflow-x: hidden;
+	border-radius: 10px;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
 .tqb-answers-table {
 	width: 100%;
 	border-collapse: collapse;
 	background: #fff;
-	border-radius: 10px;
-	overflow: hidden;
-	box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .tqb-answers-table th {
+	position: sticky;
+	top: 0;
 	text-align: left;
-	padding: 14px 16px;
+	padding: 10px 16px;
 	background: #f8fafc;
 	font-size: 11px;
 	font-weight: 700;
@@ -730,7 +739,7 @@ function tqb_get_sort_indicator( $column ) {
 }
 
 .tqb-answers-table td {
-	padding: 14px 16px;
+	padding: 9px 16px;
 	border-top: 1px solid #f1f5f9;
 }
 
@@ -754,6 +763,31 @@ function tqb_get_sort_indicator( $column ) {
 
 .tqb-answer-no {
 	color: #dc2626;
+}
+
+/* Collapsed summary for unselected items — keeps the modal from growing a
+   full table row for every "No" answer, which is what made this section
+   take up so much height. Also capped with its own scroll for the rare
+   combined submission with a lot of unchecked items. */
+.tqb-answers-not-selected {
+	margin-top: 10px;
+	padding: 10px 16px;
+	background: #f8fafc;
+	border-radius: 10px;
+	font-size: 12px;
+	line-height: 1.6;
+	color: #94a3b8;
+	max-height: 100px;
+	overflow-y: auto;
+}
+
+.tqb-answers-not-selected__label {
+	font-weight: 700;
+	color: #64748b;
+	text-transform: uppercase;
+	font-size: 10px;
+	letter-spacing: 0.5px;
+	margin-right: 4px;
 }
 
 /* Loading */

@@ -55,8 +55,8 @@ class TQB_Pricing_Engine {
 			}
 
 			// Check if this item has a threshold-based custom quote trigger
-			$qty = isset( $answers[ $key ]['qty'] ) ? (int) $answers[ $key ]['qty'] : 1;
-			if ( self::should_trigger_custom_quote( $item, $qty ) ) {
+			// Pass full answer object (qty, dollar_value, etc.)
+			if ( self::evaluate_thresholds( $item, $answers[ $key ] ?? array() ) ) {
 				$is_custom_quote = true;
 				$custom_reason   = $key;
 				continue;
@@ -71,6 +71,7 @@ class TQB_Pricing_Engine {
 				continue;
 			}
 
+			$qty    = isset( $answers[ $key ]['qty'] ) ? (int) $answers[ $key ]['qty'] : 1;
 			$amount = self::calculate_line_amount( $item, $qty );
 
 			$breakdown[ $key ] = $amount;
@@ -86,7 +87,104 @@ class TQB_Pricing_Engine {
 	}
 
 	/**
+	 * Evaluates whether an item's threshold conditions are met.
+	 * Supports both new JSON-based thresholds and legacy threshold_qty/threshold_trigger format.
+	 *
+	 * @param array $item     Line item config
+	 * @param array $answers  User answers for this item: ['qty' => N, 'dollar_value' => M, 'selected' => true/false]
+	 *
+	 * @return bool True if threshold conditions are met (should trigger custom quote)
+	 */
+	private static function evaluate_thresholds( $item, $answers ) {
+		// No threshold at all — never triggers
+		if ( empty( $item['threshold_rules'] ) && empty( $item['threshold_qty'] ) && empty( $item['threshold_trigger'] ) ) {
+			return false;
+		}
+
+		// New JSON format: threshold_rules
+		if ( ! empty( $item['threshold_rules'] ) ) {
+			return self::evaluate_threshold_rules_json( $item['threshold_rules'], $answers );
+		}
+
+		// Legacy format: threshold_qty + threshold_trigger (backward compat)
+		if ( ! empty( $item['threshold_qty'] ) && ! empty( $item['threshold_trigger'] ) ) {
+			$qty = isset( $answers['qty'] ) ? (int) $answers['qty'] : 1;
+			return self::evaluate_legacy_threshold( $item['threshold_qty'], $item['threshold_trigger'], $qty );
+		}
+
+		return false;
+	}
+
+	/**
+	 * Evaluates new JSON-based threshold rules.
+	 *
+	 * @param string $json_rules  JSON string: {"logic":"AND|OR","conditions":[...]}
+	 * @param array  $answers     User answers: ['qty' => N, 'dollar_value' => M]
+	 *
+	 * @return bool True if conditions are met
+	 */
+	private static function evaluate_threshold_rules_json( $json_rules, $answers ) {
+		$rules = json_decode( $json_rules, true );
+
+		if ( ! is_array( $rules ) || empty( $rules['conditions'] ) ) {
+			return false;
+		}
+
+		$logic      = isset( $rules['logic'] ) ? $rules['logic'] : 'AND';
+		$conditions = $rules['conditions'];
+		$results    = array();
+
+		foreach ( $conditions as $condition ) {
+			$type     = isset( $condition['type'] ) ? $condition['type'] : 'qty';
+			$operator = isset( $condition['operator'] ) ? $condition['operator'] : 'above';
+			$value    = isset( $condition['value'] ) ? (float) $condition['value'] : 0;
+
+			$condition_met = false;
+
+			if ( 'qty' === $type ) {
+				$qty           = isset( $answers['qty'] ) ? (int) $answers['qty'] : 1;
+				$condition_met = ( 'above' === $operator ) ? ( $qty > $value ) : ( $qty < $value );
+			} elseif ( 'dollar_value' === $type ) {
+				$dollar_value  = isset( $answers['dollar_value'] ) ? (float) $answers['dollar_value'] : 0;
+				$condition_met = ( 'above' === $operator ) ? ( $dollar_value > $value ) : ( $dollar_value < $value );
+			}
+
+			$results[] = $condition_met;
+		}
+
+		// Combine with AND or OR logic
+		if ( 'AND' === $logic ) {
+			return ! in_array( false, $results, true ); // All must be true
+		} else { // OR
+			return in_array( true, $results, true ); // At least one must be true
+		}
+	}
+
+	/**
+	 * Evaluates legacy threshold format for backward compatibility.
+	 *
+	 * @param float  $threshold_qty  The threshold value
+	 * @param string $trigger        'above' or 'below'
+	 * @param int    $qty            User-selected quantity
+	 *
+	 * @return bool True if threshold is triggered
+	 */
+	private static function evaluate_legacy_threshold( $threshold_qty, $trigger, $qty ) {
+		$threshold = (float) $threshold_qty;
+
+		if ( 'above' === $trigger ) {
+			return $qty > $threshold;
+		} elseif ( 'below' === $trigger ) {
+			return $qty < $threshold;
+		}
+
+		return false;
+	}
+
+	/**
 	 * Check if an item should trigger a custom quote based on quantity threshold.
+	 * DEPRECATED: Use evaluate_thresholds() instead.
+	 * Kept for backward compatibility with client-side preview code.
 	 *
 	 * @param array $item  Line item config
 	 * @param int   $qty   User-selected quantity

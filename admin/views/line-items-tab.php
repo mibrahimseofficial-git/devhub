@@ -4,6 +4,13 @@
  * including file: $items (array of line item rows), $quote_type
  * ('individual' or 'business'), $heading (string).
  *
+ * Task 2 update: Now supports:
+ * - Add new items
+ * - Delete items (with confirmation)
+ * - Reorder items (up/down buttons)
+ * - Multi-condition thresholds (repeater UI)
+ * - Reveal followup toggle
+ *
  * Not accessed directly — always included from TQB_Admin.
  */
 if ( ! defined( 'ABSPATH' ) ) {
@@ -24,80 +31,184 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<div>
 				<strong>How to use:</strong> Toggle "Active" to show/hide items on the public form. Edit the <strong>Label</strong> to change what users see, and add <strong>Tooltip</strong> text for help that appears on hover.
 				<br /><br />
-				<strong>Threshold:</strong> Use this to create conditional custom quotes. For example, for Crypto with threshold_qty=100 and threshold_trigger=above: if the user enters a quantity greater than 100, it triggers a custom quote instead of calculating the fee.
+				<strong>Threshold:</strong> Use this to create conditional custom quotes. For example, for Crypto with threshold qty=100 and operator=above: if the user enters a quantity greater than 100, it triggers a custom quote instead of calculating the fee. Multiple conditions can be combined with AND/OR logic.
+				<br /><br />
+				<strong>Reveal Qty:</strong> If enabled, the quantity input only appears after the user checks "Yes" — creating a cleaner, progressive form.
 			</div>
 		</div>
 
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="tqb-line-items-form">
 			<?php wp_nonce_field( TQB_Admin::NONCE_ACTION_LINE_ITEMS, 'tqb_nonce' ); ?>
 			<input type="hidden" name="action" value="tqb_save_line_items" />
 			<input type="hidden" name="quote_type" value="<?php echo esc_attr( $quote_type ); ?>" />
 
 			<div class="tqb-table-wrapper">
-				<table class="tqb-input-table">
+				<table class="tqb-input-table tqb-line-items-table">
 					<thead>
 						<tr>
-							<th style="width: 18%;">Label</th>
-							<th style="width: 16%;">Tooltip</th>
+							<th style="width: 5%;">Order</th>
+							<th style="width: 25%;">Label & Tooltip</th>
 							<th style="width: 8%;">Fee ($)</th>
 							<th style="width: 10%;">Pattern</th>
 							<th style="width: 8%;">Hardcoded</th>
-							<th style="width: 12%;">Threshold</th>
+							<th style="width: 20%;">Threshold</th>
+							<th style="width: 8%;">Reveal Qty</th>
 							<th style="width: 8%;">Active</th>
-							<th style="width: 20%;">Internal Info</th>
+							<th style="width: 6%;">Action</th>
+							<th style="width: 12%;">Internal Info</th>
 						</tr>
 					</thead>
-					<tbody>
-						<?php foreach ( $items as $item ) : ?>
-							<tr>
-								<td>
-									<input type="text"
-										name="items[<?php echo esc_attr( $item['id'] ); ?>][label]"
-										value="<?php echo esc_attr( $item['label'] ); ?>" />
-									<code style="color:#64748b; font-size:10px; margin-top:4px; display:block;"><?php echo esc_html( $item['item_key'] ); ?></code>
+					<tbody class="tqb-line-items-tbody">
+						<?php foreach ( $items as $index => $item ) : ?>
+							<tr class="tqb-line-item-row" data-item-id="<?php echo esc_attr( $item['id'] ); ?>" data-sort-order="<?php echo esc_attr( $item['sort_order'] ); ?>">
+								<!-- Order/Reorder -->
+								<td class="tqb-order-column">
+									<div class="tqb-order-buttons">
+										<button type="button" class="tqb-btn tqb-btn-ghost tqb-btn-sm tqb-btn-move-up" 
+											onclick="tqbMoveItemUp(event, <?php echo esc_attr( $item['id'] ); ?>)"
+											title="Move up">
+											<span class="dashicons dashicons-arrow-up" style="font-size: 14px;"></span>
+										</button>
+										<button type="button" class="tqb-btn tqb-btn-ghost tqb-btn-sm tqb-btn-move-down" 
+											onclick="tqbMoveItemDown(event, <?php echo esc_attr( $item['id'] ); ?>)"
+											title="Move down">
+											<span class="dashicons dashicons-arrow-down" style="font-size: 14px;"></span>
+										</button>
+									</div>
 								</td>
-								<td>
-									<textarea
-										name="items[<?php echo esc_attr( $item['id'] ); ?>][tooltip]"
-										rows="2"
-										placeholder="Help text..."><?php echo esc_textarea( $item['tooltip'] ); ?></textarea>
+
+								<!-- Label & Tooltip (merged, vertical stack) -->
+								<td class="tqb-label-tooltip-cell">
+									<div class="tqb-label-section">
+										<label class="tqb-cell-label">Label</label>
+										<input type="text"
+											name="items[<?php echo esc_attr( $item['id'] ); ?>][label]"
+											value="<?php echo esc_attr( $item['label'] ); ?>"
+											class="tqb-input" />
+										<code class="tqb-item-key"><?php echo esc_html( $item['item_key'] ); ?></code>
+									</div>
+									
+									<div class="tqb-tooltip-section">
+										<label class="tqb-cell-label">Tooltip / Help Text</label>
+										<textarea
+											name="items[<?php echo esc_attr( $item['id'] ); ?>][tooltip]"
+											rows="2"
+											placeholder="Optional help text for users..."
+											class="tqb-textarea"><?php echo esc_textarea( $item['tooltip'] ); ?></textarea>
+									</div>
 								</td>
+
+								<!-- Fee -->
 								<td>
 									<input type="number" step="0.01" min="0"
 										name="items[<?php echo esc_attr( $item['id'] ); ?>][fee]"
-										value="<?php echo esc_attr( $item['fee'] ); ?>" />
+										value="<?php echo esc_attr( $item['fee'] ); ?>"
+										class="tqb-input" />
 								</td>
+
+								<!-- Pattern -->
 								<td>
-									<select name="items[<?php echo esc_attr( $item['id'] ); ?>][pricing_pattern]">
+									<select name="items[<?php echo esc_attr( $item['id'] ); ?>][pricing_pattern]" class="tqb-input">
 										<option value="qty_times_fee" <?php selected( $item['pricing_pattern'], 'qty_times_fee' ); ?>>Qty × Fee</option>
 										<option value="flat" <?php selected( $item['pricing_pattern'], 'flat' ); ?>>Flat</option>
 										<option value="hardcoded" <?php selected( $item['pricing_pattern'], 'hardcoded' ); ?>>Hardcoded</option>
 									</select>
 								</td>
+
+								<!-- Hardcoded -->
 								<td>
 									<input type="number" step="0.01" min="0"
 										name="items[<?php echo esc_attr( $item['id'] ); ?>][hardcoded_value]"
-										value="<?php echo esc_attr( $item['hardcoded_value'] ); ?>" />
+										value="<?php echo esc_attr( $item['hardcoded_value'] ); ?>"
+										class="tqb-input" />
 								</td>
-								<td>
-									<div style="display:flex; gap:4px; align-items:center;">
-										<input type="number" step="1" min="0"
-											name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_qty]"
-											value="<?php echo esc_attr( $item['threshold_qty'] ); ?>"
-											placeholder="Qty"
-											style="width:60px;" />
-										<select name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_trigger]" style="width:70px;">
-											<option value="">—</option>
-											<option value="above" <?php selected( $item['threshold_trigger'], 'above' ); ?>>Above</option>
-											<option value="below" <?php selected( $item['threshold_trigger'], 'below' ); ?>>Below</option>
-										</select>
-									</div>
+
+									<!-- Threshold (Inline UI - Single Condition) -->
+									<td class="tqb-threshold-cell">
+										<?php
+											$threshold_rules = $item['threshold_rules'] ? json_decode( $item['threshold_rules'], true ) : null;
+											$has_threshold   = ! empty( $threshold_rules ) && ! empty( $threshold_rules['conditions'] );
+											$condition       = $has_threshold ? $threshold_rules['conditions'][0] : null;
+										?>
+										<div class="tqb-threshold-inline" data-item-id="<?php echo esc_attr( $item['id'] ); ?>">
+											<!-- Mode: None or Custom -->
+											<div style="margin-bottom: 8px;">
+												<label style="display: inline-block; margin-right: 12px; font-size: 12px;">
+													<input type="radio" name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_mode]" 
+														value="none" 
+														<?php echo ! $has_threshold ? 'checked' : ''; ?> />
+													None
+												</label>
+												<label style="display: inline-block; font-size: 12px;">
+													<input type="radio" name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_mode]" 
+														value="custom" 
+														<?php echo $has_threshold ? 'checked' : ''; ?> />
+													Custom
+												</label>
+											</div>
+
+											<!-- Inline Fields (visible when Custom is selected) -->
+											<div class="tqb-threshold-fields" style="<?php echo $has_threshold ? 'display: block;' : 'display: none;'; ?>">
+												<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+
+													<!-- Operator -->
+													<div>
+														<label style="display: block; font-size: 11px; font-weight: 500; margin-bottom: 2px;">Operator</label>
+														<select name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_operator]" class="tqb-input" style="font-size: 12px;">
+															<option value="above" <?php echo ( ! $condition || 'above' === ( $condition['operator'] ?? 'above' ) ) ? 'selected' : ''; ?>>Above (&gt;)</option>
+															<option value="below" <?php echo ( $condition && 'below' === ( $condition['operator'] ?? 'above' ) ) ? 'selected' : ''; ?>>Below (&lt;)</option>
+														</select>
+													</div>
+
+													<!-- Value -->
+													<div>
+														<label style="display: block; font-size: 11px; font-weight: 500; margin-bottom: 2px;">Threshold Value</label>
+														<input type="number" step="1" min="0" 
+															name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_value]"
+															value="<?php echo esc_attr( $condition ? $condition['value'] : '' ); ?>"
+															placeholder="e.g., 100"
+															class="tqb-input" 
+															style="font-size: 12px;" />
+													</div>
+												</div>
+
+												<!-- Hidden type field (always 'qty', no need to display) -->
+												<input type="hidden" name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_type]" value="qty" />
+											</div>
+
+											<!-- Hidden input to store JSON (regenerated on save by PHP) -->
+											<input type="hidden" name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_rules]" value="<?php echo esc_attr( $item['threshold_rules'] ?? '' ); ?>" />
+										</div>
+									</td>
+
+								<!-- Reveal Followup -->
+								<td style="text-align: center;">
+									<label title="Show quantity input only after user checks 'Yes'">
+										<input type="checkbox"
+											name="items[<?php echo esc_attr( $item['id'] ); ?>][reveal_followup]"
+											value="1"
+											<?php checked( (int) $item['reveal_followup'], 1 ); ?> />
+									</label>
 								</td>
-								<td style="text-align:center;">
+
+								<!-- Active -->
+								<td style="text-align: center;">
 									<input type="checkbox"
 										name="items[<?php echo esc_attr( $item['id'] ); ?>][is_active]"
-										value="1" <?php checked( (int) $item['is_active'], 1 ); ?> />
+										value="1"
+										<?php checked( (int) $item['is_active'], 1 ); ?> />
 								</td>
+
+								<!-- Action Column -->
+								<td style="text-align: center;">
+									<button type="button" class="tqb-btn tqb-btn-icon-delete"
+										onclick="tqbDeleteLineItem(event, <?php echo esc_attr( $item['id'] ); ?>)"
+										title="Delete this item">
+										<span class="dashicons dashicons-trash"></span>
+									</button>
+								</td>
+
+								<!-- Internal Info -->
 								<td style="font-size:11px; color:#64748b;">
 									<?php if ( ! empty( $item['is_custom_quote_trigger'] ) ) : ?>
 										<span style="color:#dc2626; font-weight:600;">Custom quote trigger</span>
@@ -112,6 +223,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 				</table>
 			</div>
 
+			<!-- Add Item Button (Bottom) -->
+			<div style="margin-top: 16px; margin-bottom: 24px;">
+				<button type="button" class="tqb-btn tqb-btn-secondary tqb-btn-add-item"
+					data-quote-type="<?php echo esc_attr( $quote_type ); ?>">
+					<span class="dashicons dashicons-plus"></span> Add Item
+				</button>
+			</div>
+
 			<div class="tqb-submit">
 				<button type="submit" class="tqb-btn tqb-btn-primary">
 					<span class="dashicons dashicons-saved" style="font-size:18px;"></span>
@@ -121,3 +240,724 @@ if ( ! defined( 'ABSPATH' ) ) {
 		</form>
 	</div>
 </div>
+
+<style>
+	/* Table Wrapper - Horizontal Scrollbar */
+	.tqb-table-wrapper {
+		width: 100%;
+		overflow-x: auto;
+		overflow-y: visible;
+		border: 1px solid #ddd;
+		border-radius: 4px;
+		background: #fff;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+	}
+
+	.tqb-table-wrapper::-webkit-scrollbar {
+		height: 8px;
+	}
+
+	.tqb-table-wrapper::-webkit-scrollbar-track {
+		background: #f5f5f5;
+		border-radius: 4px;
+	}
+
+	.tqb-table-wrapper::-webkit-scrollbar-thumb {
+		background: #d0d0d0;
+		border-radius: 4px;
+	}
+
+	.tqb-table-wrapper::-webkit-scrollbar-thumb:hover {
+		background: #999;
+	}
+
+	/* Table Styling */
+	.tqb-input-table {
+		width: 100%;
+		min-width: 1200px;
+		border-collapse: collapse;
+		background: #fff;
+	}
+
+	.tqb-input-table thead {
+		background: #f5f5f5;
+		border-bottom: 2px solid #ddd;
+	}
+
+	.tqb-input-table th {
+		padding: 12px 8px;
+		text-align: left;
+		font-weight: 600;
+		font-size: 12px;
+		color: #374151;
+		white-space: nowrap;
+	}
+
+	.tqb-input-table td {
+		padding: 12px 8px;
+		border-bottom: 1px solid #eee;
+		vertical-align: top;
+	}
+
+	.tqb-input-table tbody tr:hover {
+		background: #fafbfc;
+	}
+
+	/* Order Column - Vertical Stack */
+	.tqb-order-column {
+		text-align: center;
+		width: 5%;
+		min-width: 60px;
+	}
+
+	.tqb-order-buttons {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.tqb-order-buttons button {
+		width: 32px;
+		height: 32px;
+		padding: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	/* Button Styles */
+	.tqb-btn-sm {
+		padding: 4px 8px;
+		font-size: 12px;
+		line-height: 1;
+	}
+
+	.tqb-btn-primary {
+		background: #2271b1;
+		color: #fff;
+		padding: 10px 16px;
+		font-weight: 600;
+		border: none;
+		border-radius: 4px;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.tqb-btn-primary:hover {
+		background: #135e96;
+	}
+
+	.tqb-btn-icon-delete {
+		background: transparent;
+		border: 1px solid #e5e7eb;
+		color: #6b7280;
+		padding: 6px;
+		cursor: pointer;
+		border-radius: 3px;
+		transition: all 0.2s ease;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.tqb-btn-icon-delete:hover {
+		background: #fee2e2;
+		border-color: #dc2626;
+		color: #dc2626;
+	}
+
+	.tqb-btn-icon-delete .dashicons {
+		font-size: 16px;
+		width: auto;
+		height: auto;
+	}
+
+	.tqb-btn-ghost {
+		background: transparent;
+		border: 1px solid #ddd;
+		color: #666;
+	}
+
+	.tqb-btn-ghost:hover {
+		background: #f5f5f5;
+		color: #000;
+	}
+
+	/* Input and Textarea styles */
+	.tqb-input {
+		width: 100%;
+		padding: 8px 10px;
+		border: 1px solid #ddd;
+		border-radius: 3px;
+		font-family: inherit;
+		font-size: 13px;
+		box-sizing: border-box;
+	}
+
+	.tqb-input:focus {
+		border-color: #2271b1;
+		outline: none;
+		box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
+	}
+
+	.tqb-textarea {
+		width: 100%;
+		padding: 8px 10px;
+		border: 1px solid #ddd;
+		border-radius: 3px;
+		font-family: inherit;
+		font-size: 12px;
+		box-sizing: border-box;
+		resize: vertical;
+		min-height: 60px;
+	}
+
+	.tqb-textarea:focus {
+		border-color: #2271b1;
+		outline: none;
+		box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
+	}
+
+	/* Label & Tooltip Cell - Vertical Stack */
+	.tqb-label-tooltip-cell {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+		padding: 12px !important;
+		background: #fafbfc;
+	}
+
+	.tqb-label-section {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding-bottom: 12px;
+		border-bottom: 1px solid #e0e0e0;
+	}
+
+	.tqb-tooltip-section {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	.tqb-cell-label {
+		font-size: 11px;
+		font-weight: 600;
+		color: #374151;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		margin: 0;
+		display: block;
+	}
+
+	.tqb-item-key {
+		font-family: 'Monaco', 'Courier', monospace;
+		font-size: 10px;
+		color: #64748b;
+		background: #f1f5f9;
+		padding: 4px 6px;
+		border-radius: 2px;
+		display: block;
+		word-break: break-all;
+	}
+
+	.tqb-threshold-editor {
+		font-size: 12px;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.tqb-threshold-config {
+		position: relative;
+		margin-top: 16px;
+		padding: 16px;
+		border: 1px solid #e5e7eb;
+		border-radius: 6px;
+		background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+		width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.tqb-threshold-logic-section {
+		margin-bottom: 24px;
+		padding-bottom: 16px;
+		border-bottom: 2px solid #e5e7eb;
+	}
+
+	.tqb-threshold-logic-section select {
+		width: 100%;
+		max-width: 400px;
+		min-width: 250px;
+		padding: 10px 12px;
+		font-size: 13px;
+		border: 1px solid #d1d5db;
+		border-radius: 4px;
+		background-color: #fff;
+	}
+
+	.tqb-threshold-label {
+		display: block;
+		font-size: 13px;
+		font-weight: 600;
+		color: #374151;
+		margin-bottom: 8px;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+
+	.tqb-threshold-config select {
+		width: 100%;
+		max-width: 100%;
+		padding: 10px 12px;
+		font-size: 13px;
+		border: 1px solid #d1d5db;
+		border-radius: 4px;
+		background-color: #fff;
+		color: #111827;
+	}
+
+	.tqb-threshold-config select:focus {
+		border-color: #2271b1;
+		outline: none;
+		box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
+	}
+
+	/* Conditions container - vertical stack */
+	.tqb-threshold-conditions {
+		display: flex;
+		flex-direction: column !important;
+		gap: 12px;
+		width: 100%;
+		align-items: stretch;
+	}
+
+	/* Condition card */
+	.tqb-threshold-condition-card {
+		display: block !important;
+		background: #fff;
+		border: 1px solid #d1d5db;
+		border-radius: 4px;
+		padding: 16px;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+		transition: all 0.2s ease;
+		width: 100%;
+		min-width: 100%;
+		flex-shrink: 0;
+	}
+
+	.tqb-threshold-condition-card:hover {
+		border-color: #9ca3af;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+	}
+
+	/* Condition header with number and delete */
+	.tqb-condition-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 12px;
+		padding-bottom: 12px;
+		border-bottom: 1px solid #f3f4f6;
+	}
+
+	.tqb-condition-number {
+		font-size: 12px;
+		font-weight: 600;
+		color: #6b7280;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+
+	.tqb-btn-icon-only {
+		padding: 6px;
+		background: transparent;
+		border: 1px solid #e5e7eb;
+		color: #6b7280;
+		cursor: pointer;
+		border-radius: 3px;
+		transition: all 0.2s ease;
+	}
+
+	.tqb-btn-icon-only:hover {
+		background: #fee2e2;
+		border-color: #dc2626;
+		color: #dc2626;
+	}
+
+	.tqb-btn-icon-only .dashicons {
+		font-size: 16px;
+		width: auto;
+		height: auto;
+	}
+
+	/* Condition fields row - strict 3 column layout, never wraps */
+	.tqb-condition-row {
+		display: grid;
+		grid-template-columns: 1fr 1fr 1fr;
+		gap: 12px;
+		width: 100%;
+		grid-auto-flow: row;
+		grid-auto-rows: auto;
+		flex-wrap: nowrap;
+	}
+
+	/* Individual field - strict sizing */
+	.tqb-condition-field {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		min-width: 0;
+		overflow: hidden;
+	}
+
+	.tqb-field-label {
+		font-size: 12px;
+		font-weight: 600;
+		color: #374151;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+
+	.tqb-condition-field input,
+	.tqb-condition-field select {
+		width: 100%;
+		padding: 10px 12px;
+		font-size: 13px;
+		border: 1px solid #d1d5db;
+		border-radius: 4px;
+		background-color: #fff;
+		color: #111827;
+		font-family: inherit;
+	}
+
+	.tqb-condition-field input:focus,
+	.tqb-condition-field select:focus {
+		border-color: #2271b1;
+		outline: none;
+		box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
+	}
+
+	.tqb-condition-field input::placeholder {
+		color: #9ca3af;
+	}
+
+	/* Add button styling */
+	.tqb-btn-secondary {
+		background: #fff;
+		border: 2px solid #2271b1;
+		color: #2271b1;
+		padding: 12px 16px;
+		font-weight: 600;
+		font-size: 13px;
+		cursor: pointer;
+		border-radius: 4px;
+		transition: all 0.2s ease;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+	}
+
+	.tqb-btn-secondary:hover {
+		background: #2271b1;
+		color: #fff;
+	}
+
+	.tqb-btn-block {
+		width: 100%;
+	}
+
+	/* Force single column layout for condition fields within cards */
+	.tqb-threshold-condition-card .tqb-condition-row {
+		grid-template-columns: 1fr !important;
+		gap: 16px !important;
+	}
+
+	.tqb-threshold-condition {
+		position: relative;
+	}
+
+	.tqb-threshold-condition input,
+	.tqb-threshold-condition select {
+		padding: 4px 8px;
+		border-radius: 3px;
+	}
+
+	/* ===== MODAL STYLES ===== */
+	
+	/* Modal Overlay Background */
+	.tqb-threshold-modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 9999;
+		padding: 20px;
+		box-sizing: border-box;
+	}
+
+	.tqb-threshold-modal-overlay.hidden {
+		display: none !important;
+	}
+
+	/* Modal Dialog Box */
+	.tqb-threshold-modal {
+		background: #fff;
+		border-radius: 8px;
+		box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+		width: 100%;
+		max-width: 850px;
+		max-height: 90vh;
+		display: flex;
+		flex-direction: column;
+		animation: tqbSlideUp 0.3s ease-out;
+	}
+
+	@keyframes tqbSlideUp {
+		from {
+			opacity: 0;
+			transform: translateY(20px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	/* Modal Header */
+	.tqb-modal-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 20px 24px;
+		border-bottom: 2px solid #e5e7eb;
+		background: #f9fafb;
+		border-radius: 8px 8px 0 0;
+		flex-shrink: 0;
+	}
+
+	.tqb-modal-header h2 {
+		margin: 0;
+		font-size: 18px;
+		font-weight: 600;
+		color: #111827;
+		letter-spacing: -0.5px;
+	}
+
+	/* Modal Close Button */
+	.tqb-modal-close {
+		background: transparent;
+		border: none;
+		font-size: 24px;
+		color: #6b7280;
+		cursor: pointer;
+		padding: 0;
+		width: 32px;
+		height: 32px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.2s ease;
+		border-radius: 4px;
+		flex-shrink: 0;
+	}
+
+	.tqb-modal-close:hover {
+		color: #dc2626;
+		background: #fee2e2;
+	}
+
+	.tqb-modal-close .dashicons {
+		font-size: 24px;
+		width: 24px;
+		height: 24px;
+		line-height: 1;
+	}
+
+	/* Modal Body */
+	.tqb-modal-body {
+		padding: 24px;
+		overflow-y: auto;
+		flex: 1;
+		background: #fff;
+	}
+
+	/* Custom scrollbar for modal body */
+	.tqb-modal-body::-webkit-scrollbar {
+		width: 8px;
+	}
+
+	.tqb-modal-body::-webkit-scrollbar-track {
+		background: #f1f5f9;
+	}
+
+	.tqb-modal-body::-webkit-scrollbar-thumb {
+		background: #cbd5e1;
+		border-radius: 4px;
+	}
+
+	.tqb-modal-body::-webkit-scrollbar-thumb:hover {
+		background: #94a3b8;
+	}
+
+	/* Modal Footer */
+	.tqb-modal-footer {
+		padding: 16px 24px;
+		border-top: 1px solid #e5e7eb;
+		background: #f9fafb;
+		display: flex;
+		gap: 12px;
+		justify-content: flex-end;
+		flex-shrink: 0;
+		border-radius: 0 0 8px 8px;
+	}
+
+	.tqb-modal-footer button {
+		padding: 10px 20px;
+		font-size: 13px;
+		font-weight: 600;
+		border-radius: 4px;
+		cursor: pointer;
+		border: none;
+		transition: all 0.2s ease;
+	}
+
+	.tqb-modal-footer .tqb-btn-primary {
+		background: #2271b1;
+		color: #fff;
+	}
+
+	.tqb-modal-footer .tqb-btn-primary:hover {
+		background: #135e96;
+	}
+
+	.tqb-modal-footer .tqb-btn-secondary {
+		background: #fff;
+		color: #2271b1;
+		border: 1px solid #2271b1;
+	}
+
+	.tqb-modal-footer .tqb-btn-secondary:hover {
+		background: #f0f7ff;
+		border-color: #1e5a96;
+	}
+
+	/* Responsive Modal */
+	@media (max-width: 768px) {
+		.tqb-threshold-modal {
+			max-width: 95vw;
+			max-height: 95vh;
+		}
+
+		.tqb-modal-header {
+			padding: 16px 20px;
+		}
+
+		.tqb-modal-header h2 {
+			font-size: 16px;
+		}
+
+		.tqb-modal-body {
+			padding: 16px 20px;
+		}
+
+		.tqb-modal-footer {
+			padding: 12px 20px;
+		}
+	}
+
+	@media (max-width: 480px) {
+		.tqb-threshold-modal-overlay {
+			padding: 10px;
+		}
+
+		.tqb-threshold-modal {
+			max-width: 100vw;
+		}
+
+		.tqb-modal-footer {
+			flex-direction: column;
+		}
+
+		.tqb-modal-footer button {
+			width: 100%;
+		}
+	}
+
+	/* Threshold config inside modal */
+	.tqb-modal-body .tqb-threshold-config {
+		background: transparent;
+		border: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 24px;
+	}
+
+	/* Condition cards in modal have more breathing room */
+	.tqb-modal-body .tqb-threshold-condition-card {
+		padding: 20px;
+		margin-bottom: 0;
+	}
+
+	/* Modal condition row - perfect 3-column layout */
+	.tqb-modal-body .tqb-condition-row {
+		grid-template-columns: 1fr 1fr 1fr;
+		gap: 20px;
+	}
+
+	/* Responsive condition row in modal */
+	@media (max-width: 768px) {
+		.tqb-modal-body .tqb-condition-row {
+			grid-template-columns: 1fr 1fr;
+			gap: 16px;
+		}
+	}
+
+	@media (max-width: 480px) {
+		.tqb-modal-body .tqb-condition-row {
+			grid-template-columns: 1fr;
+			gap: 12px;
+		}
+	}
+
+</style>
+
+<script>
+	/* ===== INLINE THRESHOLD FIELD CONTROL ===== */
+	
+	document.addEventListener('DOMContentLoaded', function() {
+		// Initialize threshold field visibility based on mode selection
+		const thresholdRows = document.querySelectorAll('.tqb-threshold-inline');
+		thresholdRows.forEach(row => {
+			const itemId = row.getAttribute('data-item-id');
+			const modeRadios = row.querySelectorAll('input[type="radio"][name*="threshold_mode"]');
+			const fieldsDiv = row.querySelector('.tqb-threshold-fields');
+			
+			modeRadios.forEach(radio => {
+				radio.addEventListener('change', function() {
+					if (fieldsDiv) {
+						fieldsDiv.style.display = this.value === 'custom' ? 'block' : 'none';
+					}
+				});
+			});
+		});
+	});
+
+
+
+</script>

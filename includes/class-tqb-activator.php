@@ -51,6 +51,7 @@ class TQB_Activator {
 		// Safety check: ensure tables exist before trying to upgrade
 		$submissions_table = $wpdb->prefix . 'tqb_submissions';
 		$line_items_table = $wpdb->prefix . 'tqb_line_items';
+		$rate_bands_table = $wpdb->prefix . 'tqb_rate_bands';
 
 		// Check if submissions table exists
 		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$submissions_table}'" ) !== $submissions_table ) {
@@ -62,7 +63,23 @@ class TQB_Activator {
 			return; // Tables don't exist yet
 		}
 
-		// --- Line items table: add threshold columns ---
+		// --- Remove duplicate line items (0.7.4 patch) ---
+		self::cleanup_duplicate_line_items( $line_items_table );
+
+		// --- Remove duplicate rate bands (0.7.4 patch) ---
+		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$rate_bands_table}'" ) === $rate_bands_table ) {
+			self::cleanup_duplicate_rate_bands( $rate_bands_table );
+		}
+
+		// --- Ensure UNIQUE constraints exist and are enforced ---
+		self::ensure_unique_constraints( $line_items_table, $rate_bands_table );
+
+		// --- Line items table: add new threshold and reveal columns (0.7.5 patch) ---
+		self::add_threshold_rules_column( $line_items_table );
+		self::add_reveal_followup_column( $line_items_table );
+		self::backfill_threshold_rules( $line_items_table );
+
+		// --- Line items table: add legacy threshold columns (for backward compat) ---
 		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$line_items_table}", ARRAY_A );
 		$column_names = wp_list_pluck( $columns, 'Field' );
 
@@ -347,15 +364,18 @@ class TQB_Activator {
 			pricing_pattern VARCHAR(20) NOT NULL DEFAULT 'qty_times_fee',
 			hardcoded_value DECIMAL(10,2) NULL COMMENT 'used only when pricing_pattern = hardcoded',
 			is_custom_quote_trigger TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = any Yes answer routes to custom-quote path instead of pricing (e.g. crypto, FBAR)',
-			threshold_qty DECIMAL(14,2) NULL COMMENT 'Quantity threshold for conditional custom quote (e.g. 100 = $100K)',
-			threshold_trigger VARCHAR(10) NULL COMMENT 'above = qty > threshold triggers custom quote; below = qty < threshold triggers custom quote',
+			threshold_qty DECIMAL(14,2) NULL COMMENT 'DEPRECATED: use threshold_rules JSON instead',
+			threshold_trigger VARCHAR(10) NULL COMMENT 'DEPRECATED: use threshold_rules JSON instead',
+			threshold_rules LONGTEXT NULL COMMENT 'JSON: structured threshold logic with logic (AND/OR) and conditions array',
+			reveal_followup TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1 = hide quantity/dollar field until checkbox checked; 0 = always show (legacy behavior)',
 			is_active TINYINT(1) NOT NULL DEFAULT 1 COMMENT '0 = hidden from public form (e.g. audit, meetings)',
 			sort_order INT NOT NULL DEFAULT 0,
 			tooltip TEXT NULL COMMENT 'Customer-facing help text shown on hover',
 			notes TEXT NULL COMMENT 'Internal notes for admin reference',
 			PRIMARY KEY  (id),
 			UNIQUE KEY item_key_type (item_key, quote_type),
-			KEY quote_type (quote_type)
+			KEY quote_type (quote_type),
+			KEY sort_order (sort_order)
 		) {$charset_collate};";
 
 		dbDelta( $sql );
@@ -381,6 +401,7 @@ class TQB_Activator {
 			is_custom TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = this band routes to custom-quote path (5M-10M, Over 10M)',
 			sort_order INT NOT NULL DEFAULT 0,
 			PRIMARY KEY  (id),
+			UNIQUE KEY band_unique (band_type, entity_group, band_label),
 			KEY band_type (band_type),
 			KEY entity_group (entity_group)
 		) {$charset_collate};";
@@ -552,6 +573,200 @@ class TQB_Activator {
 			) );
 
 			$sort += 10;
+		}
+	}
+
+	/**
+	 * Idempotent cleanup: removes duplicate line items, keeping the lowest ID.
+	 * Duplicates are identified by (item_key, quote_type) pairs.
+	 * Safe to run multiple times — if no duplicates exist, does nothing.
+	 *
+	 * @param string $table_name Full table name (with prefix)
+	 */
+	private static function cleanup_duplicate_line_items( $table_name ) {
+		global $wpdb;
+
+		// Find all (item_key, quote_type) pairs that appear more than once
+		$duplicates = $wpdb->get_results(
+			"SELECT item_key, quote_type, MIN(id) as keep_id, COUNT(*) as cnt
+			 FROM {$table_name}
+			 GROUP BY item_key, quote_type
+			 HAVING cnt > 1",
+			ARRAY_A
+		);
+
+		if ( ! $duplicates || count( $duplicates ) === 0 ) {
+			return; // No duplicates found
+		}
+
+		foreach ( $duplicates as $dup ) {
+			// Delete all rows except the one with the lowest ID
+			$wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$table_name} WHERE item_key = %s AND quote_type = %s AND id > %d",
+					$dup['item_key'],
+					$dup['quote_type'],
+					$dup['keep_id']
+				)
+			);
+		}
+	}
+
+	/**
+	 * Idempotent cleanup: removes duplicate rate band rows, keeping the lowest ID.
+	 * Duplicates are identified by (band_type, entity_group, band_label) triplets.
+	 * Safe to run multiple times — if no duplicates exist, does nothing.
+	 *
+	 * @param string $table_name Full table name (with prefix)
+	 */
+	private static function cleanup_duplicate_rate_bands( $table_name ) {
+		global $wpdb;
+
+		// Find all (band_type, entity_group, band_label) triplets that appear more than once
+		$duplicates = $wpdb->get_results(
+			"SELECT band_type, entity_group, band_label, MIN(id) as keep_id, COUNT(*) as cnt
+			 FROM {$table_name}
+			 GROUP BY band_type, entity_group, band_label
+			 HAVING cnt > 1",
+			ARRAY_A
+		);
+
+		if ( ! $duplicates || count( $duplicates ) === 0 ) {
+			return; // No duplicates found
+		}
+
+		foreach ( $duplicates as $dup ) {
+			// Delete all rows except the one with the lowest ID
+			$wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$table_name} WHERE band_type = %s AND entity_group <=> %s AND band_label = %s AND id > %d",
+					$dup['band_type'],
+					$dup['entity_group'],
+					$dup['band_label'],
+					$dup['keep_id']
+				)
+			);
+		}
+	}
+
+	/**
+	 * Ensures UNIQUE constraints exist on both tables and are actually enforced.
+	 * If a constraint doesn't exist or isn't being enforced, this adds/rebuilds it.
+	 * Idempotent — safe to call multiple times.
+	 *
+	 * @param string $line_items_table Full table name (with prefix)
+	 * @param string $rate_bands_table Full table name (with prefix)
+	 */
+	private static function ensure_unique_constraints( $line_items_table, $rate_bands_table ) {
+		global $wpdb;
+
+		// --- Line items: ensure UNIQUE (item_key, quote_type) ---
+		$line_items_keys = $wpdb->get_results(
+			"SHOW KEYS FROM {$line_items_table} WHERE Key_name = 'item_key_type'",
+			ARRAY_A
+		);
+
+		if ( ! $line_items_keys || count( $line_items_keys ) === 0 ) {
+			// Constraint doesn't exist — add it
+			$wpdb->query( "ALTER TABLE {$line_items_table} ADD UNIQUE KEY item_key_type (item_key, quote_type)" );
+		}
+
+		// --- Rate bands: no built-in UNIQUE constraint yet, but we should add one ---
+		// (band_type, entity_group, band_label) should be unique
+		$rate_bands_keys = $wpdb->get_results(
+			"SHOW KEYS FROM {$rate_bands_table} WHERE Key_name = 'band_unique'",
+			ARRAY_A
+		);
+
+		if ( ! $rate_bands_keys || count( $rate_bands_keys ) === 0 ) {
+			// Constraint doesn't exist — add it
+			$wpdb->query( "ALTER TABLE {$rate_bands_table} ADD UNIQUE KEY band_unique (band_type, entity_group, band_label)" );
+		}
+	}
+
+	/**
+	 * Adds threshold_rules column if it doesn't exist.
+	 * Idempotent — safe to call multiple times.
+	 *
+	 * @param string $table_name Full table name (with prefix)
+	 */
+	private static function add_threshold_rules_column( $table_name ) {
+		global $wpdb;
+
+		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$table_name}", ARRAY_A );
+		$column_names = wp_list_pluck( $columns, 'Field' );
+
+		if ( ! in_array( 'threshold_rules', $column_names, true ) ) {
+			$after = in_array( 'threshold_trigger', $column_names, true ) ? 'threshold_trigger' : null;
+			$sql = "ALTER TABLE {$table_name} ADD COLUMN threshold_rules LONGTEXT NULL COMMENT 'JSON: structured threshold logic'";
+			if ( $after ) {
+				$sql .= " AFTER {$after}";
+			}
+			$wpdb->query( $sql );
+		}
+	}
+
+	/**
+	 * Adds reveal_followup column if it doesn't exist.
+	 * Idempotent — safe to call multiple times.
+	 *
+	 * @param string $table_name Full table name (with prefix)
+	 */
+	private static function add_reveal_followup_column( $table_name ) {
+		global $wpdb;
+
+		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$table_name}", ARRAY_A );
+		$column_names = wp_list_pluck( $columns, 'Field' );
+
+		if ( ! in_array( 'reveal_followup', $column_names, true ) ) {
+			$after = in_array( 'threshold_rules', $column_names, true ) ? 'threshold_rules' : 'threshold_trigger';
+			$sql = "ALTER TABLE {$table_name} ADD COLUMN reveal_followup TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1 = hide until checked; 0 = always show'";
+			if ( $after ) {
+				$sql .= " AFTER {$after}";
+			}
+			$wpdb->query( $sql );
+		}
+	}
+
+	/**
+	 * Backfills threshold_rules JSON from existing threshold_qty/threshold_trigger.
+	 * For items with old-format thresholds, builds the new JSON structure.
+	 * Idempotent — only updates rows where threshold_rules is NULL but old columns have data.
+	 *
+	 * @param string $table_name Full table name (with prefix)
+	 */
+	private static function backfill_threshold_rules( $table_name ) {
+		global $wpdb;
+
+		// Find items with old-format thresholds (threshold_qty or threshold_trigger set)
+		// but NO new-format threshold_rules yet
+		$items_to_backfill = $wpdb->get_results(
+			"SELECT id, threshold_qty, threshold_trigger
+			 FROM {$table_name}
+			 WHERE threshold_rules IS NULL
+			 AND (threshold_qty IS NOT NULL OR threshold_trigger IS NOT NULL)",
+			ARRAY_A
+		);
+
+		foreach ( $items_to_backfill as $item ) {
+			$threshold_rules = array(
+				'logic'      => 'AND',
+				'conditions' => array(
+					array(
+						'type'     => 'qty',
+						'operator' => $item['threshold_trigger'] ?? 'above',
+						'value'    => (int) $item['threshold_qty'],
+					),
+				),
+			);
+
+			$wpdb->update(
+				$table_name,
+				array( 'threshold_rules' => wp_json_encode( $threshold_rules ) ),
+				array( 'id' => $item['id'] ),
+				array( '%s' ),
+				array( '%d' )
+			);
 		}
 	}
 }

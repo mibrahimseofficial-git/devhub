@@ -37,6 +37,17 @@ class TQB_Admin {
 			return;
 		}
 
+		// Shared design system (cards, tables, badges, buttons, the topbar/nav).
+		// This was defined in admin/css/tqb-admin.css but never actually
+		// enqueued, so the Individual/Business Pricing and General Settings
+		// tabs were rendering with no styling applied at all.
+		wp_enqueue_style(
+			'tqb-admin',
+			TQB_PLUGIN_URL . 'admin/css/tqb-admin.css',
+			array(),
+			tqb_asset_version( 'admin/css/tqb-admin.css' )
+		);
+
 		// Admin JS (HubSpot integration)
 		wp_enqueue_script(
 			'tqb-admin',
@@ -80,36 +91,81 @@ class TQB_Admin {
 	}
 
 	/**
-	 * Renders the page shell (tab nav) and delegates to the active tab's view.
+	 * Best-effort lookup of a published page/post using the shortcode, so
+	 * the dashboard header can link straight to the live form. Returns null
+	 * if nothing is found — the header simply omits the link in that case.
+	 */
+	private function find_live_form_url() {
+		global $wpdb;
+		$post_id = $wpdb->get_var(
+			"SELECT ID FROM {$wpdb->posts}
+			 WHERE post_status = 'publish'
+			 AND post_content LIKE '%[tavola_quote_builder%'
+			 ORDER BY post_type = 'page' DESC, ID ASC
+			 LIMIT 1"
+		);
+
+		return $post_id ? get_permalink( $post_id ) : null;
+	}
+
+	/**
+	 * Renders the page shell (branded header + nav) and delegates to the
+	 * active tab's view.
 	 */
 	public function render_page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'tavola-quote-builder' ) );
 		}
 
-		$active_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'individual'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$active_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'submissions'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( ! in_array( $active_tab, array( 'individual', 'business', 'general', 'submissions' ), true ) ) {
-			$active_tab = 'individual';
+			$active_tab = 'submissions';
 		}
+
+		$nav_items = array(
+			'submissions' => array( 'label' => 'Submissions', 'icon' => 'dashicons-chart-bar' ),
+			'individual'  => array( 'label' => 'Individual Pricing', 'icon' => 'dashicons-admin-users' ),
+			'business'    => array( 'label' => 'Business Pricing', 'icon' => 'dashicons-building' ),
+			'general'     => array( 'label' => 'General Settings', 'icon' => 'dashicons-admin-generic' ),
+		);
+
+		$live_form_url = $this->find_live_form_url();
 
 		?>
 		<div class="wrap tqb-admin-wrap">
-			<h1>Tavola Quote Builder</h1>
-			<p>Manage pricing for the Individual and Business self-service quote tools. Changes here apply immediately to the live form — no code changes needed.</p>
+			<div class="tqb-shell">
+				<header class="tqb-topbar">
+					<div class="tqb-topbar__brand">
+						<span class="tqb-topbar__mark" aria-hidden="true">
+							<span class="dashicons dashicons-calculator"></span>
+						</span>
+						<div class="tqb-topbar__text">
+							<h1 class="tqb-topbar__title">Tavola Quote Builder</h1>
+							<p class="tqb-topbar__subtitle">Pricing, submissions, and settings for the self-service quote tool. Changes apply to the live form immediately.</p>
+						</div>
+					</div>
+					<?php if ( $live_form_url ) : ?>
+						<div class="tqb-topbar__actions">
+							<a href="<?php echo esc_url( $live_form_url ); ?>" target="_blank" rel="noopener noreferrer" class="tqb-btn tqb-btn-secondary">
+								<span class="dashicons dashicons-external"></span>
+								View Live Form
+							</a>
+						</div>
+					<?php endif; ?>
+				</header>
 
-			<h2 class="nav-tab-wrapper">
-				<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=individual' ) ); ?>"
-					class="nav-tab <?php echo 'individual' === $active_tab ? 'nav-tab-active' : ''; ?>">Individual Pricing</a>
-				<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=business' ) ); ?>"
-					class="nav-tab <?php echo 'business' === $active_tab ? 'nav-tab-active' : ''; ?>">Business Pricing</a>
-				<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=submissions' ) ); ?>"
-					class="nav-tab <?php echo 'submissions' === $active_tab ? 'nav-tab-active' : ''; ?>">Submissions</a>
-				<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=general' ) ); ?>"
-					class="nav-tab <?php echo 'general' === $active_tab ? 'nav-tab-active' : ''; ?>">General Settings</a>
-			</h2>
+				<nav class="tqb-nav" aria-label="Quote Builder sections">
+					<?php foreach ( $nav_items as $tab_key => $tab ) : ?>
+						<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=' . $tab_key ) ); ?>"
+							class="tqb-nav__item <?php echo $tab_key === $active_tab ? 'is-active' : ''; ?>">
+							<span class="dashicons <?php echo esc_attr( $tab['icon'] ); ?>"></span>
+							<?php echo esc_html( $tab['label'] ); ?>
+						</a>
+					<?php endforeach; ?>
+				</nav>
 
-			<div class="tqb-tab-content" style="margin-top: 20px;">
-				<?php
+				<div class="tqb-tab-content">
+					<?php
 				if ( 'individual' === $active_tab ) {
 					$this->render_individual_tab();
 				} elseif ( 'business' === $active_tab ) {
@@ -120,6 +176,7 @@ class TQB_Admin {
 					$this->render_general_tab();
 				}
 				?>
+				</div>
 			</div>
 		</div>
 		<?php
@@ -264,7 +321,35 @@ class TQB_Admin {
 				: null;
 			$is_active = isset( $fields['is_active'] ) ? 1 : 0;
 
-			// Threshold fields
+			// New fields (Task 2)
+			$reveal_followup = isset( $fields['reveal_followup'] ) ? 1 : 0;
+			$sort_order      = isset( $fields['sort_order'] ) ? (int) $fields['sort_order'] : 0;
+
+			// Parse threshold rules (inline single-condition format)
+			$threshold_rules = null;
+			$threshold_mode  = isset( $fields['threshold_mode'] ) ? sanitize_key( $fields['threshold_mode'] ) : 'none';
+
+			if ( 'custom' === $threshold_mode ) {
+				$threshold_type     = isset( $fields['threshold_type'] ) ? sanitize_key( $fields['threshold_type'] ) : 'qty';
+				$threshold_operator = isset( $fields['threshold_operator'] ) ? sanitize_key( $fields['threshold_operator'] ) : 'above';
+				$threshold_value    = isset( $fields['threshold_value'] ) && '' !== $fields['threshold_value'] ? (float) $fields['threshold_value'] : null;
+
+				// Only create threshold rule if value is provided
+				if ( null !== $threshold_value ) {
+					$threshold_rules = wp_json_encode( array(
+						'logic'      => 'AND',
+						'conditions' => array(
+							array(
+								'type'     => $threshold_type,
+								'operator' => $threshold_operator,
+								'value'    => $threshold_value,
+							),
+						),
+					) );
+				}
+			}
+
+			// Backward compat: legacy threshold fields (kept for rollback)
 			$threshold_qty = ( isset( $fields['threshold_qty'] ) && '' !== $fields['threshold_qty'] )
 				? (float) $fields['threshold_qty']
 				: null;
@@ -280,8 +365,11 @@ class TQB_Admin {
 				'pricing_pattern'   => $pricing_pattern,
 				'hardcoded_value'   => $hardcoded_value,
 				'is_active'         => $is_active,
+				'reveal_followup'   => $reveal_followup,
+				'sort_order'        => $sort_order,
+				'threshold_rules'   => $threshold_rules,
 				'threshold_qty'     => $threshold_qty,
-				'threshold_trigger'  => $threshold_trigger,
+				'threshold_trigger' => $threshold_trigger,
 			) );
 		}
 
@@ -379,12 +467,11 @@ class TQB_Admin {
 			wp_send_json_error( 'No ID provided.' );
 		}
 
-		global $wpdb;
-		$table = $wpdb->prefix . 'tqb_submissions';
-		$submission = $wpdb->get_row(
-			$wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ),
-			ARRAY_A
-		);
+		// Use TQB_DB::get_submission() rather than a raw query — it JSON-decodes
+		// the 'answers' column into a real array/object. Sending the raw string
+		// here would cause wp_send_json_success() to encode it a second time,
+		// leaving the client with a double-encoded JSON string.
+		$submission = TQB_DB::get_submission( $id );
 
 		if ( ! $submission ) {
 			wp_send_json_error( 'Submission not found.' );

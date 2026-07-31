@@ -201,6 +201,231 @@ $result_7 = TQB_Pricing_Engine::calculate_business(
 tqb_assert( 'base fee = 1700.0 (1500 asset-band + 200 revenue addon)', $result_7['base_fee'], 1700.0 );
 
 // ---------------------------------------------------------------------
+// TEST 8: Thresholds (NEW Task 2) — Single qty threshold, above
+// Item with threshold_rules: qty > 100 should trigger custom quote
+// ---------------------------------------------------------------------
+echo "\nTEST 8: Threshold — Single qty condition (above)\n";
+
+$item_with_qty_threshold = array(
+	'item_key' => 'crypto',
+	'fee' => 250,
+	'pricing_pattern' => 'qty_times_fee',
+	'hardcoded_value' => null,
+	'is_custom_quote_trigger' => 0,
+	'threshold_rules' => json_encode( array(
+		'logic'      => 'AND',
+		'conditions' => array(
+			array( 'type' => 'qty', 'operator' => 'above', 'value' => 100 ),
+		),
+	) ),
+);
+
+$answers_8_yes = array(
+	'w2_wages' => array( 'selected' => true, 'qty' => 1 ),
+	'crypto'   => array( 'selected' => true, 'qty' => 150 ),
+);
+
+$answers_8_no = array(
+	'w2_wages' => array( 'selected' => true, 'qty' => 1 ),
+	'crypto'   => array( 'selected' => true, 'qty' => 50 ),
+);
+
+$items_8 = array_map( function ( $item ) {
+	return ( 'crypto' === $item['item_key'] ) ? $item_with_qty_threshold : $item;
+}, $individual_items );
+
+$result_8_yes = TQB_Pricing_Engine::calculate_individual( $items_8, $answers_8_yes );
+tqb_assert( 'qty=150 > threshold=100, should trigger custom quote', $result_8_yes['is_custom_quote'], true );
+
+$result_8_no = TQB_Pricing_Engine::calculate_individual( $items_8, $answers_8_no );
+tqb_assert( 'qty=50 < threshold=100, should NOT trigger', $result_8_no['is_custom_quote'], false );
+
+// ---------------------------------------------------------------------
+// TEST 9: Thresholds — Dollar value condition
+// Item with threshold_rules: dollar_value > $100K should trigger
+// (Task 2 Part 2 — new dollar_value support)
+// ---------------------------------------------------------------------
+echo "\nTEST 9: Threshold — Dollar value condition (above \$100K)\n";
+
+$item_with_dollar_threshold = array(
+	'item_key' => 'crypto',
+	'fee' => 250,
+	'pricing_pattern' => 'qty_times_fee',
+	'hardcoded_value' => null,
+	'is_custom_quote_trigger' => 0,
+	'threshold_rules' => json_encode( array(
+		'logic'      => 'AND',
+		'conditions' => array(
+			array( 'type' => 'dollar_value', 'operator' => 'above', 'value' => 100000 ),
+		),
+	) ),
+);
+
+$answers_9_yes = array(
+	'w2_wages' => array( 'selected' => true, 'qty' => 1 ),
+	'crypto'   => array( 'selected' => true, 'qty' => 1, 'dollar_value' => 150000 ),
+);
+
+$answers_9_no = array(
+	'w2_wages' => array( 'selected' => true, 'qty' => 1 ),
+	'crypto'   => array( 'selected' => true, 'qty' => 1, 'dollar_value' => 50000 ),
+);
+
+$items_9 = array_map( function ( $item ) {
+	return ( 'crypto' === $item['item_key'] ) ? $item_with_dollar_threshold : $item;
+}, $individual_items );
+
+$result_9_yes = TQB_Pricing_Engine::calculate_individual( $items_9, $answers_9_yes );
+tqb_assert( 'dollar_value=$150K > threshold=$100K, should trigger', $result_9_yes['is_custom_quote'], true );
+
+$result_9_no = TQB_Pricing_Engine::calculate_individual( $items_9, $answers_9_no );
+tqb_assert( 'dollar_value=$50K < threshold=$100K, should NOT trigger', $result_9_no['is_custom_quote'], false );
+
+// ---------------------------------------------------------------------
+// TEST 10: Thresholds — OR logic
+// Conditions: (qty > 100) OR (dollar_value > $100K)
+// If EITHER is true, should trigger custom quote
+// ---------------------------------------------------------------------
+echo "\nTEST 10: Threshold — OR logic (qty OR dollar_value)\n";
+
+$item_with_or_threshold = array(
+	'item_key' => 'crypto',
+	'fee' => 250,
+	'pricing_pattern' => 'qty_times_fee',
+	'hardcoded_value' => null,
+	'is_custom_quote_trigger' => 0,
+	'threshold_rules' => json_encode( array(
+		'logic'      => 'OR',
+		'conditions' => array(
+			array( 'type' => 'qty', 'operator' => 'above', 'value' => 100 ),
+			array( 'type' => 'dollar_value', 'operator' => 'above', 'value' => 100000 ),
+		),
+	) ),
+);
+
+// qty=50 (false) OR dollar_value=$150K (true) = should trigger
+$answers_10_qty_false_dollar_true = array(
+	'w2_wages' => array( 'selected' => true, 'qty' => 1 ),
+	'crypto'   => array( 'selected' => true, 'qty' => 50, 'dollar_value' => 150000 ),
+);
+
+// qty=150 (true) OR dollar_value=$50K (false) = should trigger
+$answers_10_qty_true_dollar_false = array(
+	'w2_wages' => array( 'selected' => true, 'qty' => 1 ),
+	'crypto'   => array( 'selected' => true, 'qty' => 150, 'dollar_value' => 50000 ),
+);
+
+// qty=150 (true) OR dollar_value=$150K (true) = should trigger
+$answers_10_both_true = array(
+	'w2_wages' => array( 'selected' => true, 'qty' => 1 ),
+	'crypto'   => array( 'selected' => true, 'qty' => 150, 'dollar_value' => 150000 ),
+);
+
+// qty=50 (false) OR dollar_value=$50K (false) = should NOT trigger
+$answers_10_both_false = array(
+	'w2_wages' => array( 'selected' => true, 'qty' => 1 ),
+	'crypto'   => array( 'selected' => true, 'qty' => 50, 'dollar_value' => 50000 ),
+);
+
+$items_10 = array_map( function ( $item ) {
+	return ( 'crypto' === $item['item_key'] ) ? $item_with_or_threshold : $item;
+}, $individual_items );
+
+$result_10_qty_false = TQB_Pricing_Engine::calculate_individual( $items_10, $answers_10_qty_false_dollar_true );
+tqb_assert( 'OR: qty=50 (false) OR dollar_value=$150K (true) = should trigger', $result_10_qty_false['is_custom_quote'], true );
+
+$result_10_dollar_false = TQB_Pricing_Engine::calculate_individual( $items_10, $answers_10_qty_true_dollar_false );
+tqb_assert( 'OR: qty=150 (true) OR dollar_value=$50K (false) = should trigger', $result_10_dollar_false['is_custom_quote'], true );
+
+$result_10_both_true = TQB_Pricing_Engine::calculate_individual( $items_10, $answers_10_both_true );
+tqb_assert( 'OR: both true = should trigger', $result_10_both_true['is_custom_quote'], true );
+
+$result_10_both_false = TQB_Pricing_Engine::calculate_individual( $items_10, $answers_10_both_false );
+tqb_assert( 'OR: both false = should NOT trigger', $result_10_both_false['is_custom_quote'], false );
+
+// ---------------------------------------------------------------------
+// TEST 11: Thresholds — AND logic
+// Conditions: (qty > 100) AND (dollar_value > $100K)
+// BOTH must be true to trigger custom quote
+// ---------------------------------------------------------------------
+echo "\nTEST 11: Threshold — AND logic (qty AND dollar_value)\n";
+
+$item_with_and_threshold = array(
+	'item_key' => 'crypto',
+	'fee' => 250,
+	'pricing_pattern' => 'qty_times_fee',
+	'hardcoded_value' => null,
+	'is_custom_quote_trigger' => 0,
+	'threshold_rules' => json_encode( array(
+		'logic'      => 'AND',
+		'conditions' => array(
+			array( 'type' => 'qty', 'operator' => 'above', 'value' => 100 ),
+			array( 'type' => 'dollar_value', 'operator' => 'above', 'value' => 100000 ),
+		),
+	) ),
+);
+
+// qty=150 (true) AND dollar_value=$150K (true) = should trigger
+$answers_11_both_true = array(
+	'w2_wages' => array( 'selected' => true, 'qty' => 1 ),
+	'crypto'   => array( 'selected' => true, 'qty' => 150, 'dollar_value' => 150000 ),
+);
+
+// qty=50 (false) AND dollar_value=$150K (true) = should NOT trigger
+$answers_11_qty_false = array(
+	'w2_wages' => array( 'selected' => true, 'qty' => 1 ),
+	'crypto'   => array( 'selected' => true, 'qty' => 50, 'dollar_value' => 150000 ),
+);
+
+// qty=150 (true) AND dollar_value=$50K (false) = should NOT trigger
+$answers_11_dollar_false = array(
+	'w2_wages' => array( 'selected' => true, 'qty' => 1 ),
+	'crypto'   => array( 'selected' => true, 'qty' => 150, 'dollar_value' => 50000 ),
+);
+
+$items_11 = array_map( function ( $item ) {
+	return ( 'crypto' === $item['item_key'] ) ? $item_with_and_threshold : $item;
+}, $individual_items );
+
+$result_11_both_true = TQB_Pricing_Engine::calculate_individual( $items_11, $answers_11_both_true );
+tqb_assert( 'AND: both true = should trigger', $result_11_both_true['is_custom_quote'], true );
+
+$result_11_qty_false = TQB_Pricing_Engine::calculate_individual( $items_11, $answers_11_qty_false );
+tqb_assert( 'AND: qty=50 (false) AND dollar_value=$150K (true) = should NOT trigger', $result_11_qty_false['is_custom_quote'], false );
+
+$result_11_dollar_false = TQB_Pricing_Engine::calculate_individual( $items_11, $answers_11_dollar_false );
+tqb_assert( 'AND: qty=150 (true) AND dollar_value=$50K (false) = should NOT trigger', $result_11_dollar_false['is_custom_quote'], false );
+
+// ---------------------------------------------------------------------
+// TEST 12: Thresholds — Backward compatibility with legacy format
+// Old threshold_qty + threshold_trigger should still work
+// ---------------------------------------------------------------------
+echo "\nTEST 12: Threshold — Backward compatibility (legacy format)\n";
+
+$item_with_legacy_threshold = array(
+	'item_key' => 'crypto',
+	'fee' => 250,
+	'pricing_pattern' => 'qty_times_fee',
+	'hardcoded_value' => null,
+	'is_custom_quote_trigger' => 0,
+	'threshold_qty' => 100,
+	'threshold_trigger' => 'above',
+	'threshold_rules' => null,
+);
+
+$answers_12_yes = array(
+	'w2_wages' => array( 'selected' => true, 'qty' => 1 ),
+	'crypto'   => array( 'selected' => true, 'qty' => 150 ),
+);
+
+$items_12 = array_map( function ( $item ) {
+	return ( 'crypto' === $item['item_key'] ) ? $item_with_legacy_threshold : $item;
+}, $individual_items );
+
+$result_12 = TQB_Pricing_Engine::calculate_individual( $items_12, $answers_12_yes );
+tqb_assert( 'Legacy format: qty=150 > threshold=100 (old format) should trigger', $result_12['is_custom_quote'], true );
+
+// ---------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------
 echo "\n" . str_repeat( '-', 50 ) . "\n";
