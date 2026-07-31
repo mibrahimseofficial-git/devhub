@@ -11,17 +11,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 ?>
 
-<!-- Page Header -->
-<div class="tqb-page-header">
-	<h1>
-		<span class="dashicons dashicons-list-view"></span>
-		<?php echo esc_html( $heading ); ?>
-	</h1>
-</div>
-
 <div class="tqb-card">
-	<div class="tqb-card-body" style="padding: 0;">
-		<div class="tqb-alert tqb-alert-info" style="border-radius: 0; border-left: none; border-right: none; border-top: none; margin: 0;">
+	<div class="tqb-card-header">
+		<h2>
+			<span class="dashicons dashicons-list-view"></span>
+			<?php echo esc_html( $heading ); ?>
+		</h2>
+	</div>
+	<div class="tqb-card-body">
+		<div class="tqb-alert tqb-alert-info">
 			<span class="dashicons dashicons-info"></span>
 			<div>
 				<strong>How to use:</strong> Toggle "Active" to show/hide items on the public form. Edit the <strong>Label</strong> to change what users see, and add <strong>Tooltip</strong> text for help that appears on hover.
@@ -36,7 +34,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<input type="hidden" name="quote_type" value="<?php echo esc_attr( $quote_type ); ?>" />
 
 			<div class="tqb-table-wrapper">
-				<table class="tqb-input-table" style="border-radius: 0; box-shadow: none;">
+				<table class="tqb-input-table">
 					<thead>
 						<tr>
 							<th style="width: 18%;">Label</th>
@@ -114,7 +112,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 				</table>
 			</div>
 
-			<div style="padding: 20px 24px; border-top: 1px solid #e2e8f0; background: #f8fafc;">
+			<div class="tqb-submit">
 				<button type="submit" class="tqb-btn tqb-btn-primary">
 					<span class="dashicons dashicons-saved" style="font-size:18px;"></span>
 					Save Changes
