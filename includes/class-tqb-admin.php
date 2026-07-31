@@ -37,10 +37,11 @@ class TQB_Admin {
 			return;
 		}
 
+		// Admin JS (HubSpot integration)
 		wp_enqueue_script(
 			'tqb-admin',
 			TQB_PLUGIN_URL . 'admin/js/tqb-admin.js',
-			array(),
+			array( 'jquery' ),
 			tqb_asset_version( 'admin/js/tqb-admin.js' ),
 			true
 		);
@@ -49,6 +50,15 @@ class TQB_Admin {
 			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 			'nonce'   => wp_create_nonce( 'tqb_admin_nonce' ),
 		) );
+
+		// Submissions page JS (modal functionality)
+		wp_enqueue_script(
+			'tqb-submissions',
+			TQB_PLUGIN_URL . 'admin/js/tqb-submissions.js',
+			array( 'jquery' ),
+			tqb_asset_version( 'admin/js/tqb-submissions.js' ),
+			true
+		);
 	}
 
 	public function register_menu() {
