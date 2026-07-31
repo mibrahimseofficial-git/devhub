@@ -1,6 +1,6 @@
 /**
  * Tavola Quote Builder — submissions page JS.
- * Handles the submission details modal.
+ * Handles the submission details modal and bulk delete functionality.
  */
 (function($) {
     'use strict';
@@ -240,9 +240,68 @@
             if (e.key === 'Escape' && $modal.is(':visible')) closeModal();
         });
 
+        // Bulk delete functionality
+        function updateBulkActionsUI() {
+            var selectedCount = $('.tqb-delete-checkbox:checked').length;
+            var $bulkActions = $('#tqb-bulk-actions');
+            var $selectedCount = $('#tqb-selected-count');
+            
+            if (selectedCount > 0) {
+                $bulkActions.show();
+                $selectedCount.text(selectedCount + ' selected');
+            } else {
+                $bulkActions.hide();
+            }
+        }
+
         // Select all checkbox
         $('#tqb-select-all').on('change', function() {
             $('.tqb-delete-checkbox').prop('checked', $(this).prop('checked'));
+            updateBulkActionsUI();
+        });
+
+        // Individual checkbox change
+        $(document).on('change', '.tqb-delete-checkbox', function() {
+            // Update select all checkbox state
+            var totalCheckboxes = $('.tqb-delete-checkbox').length;
+            var checkedCheckboxes = $('.tqb-delete-checkbox:checked').length;
+            $('#tqb-select-all').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
+            $('#tqb-select-all').prop('indeterminate', checkedCheckboxes > 0 && checkedCheckboxes < totalCheckboxes);
+            
+            updateBulkActionsUI();
+        });
+
+        // Bulk apply button click
+        $('#tqb-bulk-apply-btn').on('click', function() {
+            var selectedCount = $('.tqb-delete-checkbox:checked').length;
+            var action = $('#tqb-bulk-action-select').val();
+            
+            if (!action) {
+                alert('Please select an action.');
+                return;
+            }
+            
+            if (selectedCount === 0) {
+                alert('Please select at least one submission to delete.');
+                return;
+            }
+            
+            if (action === 'delete') {
+                if (!confirm('Are you sure you want to delete ' + selectedCount + ' submission(s)? This cannot be undone.')) {
+                    return;
+                }
+                
+                // Get all selected IDs and populate the hidden form
+                var $idsContainer = $('#tqb-bulk-ids-container');
+                $idsContainer.empty();
+                
+                $('.tqb-delete-checkbox:checked').each(function() {
+                    $idsContainer.append('<input type="hidden" name="delete_ids[]" value="' + $(this).val() + '" />');
+                });
+                
+                // Submit the form
+                $('#tqb-bulk-delete-form').submit();
+            }
         });
     });
 })(jQuery);

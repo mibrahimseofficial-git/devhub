@@ -181,6 +181,61 @@ function tqb_get_sort_indicator( $column ) {
 	gap: 16px;
 }
 
+.tqb-toolbar-left {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+	flex-wrap: wrap;
+}
+
+.tqb-bulk-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 16px;
+	background: #fef2f2;
+	border: 1px solid #fecaca;
+	border-radius: 8px;
+}
+
+.tqb-selected-count {
+	font-size: 13px;
+	font-weight: 600;
+	color: #dc2626;
+	white-space: nowrap;
+}
+
+.tqb-bulk-select {
+	padding: 6px 12px;
+	border-radius: 6px;
+	border: 1px solid #e2e8f0;
+	font-size: 13px;
+	background: #fff;
+	cursor: pointer;
+	min-width: 140px;
+}
+
+.tqb-bulk-select:focus {
+	outline: none;
+	border-color: #001a44;
+}
+
+.tqb-bulk-apply-btn {
+	padding: 6px 16px;
+	border-radius: 6px;
+	font-size: 13px;
+	font-weight: 500;
+	background: #dc2626;
+	color: #fff;
+	border: none;
+	cursor: pointer;
+	transition: background-color 0.2s;
+}
+
+.tqb-bulk-apply-btn:hover {
+	background: #b91c1c;
+}
+
 .tqb-filters {
 	display: flex;
 	gap: 8px;
@@ -886,6 +941,7 @@ function tqb_get_sort_indicator( $column ) {
 <div class="tqb-content-card">
 	<!-- Toolbar -->
 	<div class="tqb-toolbar">
+		<div class="tqb-toolbar-left">
 		<div class="tqb-filters">
 			<a href="<?php echo esc_url( tqb_build_filter_url( array( 'status' => '', 'paged' => 1 ) ) ); ?>" class="tqb-filter-btn <?php echo empty( $status_filter ) ? 'active' : ''; ?>">
 				All <span class="count"><?php echo $counts['all']; ?></span>
@@ -909,8 +965,20 @@ function tqb_get_sort_indicator( $column ) {
 				Business
 			</a>
 		</div>
-		
-		<form method="get" action="" class="tqb-search-form">
+
+<div class="tqb-bulk-actions" id="tqb-bulk-actions" style="display: none;">
+<span class="tqb-selected-count" id="tqb-selected-count">0 selected</span>
+<select name="bulk_action" id="tqb-bulk-action-select" class="tqb-bulk-select">
+<option value="">Bulk Actions</option>
+<option value="delete">Delete Selected</option>
+</select>
+<button type="button" class="tqb-bulk-apply-btn" id="tqb-bulk-apply-btn">
+Apply
+</button>
+</div>
+</div>
+
+<form method="get" action="" class="tqb-search-form">
 			<input type="hidden" name="page" value="tqb-settings" />
 			<input type="hidden" name="tab" value="submissions" />
 			<?php if ( $status_filter ) : ?>
@@ -930,6 +998,12 @@ function tqb_get_sort_indicator( $column ) {
 					Clear
 				</a>
 			<?php endif; ?>
+		</form>
+
+		<!-- Bulk Delete Form -->
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php?action=tqb_delete_submissions' ) ); ?>" id="tqb-bulk-delete-form" style="display: none;">
+			<?php wp_nonce_field( 'tqb_delete_submissions', 'tqb_delete_nonce' ); ?>
+			<div id="tqb-bulk-ids-container"></div>
 		</form>
 	</div>
 
