@@ -10,30 +10,32 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 ?>
 
+<!-- Page Header -->
+<div class="tqb-page-header">
+	<h1>
+		<span class="dashicons dashicons-admin-settings"></span>
+		General Settings
+	</h1>
+</div>
+
 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 	<?php wp_nonce_field( TQB_Admin::NONCE_ACTION_GENERAL, 'tqb_nonce' ); ?>
 	<input type="hidden" name="action" value="tqb_save_general_settings" />
 
-	<!-- Basic Settings -->
+	<!-- Basic Settings Card -->
 	<div class="tqb-card">
-		<div class="tqb-card-header">
-			<h2>
-				<span class="dashicons dashicons-admin-generic"></span>
-				Basic Settings
-			</h2>
-		</div>
-		<div class="tqb-card-body">
-			<table class="tqb-form-table">
+		<div class="tqb-card-body" style="padding: 0;">
+			<table class="tqb-form-table" style="margin: 0;">
 				<tr>
-					<th scope="row"><label for="tqb_disclaimer_text">Proposal Disclaimer</label></th>
-					<td>
+					<th scope="row" style="padding: 20px 24px; width: 200px;"><label for="tqb_disclaimer_text">Proposal Disclaimer</label></th>
+					<td style="padding: 20px 24px 20px 0;">
 						<textarea id="tqb_disclaimer_text" name="disclaimer_text" rows="4" style="width:100%; max-width:500px;"><?php echo esc_textarea( $disclaimer_text ); ?></textarea>
 						<p class="tqb-description">Shown prominently on every instant-proposal screen, per the client's request.</p>
 					</td>
 				</tr>
-				<tr>
-					<th scope="row"><label for="tqb_scheduling_link">Scheduling Link</label></th>
-					<td>
+				<tr style="background: #f8fafc;">
+					<th scope="row" style="padding: 20px 24px;"><label for="tqb_scheduling_link">Scheduling Link</label></th>
+					<td style="padding: 20px 24px 20px 0;">
 						<input type="url" id="tqb_scheduling_link" name="scheduling_link" style="width:100%; max-width:400px;"
 							value="<?php echo esc_attr( $scheduling_link ); ?>" placeholder="https://calendly.com/..." />
 						<p class="tqb-description">
@@ -45,8 +47,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 					</td>
 				</tr>
 				<tr>
-					<th scope="row"><label for="tqb_notification_email">Team Notification Email</label></th>
-					<td>
+					<th scope="row" style="padding: 20px 24px;"><label for="tqb_notification_email">Team Notification Email</label></th>
+					<td style="padding: 20px 24px 20px 0;">
 						<input type="email" id="tqb_notification_email" name="notification_email" style="width:100%; max-width:300px;"
 							value="<?php echo esc_attr( $notification_email ); ?>" />
 						<p class="tqb-description">Every submission sends a notification here.</p>
@@ -56,24 +58,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 		</div>
 	</div>
 
-	<!-- HubSpot Integration -->
+	<!-- HubSpot Integration Card -->
 	<div class="tqb-card">
-		<div class="tqb-card-header">
-			<h2>
-				<span class="dashicons dashicons-rest-api"></span>
-				HubSpot Integration
-			</h2>
-		</div>
-		<div class="tqb-card-body">
-			<div class="tqb-alert tqb-alert-info">
+		<div class="tqb-card-body" style="padding: 0;">
+			<div class="tqb-alert tqb-alert-info" style="border-radius: 0; border-left: none; border-right: none; border-top: none; margin: 0;">
 				<span class="dashicons dashicons-info"></span>
 				<div>Every submission automatically creates/updates a HubSpot contact and creates an associated deal. Leave the Service Key blank to disable this (submissions will still save and email normally).</div>
 			</div>
 
-			<table class="tqb-form-table">
+			<table class="tqb-form-table" style="margin: 0;">
 				<tr>
-					<th scope="row"><label for="tqb_hubspot_service_key">HubSpot Service Key</label></th>
-					<td>
+					<th scope="row" style="padding: 20px 24px; width: 200px;"><label for="tqb_hubspot_service_key">HubSpot Service Key</label></th>
+					<td style="padding: 20px 24px 20px 0;">
 						<input type="password" id="tqb_hubspot_service_key" name="hubspot_service_key" style="width:100%; max-width:400px;"
 							value="<?php echo esc_attr( $hubspot_service_key ); ?>" autocomplete="off" />
 						<p class="tqb-description">
@@ -86,9 +82,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 						</p>
 					</td>
 				</tr>
-				<tr>
-					<th scope="row"><label for="tqb_hubspot_pipeline_select">Deal Pipeline</label></th>
-					<td>
+				<tr style="background: #f8fafc;">
+					<th scope="row" style="padding: 20px 24px;"><label for="tqb_hubspot_pipeline_select">Deal Pipeline</label></th>
+					<td style="padding: 20px 24px 20px 0;">
 						<button type="button" id="tqb-refresh-pipelines" class="tqb-btn tqb-btn-secondary" style="margin-bottom: 12px;">
 							<span class="dashicons dashicons-update" style="font-size:16px;"></span>
 							Refresh from HubSpot
@@ -103,8 +99,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 					</td>
 				</tr>
 				<tr>
-					<th scope="row"><label for="tqb_hubspot_stage_new_select">Stage — Instant Quote</label></th>
-					<td>
+					<th scope="row" style="padding: 20px 24px;"><label for="tqb_hubspot_stage_new_select">Stage — Instant Quote</label></th>
+					<td style="padding: 20px 24px 20px 0;">
 						<select id="tqb_hubspot_stage_new_select" style="width:100%; max-width:350px;" disabled>
 							<option value="">— Select a pipeline first —</option>
 						</select>
@@ -112,9 +108,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 						<p class="tqb-description">Stage for deals where a price was calculated instantly.</p>
 					</td>
 				</tr>
-				<tr>
-					<th scope="row"><label for="tqb_hubspot_stage_custom_select">Stage — Custom Quote</label></th>
-					<td>
+				<tr style="background: #f8fafc;">
+					<th scope="row" style="padding: 20px 24px;"><label for="tqb_hubspot_stage_custom_select">Stage — Custom Quote</label></th>
+					<td style="padding: 20px 24px 20px 0;">
 						<select id="tqb_hubspot_stage_custom_select" style="width:100%; max-width:350px;" disabled>
 							<option value="">— Select a pipeline first —</option>
 						</select>
@@ -126,24 +122,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 		</div>
 	</div>
 
-	<!-- Abandoned Quote Follow-Up -->
+	<!-- Abandoned Quote Follow-Up Card -->
 	<div class="tqb-card">
-		<div class="tqb-card-header">
-			<h2>
-				<span class="dashicons dashicons-email-alt"></span>
-				Abandoned Quote Follow-Up
-			</h2>
-		</div>
-		<div class="tqb-card-body">
-			<div class="tqb-alert tqb-alert-info">
+		<div class="tqb-card-body" style="padding: 0;">
+			<div class="tqb-alert tqb-alert-info" style="border-radius: 0; border-left: none; border-right: none; border-top: none; margin: 0;">
 				<span class="dashicons dashicons-info"></span>
 				<div>When someone starts a quote but doesn't finish, automated emails will encourage them to complete it.</div>
 			</div>
 
-			<table class="tqb-form-table">
+			<table class="tqb-form-table" style="margin: 0;">
 				<tr>
-					<th scope="row">Enable Follow-Up</th>
-					<td>
+					<th scope="row" style="padding: 20px 24px; width: 200px;">Enable Follow-Up</th>
+					<td style="padding: 20px 24px 20px 0;">
 						<label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
 							<input type="checkbox" id="tqb_enable_abandoned_emails" name="enable_abandoned_emails" value="1" <?php checked( $enable_abandoned_emails, '1' ); ?> />
 							<span>Send follow-up emails to incomplete quotes</span>
@@ -153,53 +143,55 @@ if ( ! defined( 'ABSPATH' ) ) {
 				</tr>
 			</table>
 
-			<h3 class="tqb-section-title" style="font-size:14px; border-bottom:none; padding-bottom:0; margin-top:24px;">
-				<span class="dashicons dashicons-clock" style="font-size:16px;"></span>
-				Email Timing
-			</h3>
+			<div style="padding: 0 24px 24px;">
+				<h3 class="tqb-section-title" style="font-size:14px; border-bottom:none; padding-bottom:0; margin-top:0;">
+					<span class="dashicons dashicons-clock" style="font-size:16px;"></span>
+					Email Timing
+				</h3>
 
-			<table class="tqb-form-table" style="max-width:500px;">
-				<tr>
-					<th scope="row" style="width:160px;"><label for="tqb_reminder_email_hours">Reminder Email</label></th>
-					<td>
-						<div style="display:flex; align-items:center; gap:12px;">
-							<input type="number" id="tqb_reminder_email_hours" name="reminder_email_hours" 
-								value="<?php echo esc_attr( $reminder_email_hours ); ?>" min="1" max="720" style="width:80px;" />
-							<span style="color:#64748b;">hours after abandoning</span>
-						</div>
-						<p class="tqb-description">"You didn't finish your quote — here's a quick link to continue."</p>
-					</td>
-				</tr>
-				<tr>
-					<th scope="row"><label for="tqb_followup_email_hours">Follow-Up Email</label></th>
-					<td>
-						<div style="display:flex; align-items:center; gap:12px;">
-							<input type="number" id="tqb_followup_email_hours" name="followup_email_hours" 
-								value="<?php echo esc_attr( $followup_email_hours ); ?>" min="1" max="720" style="width:80px;" />
-							<span style="color:#64748b;">hours after abandoning</span>
-						</div>
-						<p class="tqb-description">"Need help? Schedule a call with our team."</p>
-					</td>
-				</tr>
-				<tr>
-					<th scope="row"><label for="tqb_final_email_hours">Final Email</label></th>
-					<td>
-						<div style="display:flex; align-items:center; gap:12px;">
-							<input type="number" id="tqb_final_email_hours" name="final_email_hours" 
-								value="<?php echo esc_attr( $final_email_hours ); ?>" min="1" max="720" style="width:80px;" />
-							<span style="color:#64748b;">hours after abandoning</span>
-						</div>
-						<p class="tqb-description">"Last chance — tax deadlines are approaching."</p>
-					</td>
-				</tr>
-			</table>
+				<table class="tqb-form-table" style="max-width:500px; margin-top: 16px;">
+					<tr>
+						<th scope="row" style="padding: 12px 0; width:160px;"><label for="tqb_reminder_email_hours">Reminder Email</label></th>
+						<td style="padding: 12px 0;">
+							<div style="display:flex; align-items:center; gap:12px;">
+								<input type="number" id="tqb_reminder_email_hours" name="reminder_email_hours" 
+									value="<?php echo esc_attr( $reminder_email_hours ); ?>" min="1" max="720" style="width:80px;" />
+								<span style="color:#64748b;">hours after abandoning</span>
+							</div>
+							<p class="tqb-description">"You didn't finish your quote — here's a quick link to continue."</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row" style="padding: 12px 0;"><label for="tqb_followup_email_hours">Follow-Up Email</label></th>
+						<td style="padding: 12px 0;">
+							<div style="display:flex; align-items:center; gap:12px;">
+								<input type="number" id="tqb_followup_email_hours" name="followup_email_hours" 
+									value="<?php echo esc_attr( $followup_email_hours ); ?>" min="1" max="720" style="width:80px;" />
+								<span style="color:#64748b;">hours after abandoning</span>
+							</div>
+							<p class="tqb-description">"Need help? Schedule a call with our team."</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row" style="padding: 12px 0;"><label for="tqb_final_email_hours">Final Email</label></th>
+						<td style="padding: 12px 0;">
+							<div style="display:flex; align-items:center; gap:12px;">
+								<input type="number" id="tqb_final_email_hours" name="final_email_hours" 
+									value="<?php echo esc_attr( $final_email_hours ); ?>" min="1" max="720" style="width:80px;" />
+								<span style="color:#64748b;">hours after abandoning</span>
+							</div>
+							<p class="tqb-description">"Last chance — tax deadlines are approaching."</p>
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<div style="padding: 20px 24px; border-top: 1px solid #e2e8f0; background: #f8fafc;">
+				<button type="submit" class="tqb-btn tqb-btn-primary">
+					<span class="dashicons dashicons-saved" style="font-size:18px;"></span>
+					Save Settings
+				</button>
+			</div>
 		</div>
-	</div>
-
-	<div class="tqb-submit">
-		<button type="submit" class="tqb-btn tqb-btn-primary">
-			<span class="dashicons dashicons-saved" style="font-size:18px;"></span>
-			Save Settings
-		</button>
 	</div>
 </form>

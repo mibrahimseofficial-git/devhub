@@ -11,16 +11,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 ?>
 
-<!-- Rate Reference -->
+<!-- Page Header -->
+<div class="tqb-page-header">
+	<h1>
+		<span class="dashicons dashicons-money-alt"></span>
+		Business Pricing
+	</h1>
+</div>
+
+<!-- Rate Reference Card -->
 <div class="tqb-card">
-	<div class="tqb-card-header">
-		<h2>
-			<span class="dashicons dashicons-money-alt"></span>
-			Rate Reference — Asset Bands
-		</h2>
-	</div>
-	<div class="tqb-card-body">
-		<div class="tqb-alert tqb-alert-info">
+	<div class="tqb-card-body" style="padding: 0;">
+		<div class="tqb-alert tqb-alert-info" style="border-radius: 0; border-left: none; border-right: none; border-top: none; margin: 0;">
 			<span class="dashicons dashicons-info"></span>
 			<div>
 				<strong>How it works:</strong> Base fee lookup by business size. Leave a band's price blank to mark it as <strong>Custom</strong> (routes the prospect to a custom-quote request instead of a price — this is currently how the $5M+ bands are configured).
@@ -32,7 +34,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<input type="hidden" name="action" value="tqb_save_rate_bands" />
 
 			<div class="tqb-table-wrapper" style="margin-bottom: 30px;">
-				<table class="tqb-input-table">
+				<table class="tqb-input-table" style="border-radius: 0; box-shadow: none;">
 					<thead>
 						<tr>
 							<th>Asset Band</th>
@@ -73,15 +75,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 				</table>
 			</div>
 
-			<div class="tqb-section">
-				<h3 class="tqb-section-title" style="font-size:14px; border-bottom:none; padding-bottom:0;">
+			<div style="padding: 0 24px 24px;">
+				<h3 class="tqb-section-title" style="font-size:14px; border-bottom:none; padding-bottom:0; margin-bottom:12px;">
 					<span class="dashicons dashicons-plus-alt" style="font-size:16px;"></span>
 					Revenue Add-On
 				</h3>
-				<p class="tqb-description">Added on top of the asset-band price when the return requires Schedule L.</p>
+				<p class="tqb-description" style="margin-bottom:16px;">Added on top of the asset-band price when the return requires Schedule L.</p>
 
-				<div class="tqb-table-wrapper">
-					<table class="tqb-input-table" style="max-width: 400px;">
+				<div class="tqb-table-wrapper" style="max-width: 400px;">
+					<table class="tqb-input-table">
 						<thead>
 							<tr>
 								<th>Revenue Band</th>
@@ -105,7 +107,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 				</div>
 			</div>
 
-			<div class="tqb-submit">
+			<div style="padding: 20px 24px; border-top: 1px solid #e2e8f0; background: #f8fafc;">
 				<button type="submit" class="tqb-btn tqb-btn-primary">
 					<span class="dashicons dashicons-saved" style="font-size:18px;"></span>
 					Save Rate Reference
@@ -122,16 +124,10 @@ $heading    = 'Business Return — Extras (Part B)';
 include TQB_PLUGIN_DIR . 'admin/views/line-items-tab.php';
 ?>
 
-<!-- Schedule L Reference -->
+<!-- Schedule L Reference Card -->
 <div class="tqb-card">
-	<div class="tqb-card-header">
-		<h2>
-			<span class="dashicons dashicons-book" style="opacity:0.7;"></span>
-			Schedule L Threshold (Reference Only)
-		</h2>
-	</div>
-	<div class="tqb-card-body">
-		<div class="tqb-alert tqb-alert-warning">
+	<div class="tqb-card-body" style="padding: 0;">
+		<div class="tqb-alert tqb-alert-warning" style="border-radius: 0; border-left: none; border-right: none; border-top: none; margin: 0;">
 			<span class="dashicons dashicons-warning"></span>
 			<div>
 				When a return qualifies, it gets the flat $999 base fee instead of the asset-band lookup above. This logic is entity-specific and lives in the plugin's pricing engine — contact your developer if changes are needed.
@@ -139,7 +135,7 @@ include TQB_PLUGIN_DIR . 'admin/views/line-items-tab.php';
 		</div>
 
 		<div class="tqb-table-wrapper">
-			<table class="tqb-table">
+			<table class="tqb-table" style="border-radius: 0; box-shadow: none;">
 				<thead>
 					<tr>
 						<th>Entity Type</th>
