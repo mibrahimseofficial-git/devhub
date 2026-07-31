@@ -121,7 +121,7 @@
         }
 
         // Open modal
-        $('.tqb-view-btn').on('click', function() {
+        $('button.tqb-action-btn.view, .tqb-action-btn.view').on('click', function() {
             var id = $(this).data('id');
             $content.html('<div class="tqb-loading"><div class="tqb-loading-spinner"></div>Loading submission details...</div>');
             $modal.fadeIn(200);

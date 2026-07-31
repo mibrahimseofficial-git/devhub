@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Tavola Quote Builder
  * Description: Self-service pricing questionnaire for Individual and Business tax return quotes. Generates instant proposals or routes out-of-range submissions to a custom-quote path.
- * Version: 0.7.1
+ * Version: 0.7.2
  * Author: Sabeeh
  * Text Domain: tavola-quote-builder
  *
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Plugin constants
  */
-define( 'TQB_VERSION', '0.7.1' );
+define( 'TQB_VERSION', '0.7.2' );
 define( 'TQB_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'TQB_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'TQB_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
