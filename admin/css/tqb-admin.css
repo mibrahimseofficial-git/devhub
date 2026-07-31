@@ -1,0 +1,375 @@
+/**
+ * Tavola Quote Builder — Admin Shared Styles
+ * Professional Dashboard Design System
+ */
+
+/* Page Header */
+.tqb-page-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 24px;
+	padding-bottom: 20px;
+	border-bottom: 1px solid #e2e8f0;
+}
+
+.tqb-page-header h1 {
+	margin: 0;
+	font-size: 24px;
+	font-weight: 600;
+	color: #1e293b;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.tqb-page-header h1 .dashicons {
+	font-size: 28px;
+	width: 32px;
+	height: 32px;
+	color: #001a44;
+}
+
+/* Cards */
+.tqb-card {
+	background: #fff;
+	border-radius: 12px;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+	border: 1px solid #e2e8f0;
+	overflow: hidden;
+	margin-bottom: 24px;
+}
+
+.tqb-card-header {
+	padding: 20px 24px;
+	background: linear-gradient(135deg, #001a44 0%, #0f3d7a 100%);
+	color: #fff;
+}
+
+.tqb-card-header h2 {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 600;
+	color: #fff;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.tqb-card-header h2 .dashicons {
+	font-size: 22px;
+	width: 22px;
+	height: 22px;
+}
+
+.tqb-card-body {
+	padding: 24px;
+}
+
+/* Section Headers */
+.tqb-section-title {
+	font-size: 16px;
+	font-weight: 600;
+	color: #1e293b;
+	margin-bottom: 16px;
+	padding-bottom: 10px;
+	border-bottom: 2px solid #001a44;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.tqb-section-title .dashicons {
+	font-size: 20px;
+	width: 20px;
+	height: 20px;
+	color: #001a44;
+}
+
+/* Info Cards */
+.tqb-info-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 16px;
+}
+
+.tqb-info-grid-3 {
+	grid-template-columns: repeat(3, 1fr);
+}
+
+.tqb-info-card {
+	background: #f8fafc;
+	padding: 16px 20px;
+	border-radius: 10px;
+	border-left: 4px solid #001a44;
+}
+
+.tqb-info-card.full {
+	grid-column: 1 / -1;
+}
+
+.tqb-info-label {
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: #64748b;
+	margin-bottom: 6px;
+}
+
+.tqb-info-value {
+	font-size: 15px;
+	font-weight: 600;
+	color: #1e293b;
+}
+
+.tqb-info-value a {
+	color: #001a44;
+	text-decoration: none;
+}
+
+/* Badges */
+.tqb-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 4px 10px;
+	border-radius: 20px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: capitalize;
+}
+
+.tqb-badge.individual {
+	background: #ede9fe;
+	color: #5b21b6;
+}
+
+.tqb-badge.business {
+	background: #dbeafe;
+	color: #1e40af;
+}
+
+.tqb-status-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 4px 10px;
+	border-radius: 20px;
+	font-size: 11px;
+	font-weight: 600;
+}
+
+.tqb-status-badge .dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	margin-right: 6px;
+}
+
+.tqb-status-badge.completed { background: #dcfce7; color: #166534; }
+.tqb-status-badge.completed .dot { background: #22c55e; }
+.tqb-status-badge.in_progress { background: #fef3c7; color: #92400e; }
+.tqb-status-badge.in_progress .dot { background: #f59e0b; }
+.tqb-status-badge.abandoned { background: #fee2e2; color: #991b1b; }
+.tqb-status-badge.abandoned .dot { background: #ef4444; }
+
+/* Tables */
+.tqb-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 14px;
+}
+
+.tqb-table thead {
+	background: #f8fafc;
+}
+
+.tqb-table th {
+	padding: 14px 16px;
+	text-align: left;
+	font-weight: 600;
+	font-size: 12px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: #64748b;
+	border-bottom: 2px solid #e2e8f0;
+}
+
+.tqb-table td {
+	padding: 14px 16px;
+	border-bottom: 1px solid #f1f5f9;
+}
+
+.tqb-table tbody tr:hover {
+	background: #f8fafc;
+}
+
+/* Input Tables */
+.tqb-input-table {
+	width: 100%;
+	border-collapse: collapse;
+	background: #fff;
+	border-radius: 10px;
+	overflow: hidden;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.tqb-input-table th {
+	text-align: left;
+	padding: 14px 16px;
+	background: #f8fafc;
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: #64748b;
+	border-bottom: 2px solid #e2e8f0;
+}
+
+.tqb-input-table td {
+	padding: 12px 16px;
+	border-bottom: 1px solid #f1f5f9;
+}
+
+.tqb-input-table tbody tr:hover {
+	background: #f8fafc;
+}
+
+.tqb-input-table input[type="text"],
+.tqb-input-table input[type="number"],
+.tqb-input-table textarea,
+.tqb-input-table select {
+	padding: 8px 12px;
+	border: 1px solid #e2e8f0;
+	border-radius: 6px;
+	font-size: 13px;
+	width: 100%;
+}
+
+.tqb-input-table input:focus,
+.tqb-input-table textarea:focus,
+.tqb-input-table select:focus {
+	outline: none;
+	border-color: #001a44;
+	box-shadow: 0 0 0 2px rgba(0,26,68,0.1);
+}
+
+.tqb-input-table input[type="checkbox"] {
+	width: 18px;
+	height: 18px;
+}
+
+/* Form Elements */
+.tqb-form-row {
+	display: flex;
+	gap: 24px;
+	margin-bottom: 20px;
+}
+
+.tqb-form-group {
+	flex: 1;
+}
+
+.tqb-form-group label {
+	display: block;
+	font-size: 13px;
+	font-weight: 600;
+	color: #374151;
+	margin-bottom: 6px;
+}
+
+.tqb-form-group input,
+.tqb-form-group textarea,
+.tqb-form-group select {
+	width: 100%;
+	padding: 10px 14px;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	font-size: 14px;
+}
+
+.tqb-form-group input:focus,
+.tqb-form-group textarea:focus,
+.tqb-form-group select:focus {
+	outline: none;
+	border-color: #001a44;
+	box-shadow: 0 0 0 3px rgba(0,26,68,0.1);
+}
+
+.tqb-description {
+	margin-top: 6px;
+	font-size: 12px;
+	color: #64748b;
+}
+
+/* Buttons */
+.tqb-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 10px 20px;
+	border-radius: 8px;
+	font-size: 14px;
+	font-weight: 600;
+	border: none;
+	cursor: pointer;
+	text-decoration: none;
+	transition: all 0.2s;
+}
+
+.tqb-btn-primary {
+	background: #001a44;
+	color: #fff;
+}
+
+.tqb-btn-primary:hover {
+	background: #0f3d7a;
+}
+
+.tqb-btn-secondary {
+	background: #f1f5f9;
+	color: #475569;
+}
+
+.tqb-btn-secondary:hover {
+	background: #e2e8f0;
+}
+
+/* Alerts */
+.tqb-alert {
+	padding: 16px 20px;
+	border-radius: 8px;
+	margin-bottom: 20px;
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+}
+
+.tqb-alert-info {
+	background: #f0f9ff;
+	border-left: 4px solid #0284c7;
+	color: #0369a1;
+}
+
+.tqb-alert-success {
+	background: #f0fdf4;
+	border-left: 4px solid #22c55e;
+	color: #15803d;
+}
+
+.tqb-alert-warning {
+	background: #fffbeb;
+	border-left: 4px solid #d97706;
+	color: #b45309;
+}
+
+@media (max-width: 768px) {
+	.tqb-info-grid,
+	.tqb-info-grid-3 {
+		grid-template-columns: 1fr;
+	}
+	
+	.tqb-form-row {
+		flex-direction: column;
+	}
+}
