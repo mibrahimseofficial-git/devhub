@@ -243,14 +243,20 @@
         // Bulk delete functionality
         function updateBulkActionsUI() {
             var selectedCount = $('.tqb-delete-checkbox:checked').length;
-            var $bulkActions = $('#tqb-bulk-actions');
+            var $bulkBar = $('#tqb-bulk-bar');
+            var $bulkBarRight = $('#tqb-bulk-bar-right');
             var $selectedCount = $('#tqb-selected-count');
+            var $selectedNumber = $('#tqb-selected-number');
             
             if (selectedCount > 0) {
-                $bulkActions.show();
-                $selectedCount.text(selectedCount + ' selected');
+                $bulkBar.addClass('visible');
+                $bulkBarRight.show();
+                $selectedCount.show();
+                $selectedNumber.text(selectedCount);
             } else {
-                $bulkActions.hide();
+                $bulkBar.removeClass('visible');
+                $bulkBarRight.hide();
+                $selectedCount.hide();
             }
         }
 
@@ -294,6 +300,9 @@
                 // Get all selected IDs and populate the hidden form
                 var $idsContainer = $('#tqb-bulk-ids-container');
                 $idsContainer.empty();
+                
+                // Add bulk_action as a hidden field
+                $idsContainer.append('<input type="hidden" name="bulk_action" value="delete" />');
                 
                 $('.tqb-delete-checkbox:checked').each(function() {
                     $idsContainer.append('<input type="hidden" name="delete_ids[]" value="' + $(this).val() + '" />');

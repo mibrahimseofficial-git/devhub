@@ -181,61 +181,6 @@ function tqb_get_sort_indicator( $column ) {
 	gap: 16px;
 }
 
-.tqb-toolbar-left {
-	display: flex;
-	align-items: center;
-	gap: 20px;
-	flex-wrap: wrap;
-}
-
-.tqb-bulk-actions {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	padding: 8px 16px;
-	background: #fef2f2;
-	border: 1px solid #fecaca;
-	border-radius: 8px;
-}
-
-.tqb-selected-count {
-	font-size: 13px;
-	font-weight: 600;
-	color: #dc2626;
-	white-space: nowrap;
-}
-
-.tqb-bulk-select {
-	padding: 6px 12px;
-	border-radius: 6px;
-	border: 1px solid #e2e8f0;
-	font-size: 13px;
-	background: #fff;
-	cursor: pointer;
-	min-width: 140px;
-}
-
-.tqb-bulk-select:focus {
-	outline: none;
-	border-color: #001a44;
-}
-
-.tqb-bulk-apply-btn {
-	padding: 6px 16px;
-	border-radius: 6px;
-	font-size: 13px;
-	font-weight: 500;
-	background: #dc2626;
-	color: #fff;
-	border: none;
-	cursor: pointer;
-	transition: background-color 0.2s;
-}
-
-.tqb-bulk-apply-btn:hover {
-	background: #b91c1c;
-}
-
 .tqb-filters {
 	display: flex;
 	gap: 8px;
@@ -509,6 +454,75 @@ function tqb_get_sort_indicator( $column ) {
 .tqb-action-btn.delete:hover {
 	background: #dc2626;
 	color: #fff;
+}
+
+/* Bulk Actions Bar */
+.tqb-bulk-bar {
+	display: none;
+	justify-content: space-between;
+	align-items: center;
+	padding: 12px 24px;
+	background: #fef2f2;
+	border-top: 1px solid #fecaca;
+}
+
+.tqb-bulk-bar.visible {
+	display: flex;
+}
+
+.tqb-bulk-bar-left {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.tqb-bulk-select-label {
+	font-size: 13px;
+	font-weight: 500;
+	color: #475569;
+}
+
+.tqb-selected-count {
+	font-size: 13px;
+	font-weight: 600;
+	color: #dc2626;
+}
+
+.tqb-bulk-bar-right {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.tqb-bulk-select {
+	padding: 6px 12px;
+	border-radius: 6px;
+	border: 1px solid #e2e8f0;
+	font-size: 13px;
+	background: #fff;
+	cursor: pointer;
+	min-width: 140px;
+}
+
+.tqb-bulk-select:focus {
+	outline: none;
+	border-color: #001a44;
+}
+
+.tqb-bulk-apply-btn {
+	padding: 6px 16px;
+	border-radius: 6px;
+	font-size: 13px;
+	font-weight: 500;
+	background: #dc2626;
+	color: #fff;
+	border: none;
+	cursor: pointer;
+	transition: background-color 0.2s;
+}
+
+.tqb-bulk-apply-btn:hover {
+	background: #b91c1c;
 }
 
 /* Pagination */
@@ -1130,6 +1144,30 @@ Apply
 				</tbody>
 			</table>
 		</div>
+
+		<!-- Bulk Actions Bar -->
+		<div class="tqb-bulk-bar" id="tqb-bulk-bar">
+			<div class="tqb-bulk-bar-left">
+				<input type="checkbox" id="tqb-select-all" style="cursor: pointer;" />
+				<span class="tqb-bulk-select-label">Select All</span>
+				<span class="tqb-selected-count" id="tqb-selected-count" style="display: none;">(<span id="tqb-selected-number">0</span> selected)</span>
+			</div>
+			<div class="tqb-bulk-bar-right" id="tqb-bulk-bar-right" style="display: none;">
+				<select name="bulk_action" id="tqb-bulk-action-select" class="tqb-bulk-select">
+					<option value="">Bulk Actions</option>
+					<option value="delete">Delete Selected</option>
+				</select>
+				<button type="button" class="tqb-bulk-apply-btn" id="tqb-bulk-apply-btn">
+					Apply
+				</button>
+			</div>
+		</div>
+
+		<!-- Bulk Delete Form -->
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php?action=tqb_delete_submissions' ) ); ?>" id="tqb-bulk-delete-form" style="display: none;">
+			<?php wp_nonce_field( 'tqb_delete_submissions', 'tqb_delete_nonce' ); ?>
+			<div id="tqb-bulk-ids-container"></div>
+		</form>
 
 		<!-- Pagination -->
 		<div class="tqb-pagination">
