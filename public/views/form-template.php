@@ -21,10 +21,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<div class="tqb-wizard__header">
 			<div class="tqb-progress" aria-hidden="true">
 				<span class="tqb-progress__step is-active" data-step-indicator="1"><span>1</span><em>Return Type</em></span>
-				<span class="tqb-progress__step" data-step-indicator="2"><span>2</span><em>Your Info</em></span>
-				<span class="tqb-progress__step" data-step-indicator="3"><span>3</span><em>Details</em></span>
-				<span class="tqb-progress__step" data-step-indicator="4"><span>4</span><em>Review</em></span>
-				<span class="tqb-progress__step" data-step-indicator="5"><span>5</span><em>Your Quote</em></span>
+				<span class="tqb-progress__step" data-step-indicator="2"><span>2</span><em>Filing Status</em></span>
+				<span class="tqb-progress__step" data-step-indicator="3"><span>3</span><em>Your Info</em></span>
+				<span class="tqb-progress__step" data-step-indicator="4"><span>4</span><em>Details</em></span>
+				<span class="tqb-progress__step" data-step-indicator="5"><span>5</span><em>Review</em></span>
+				<span class="tqb-progress__step" data-step-indicator="6"><span>6</span><em>Your Quote</em></span>
 			</div>
 			<button type="button" class="tqb-reset-link" data-action="reset-all">Start Over</button>
 		</div>
@@ -57,8 +58,50 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</div>
 		</section>
 
-		<!-- Step 2: Contact info -->
-		<section class="tqb-step" data-step="2" hidden>
+		<!-- Step 2: Filing Status (Individual only) -->
+		<section class="tqb-step" data-step="2" hidden id="tqb-filing-status-step">
+			<h2 class="tqb-step__title">What's your filing status?</h2>
+			<p class="tqb-step__subtitle">This helps us calculate the correct price for your return.</p>
+
+			<div class="tqb-filing-status-choice">
+				<label class="tqb-filing-status-card" for="tqb-filing-single">
+					<input type="radio" id="tqb-filing-single" name="filing_status" value="single" class="tqb-filing-status-radio" />
+					<span class="tqb-filing-status-label">
+						<span class="tqb-filing-status-title">Single</span>
+						<span class="tqb-filing-status-price">$500</span>
+					</span>
+				</label>
+				<label class="tqb-filing-status-card" for="tqb-filing-mfj">
+					<input type="radio" id="tqb-filing-mfj" name="filing_status" value="mfj" class="tqb-filing-status-radio" />
+					<span class="tqb-filing-status-label">
+						<span class="tqb-filing-status-title">Married Filing Jointly</span>
+						<span class="tqb-filing-status-price">$700</span>
+					</span>
+				</label>
+				<label class="tqb-filing-status-card" for="tqb-filing-mfs">
+					<input type="radio" id="tqb-filing-mfs" name="filing_status" value="mfs" class="tqb-filing-status-radio" />
+					<span class="tqb-filing-status-label">
+						<span class="tqb-filing-status-title">Married Filing Separately</span>
+						<span class="tqb-filing-status-price">$800</span>
+					</span>
+				</label>
+				<label class="tqb-filing-status-card" for="tqb-filing-hoh">
+					<input type="radio" id="tqb-filing-hoh" name="filing_status" value="hoh" class="tqb-filing-status-radio" />
+					<span class="tqb-filing-status-label">
+						<span class="tqb-filing-status-title">Head of Household</span>
+						<span class="tqb-filing-status-price">$650</span>
+					</span>
+				</label>
+			</div>
+
+			<div class="tqb-step__nav">
+				<button type="button" class="tqb-btn tqb-btn--ghost" data-action="back">Back</button>
+				<button type="button" class="tqb-btn tqb-btn--primary" data-action="to-contact" disabled>Continue</button>
+			</div>
+		</section>
+
+		<!-- Step 3: Contact info (was step 2) -->
+		<section class="tqb-step" data-step="3" hidden>
 			<h2 class="tqb-step__title">Your Information</h2>
 			<p class="tqb-step__subtitle">We'll send your quote and a confirmation here.</p>
 
@@ -81,8 +124,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</div>
 		</section>
 
-		<!-- Step 3: Questions (built by JS — supports personal + multiple businesses) -->
-		<section class="tqb-step" data-step="3" hidden>
+		<!-- Step 4: Questions (built by JS — supports personal + multiple businesses) -->
+		<section class="tqb-step" data-step="4" hidden>
 			<div id="tqb-question-sections">
 				<!-- Populated by JS: one section per selected type (personal, business 1, business 2, etc.) -->
 			</div>
@@ -99,8 +142,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</div>
 		</section>
 
-		<!-- Step 4: Review (new, per client feedback — see all answers before submitting) -->
-		<section class="tqb-step" data-step="4" hidden>
+		<!-- Step 5: Review (new, per client feedback — see all answers before submitting) -->
+		<section class="tqb-step" data-step="5" hidden>
 			<h2 class="tqb-step__title">Review your answers</h2>
 			<p class="tqb-step__subtitle">Double-check everything below, then submit when you're ready.</p>
 
@@ -119,8 +162,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<p class="tqb-error" id="tqb-form-error" role="alert" hidden></p>
 		</section>
 
-		<!-- Step 5: Result -->
-		<section class="tqb-step" data-step="5" hidden>
+		<!-- Step 6: Result -->
+		<section class="tqb-step" data-step="6" hidden>
 			<div id="tqb-result-content">
 				<!-- Populated by JS: either the instant proposal or the custom-quote message -->
 			</div>

@@ -231,6 +231,95 @@ if ( ! defined( 'ABSPATH' ) ) {
 				</button>
 			</div>
 
+			<?php if ( 'individual' === $quote_type && ! empty( $overrides ) ) : ?>
+				<!-- Filing Status Overrides Section -->
+				<div class="tqb-card" style="margin-top: 30px;">
+					<div class="tqb-card-header">
+						<h2>
+							<span class="dashicons dashicons-admin-network"></span>
+							Filing Status Overrides
+						</h2>
+					</div>
+					<div class="tqb-card-body">
+						<div class="tqb-alert tqb-alert-info">
+							<span class="dashicons dashicons-info"></span>
+							<div>
+								<strong>Customize per filing status:</strong> Click on a question below to edit how it appears for different filing statuses (Single, MFJ, MFS, HOH). You can override the label, fee, and visibility for each status.
+							</div>
+						</div>
+
+						<div class="tqb-filing-status-overrides">
+							<?php foreach ( $items as $item ) : ?>
+								<div class="tqb-filing-status-item" data-item-id="<?php echo esc_attr( $item['id'] ); ?>">
+									<div class="tqb-filing-status-header" onclick="tqbToggleFilingStatusOverrides(event, <?php echo esc_attr( $item['id'] ); ?>)">
+										<span class="tqb-toggle-icon">▶</span>
+										<strong><?php echo esc_html( $item['label'] ); ?></strong>
+										<span class="tqb-item-key"><?php echo esc_html( $item['item_key'] ); ?></span>
+									</div>
+
+									<div class="tqb-filing-status-content" style="display: none;">
+										<?php foreach ( $filing_statuses as $status ) : ?>
+											<?php 
+												$override = isset( $overrides[ $item['id'] ][ $status ] ) ? $overrides[ $item['id'] ][ $status ] : array();
+												$status_label = $filing_status_labels[ $status ];
+											?>
+											<div class="tqb-filing-status-row">
+												<div class="tqb-status-label">
+													<strong><?php echo esc_html( $status_label ); ?></strong>
+												</div>
+
+												<div class="tqb-status-fields">
+													<div class="tqb-field-group">
+														<label>Label Override</label>
+														<input type="text" 
+															class="tqb-override-label" 
+															data-item-id="<?php echo esc_attr( $item['id'] ); ?>"
+															data-status="<?php echo esc_attr( $status ); ?>"
+															value="<?php echo isset( $override['override_label'] ) && $override['override_label'] ? esc_attr( $override['override_label'] ) : '(use base)'; ?>"
+															placeholder="(use base label)" />
+													</div>
+
+													<div class="tqb-field-group">
+														<label>Fee Override ($)</label>
+														<input type="number" 
+															step="0.01"
+															class="tqb-override-fee" 
+															data-item-id="<?php echo esc_attr( $item['id'] ); ?>"
+															data-status="<?php echo esc_attr( $status ); ?>"
+															value="<?php echo isset( $override['override_fee'] ) && $override['override_fee'] !== null ? esc_attr( $override['override_fee'] ) : ''; ?>"
+															placeholder="(use base fee)" />
+													</div>
+
+													<div class="tqb-field-group">
+														<label style="display: flex; align-items: center; gap: 8px;">
+															<input type="checkbox" 
+																class="tqb-override-hidden" 
+																data-item-id="<?php echo esc_attr( $item['id'] ); ?>"
+																data-status="<?php echo esc_attr( $status ); ?>"
+																<?php checked( isset( $override['is_hidden'] ) && $override['is_hidden'] ); ?> />
+															<span>Hide for this filing status</span>
+														</label>
+													</div>
+
+													<button type="button" 
+														class="tqb-btn tqb-btn-sm tqb-btn-secondary tqb-save-override"
+														data-item-id="<?php echo esc_attr( $item['id'] ); ?>"
+														data-status="<?php echo esc_attr( $status ); ?>"
+														onclick="tqbSaveFilingStatusOverride(event, <?php echo esc_attr( $item['id'] ); ?>, '<?php echo esc_attr( $status ); ?>')">
+														<span class="dashicons dashicons-yes" style="font-size: 14px;"></span>
+														Save Override
+													</button>
+												</div>
+											</div>
+										<?php endforeach; ?>
+									</div>
+								</div>
+							<?php endforeach; ?>
+						</div>
+					</div>
+				</div>
+			<?php endif; ?>
+
 			<div class="tqb-submit">
 				<button type="submit" class="tqb-btn tqb-btn-primary">
 					<span class="dashicons dashicons-saved" style="font-size:18px;"></span>
@@ -935,6 +1024,134 @@ if ( ! defined( 'ABSPATH' ) ) {
 		}
 	}
 
+	/* Filing Status Overrides Styling */
+	.tqb-filing-status-overrides {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.tqb-filing-status-item {
+		border: 1px solid #e5e7eb;
+		border-radius: 6px;
+		overflow: hidden;
+	}
+
+	.tqb-filing-status-header {
+		background: #f3f4f6;
+		padding: 14px 16px;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		transition: background-color 0.2s;
+		user-select: none;
+	}
+
+	.tqb-filing-status-header:hover {
+		background: #e5e7eb;
+	}
+
+	.tqb-toggle-icon {
+		display: inline-block;
+		width: 16px;
+		transition: transform 0.2s;
+		font-size: 12px;
+		color: #6b7280;
+	}
+
+	.tqb-filing-status-item.expanded .tqb-toggle-icon {
+		transform: rotate(90deg);
+	}
+
+	.tqb-filing-status-header strong {
+		flex: 1;
+		font-size: 14px;
+		color: #111827;
+	}
+
+	.tqb-filing-status-header .tqb-item-key {
+		font-size: 12px;
+		color: #9ca3af;
+	}
+
+	.tqb-filing-status-content {
+		padding: 16px;
+		background: #ffffff;
+		display: flex;
+		flex-direction: column;
+		gap: 24px;
+	}
+
+	.tqb-filing-status-row {
+		display: grid;
+		grid-template-columns: 180px 1fr;
+		gap: 20px;
+		padding-bottom: 20px;
+		border-bottom: 1px solid #e5e7eb;
+	}
+
+	.tqb-filing-status-row:last-child {
+		border-bottom: none;
+		padding-bottom: 0;
+	}
+
+	.tqb-status-label {
+		padding-top: 6px;
+	}
+
+	.tqb-status-label strong {
+		font-size: 13px;
+		color: #374151;
+	}
+
+	.tqb-status-fields {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+		gap: 12px;
+		align-items: flex-start;
+	}
+
+	.tqb-field-group {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.tqb-field-group label {
+		font-size: 12px;
+		font-weight: 500;
+		color: #6b7280;
+	}
+
+	.tqb-field-group input {
+		padding: 6px 8px;
+		border: 1px solid #d1d5db;
+		border-radius: 4px;
+		font-size: 13px;
+	}
+
+	.tqb-field-group input:focus {
+		outline: none;
+		border-color: #2271b1;
+		box-shadow: 0 0 0 2px rgba(34, 113, 177, 0.1);
+	}
+
+	.tqb-save-override {
+		grid-column: 1 / -1;
+		align-self: flex-end;
+	}
+
+	@media (max-width: 768px) {
+		.tqb-filing-status-row {
+			grid-template-columns: 1fr;
+		}
+
+		.tqb-status-fields {
+			grid-template-columns: 1fr;
+		}
+	}
+
 </style>
 
 <script>
@@ -958,6 +1175,92 @@ if ( ! defined( 'ABSPATH' ) ) {
 		});
 	});
 
+	/**
+	 * Toggle filing status overrides accordion
+	 */
+	function tqbToggleFilingStatusOverrides(event, itemId) {
+		event.preventDefault();
+		const item = document.querySelector(`.tqb-filing-status-item[data-item-id="${itemId}"]`);
+		const content = item.querySelector('.tqb-filing-status-content');
+		const isExpanded = item.classList.contains('expanded');
 
+		if (isExpanded) {
+			item.classList.remove('expanded');
+			content.style.display = 'none';
+		} else {
+			item.classList.add('expanded');
+			content.style.display = 'flex';
+		}
+	}
+
+	/**
+	 * Save filing status override via AJAX
+	 */
+	function tqbSaveFilingStatusOverride(event, itemId, status) {
+		event.preventDefault();
+
+		const item = document.querySelector(`.tqb-filing-status-item[data-item-id="${itemId}"]`);
+		const labelInput = item.querySelector(`.tqb-override-label[data-status="${status}"]`);
+		const feeInput = item.querySelector(`.tqb-override-fee[data-status="${status}"]`);
+		const hiddenCheckbox = item.querySelector(`.tqb-override-hidden[data-status="${status}"]`);
+		const button = event.target.closest('.tqb-save-override');
+
+		// Collect data
+		const data = {
+			action: 'tqb_save_filing_status_override',
+			item_id: itemId,
+			status: status,
+			override_label: labelInput.value === '(use base)' ? '' : labelInput.value,
+			override_fee: feeInput.value === '' ? null : parseFloat(feeInput.value),
+			is_hidden: hiddenCheckbox.checked ? 1 : 0,
+			nonce: document.querySelector('input[name="tqb_nonce"]').value,
+		};
+
+		// Show loading state
+		const originalText = button.innerHTML;
+		button.innerHTML = '<span class="dashicons dashicons-update" style="animation: spin 1s linear infinite;"></span> Saving...';
+		button.disabled = true;
+
+		// Send AJAX request
+		fetch(ajaxurl, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded',
+			},
+			body: new URLSearchParams(data).toString(),
+		})
+		.then(response => response.json())
+		.then(result => {
+			if (result.success) {
+				// Show success
+				button.innerHTML = '<span class="dashicons dashicons-saved" style="color: #22c55e;"></span> Saved!';
+				setTimeout(() => {
+					button.innerHTML = originalText;
+					button.disabled = false;
+				}, 1500);
+			} else {
+				// Show error
+				alert('Error saving override: ' + (result.data || 'Unknown error'));
+				button.innerHTML = originalText;
+				button.disabled = false;
+			}
+		})
+		.catch(error => {
+			console.error('Error:', error);
+			alert('Error saving override: ' + error.message);
+			button.innerHTML = originalText;
+			button.disabled = false;
+		});
+	}
+
+	/* Spin animation for loading */
+	const style = document.createElement('style');
+	style.textContent = `
+		@keyframes spin {
+			0% { transform: rotate(0deg); }
+			100% { transform: rotate(360deg); }
+		}
+	`;
+	document.head.appendChild(style);
 
 </script>

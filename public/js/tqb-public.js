@@ -27,7 +27,7 @@
 		return;
 	}
 
-	var STEP = { TYPE: 1, CONTACT: 2, QUESTIONS: 3, REVIEW: 4, RESULT: 5 };
+	var STEP = { TYPE: 1, FILING_STATUS: 2, CONTACT: 3, QUESTIONS: 4, REVIEW: 5, RESULT: 6 };
 
 	// Mirrors the Schedule L thresholds in TQB_Pricing_Engine::calculate_business().
 	var SCHEDULE_L_ASSET_THRESHOLD_C_S_CORP = 250000;
@@ -42,6 +42,7 @@
 		businessFieldsTouched: {}, // Track if business dropdowns have been interacted with
 		completedSteps: [], // Track which steps have been completed
 		partialSubmissionId: null, // ID from partial save
+		selectedFilingStatus: null, // Filing status selection for individual returns
 	};
 
 	var ENTITY_OPTIONS = [
@@ -58,10 +59,11 @@
 		var steps = wizard.querySelectorAll( '.tqb-step' );
 		var stepLabels = {
 			1: 'Return Type Selection',
-			2: 'Contact Information',
-			3: 'Filing Details',
-			4: 'Review Your Quote',
-			5: 'Your Quote Results'
+			2: 'Filing Status Selection',
+			3: 'Contact Information',
+			4: 'Filing Details',
+			5: 'Review Your Quote',
+			6: 'Your Quote Results'
 		};
 
 		steps.forEach( function ( section ) {
@@ -327,11 +329,13 @@
 		state.selectedTypes.forEach( function ( type ) {
 			if ( type === 'business' ) {
 				var bizId = 'tqb-business-' + bizIndex;
+				var nameEl = document.getElementById( bizId + '-name' );
 				var entityEl = document.getElementById( bizId + '-entity' );
 				var assetEl = document.getElementById( bizId + '-assets' );
 				var revenueEl = document.getElementById( bizId + '-revenue' );
 
 				businesses.push( {
+					business_name: nameEl ? nameEl.value : '',
 					entity_type: entityEl ? entityEl.value : '',
 					asset_band: assetEl ? assetEl.value : '',
 					revenue_band: revenueEl ? revenueEl.value : '',
@@ -398,24 +402,86 @@
 			// Build question sections
 			buildQuestionsStep();
 			updateSummaryPanel();
-			goToStep( STEP.CONTACT );
+
+			// If individual selected, show filing status step; otherwise skip to contact
+			if ( state.selectedTypes.includes( 'individual' ) ) {
+				goToStep( STEP.FILING_STATUS );
+			} else {
+				goToStep( STEP.CONTACT );
+			}
 		} );
 	} );
 
-	// ---------------------------------------------------------------------
-	// Step 2 nav
-	// ---------------------------------------------------------------------
+	// ---------------------------------------------------------------
+	// Step 2: Filing Status (Individual only)
+	// ---------------------------------------------------------------
 
+	// Filing status radio buttons
+	document.querySelectorAll( '.tqb-filing-status-radio' ).forEach( function ( radio ) {
+		radio.addEventListener( 'change', function () {
+			state.selectedFilingStatus = this.value;
+			updateFilingStatusStyles();
+			updateSummaryPanel();
+			enableContinueButton();
+		} );
+	} );
+
+	function updateFilingStatusStyles() {
+		document.querySelectorAll( '.tqb-filing-status-card' ).forEach( function ( card ) {
+			var radio = card.querySelector( '.tqb-filing-status-radio' );
+			card.classList.toggle( 'is-selected', radio.checked );
+		} );
+	}
+
+	function enableContinueButton() {
+		var continueBtn = wizard.querySelector( '[data-step="2"] [data-action="to-contact"]' );
+		if ( continueBtn ) {
+			continueBtn.disabled = ! state.selectedFilingStatus;
+		}
+	}
+
+	// Back button from filing status
 	wizard.querySelectorAll( '[data-step="2"] [data-action="back"]' ).forEach( function ( btn ) {
 		btn.addEventListener( 'click', function () {
-			// Remove step 1 from completed (going back)
-			state.completedSteps = state.completedSteps.filter( function ( s ) { return s !== STEP.TYPE; } );
+			state.selectedFilingStatus = null;
 			goToStep( STEP.TYPE );
 			updateSummaryPanel();
 		} );
 	} );
 
-	wizard.querySelectorAll( '[data-step="2"] [data-action="to-questions"]' ).forEach( function ( btn ) {
+	// Continue from filing status to contact info
+	wizard.querySelectorAll( '[data-step="2"] [data-action="to-contact"]' ).forEach( function ( btn ) {
+		btn.addEventListener( 'click', function () {
+			if ( ! state.selectedFilingStatus ) {
+				return;
+			}
+			if ( ! state.completedSteps.includes( STEP.FILING_STATUS ) ) {
+				state.completedSteps.push( STEP.FILING_STATUS );
+			}
+			goToStep( STEP.CONTACT );
+			updateSummaryPanel();
+		} );
+	} );
+
+	// ---------------------------------------------------------------
+	// Step 3: Contact Info
+	// ---------------------------------------------------------------
+
+	wizard.querySelectorAll( '[data-step="5"] [data-action="back"]' ).forEach( function ( btn ) {
+		btn.addEventListener( 'click', function () {
+			// If individual selected, go back to filing status; otherwise to return type
+			if ( state.selectedTypes.includes( 'individual' ) ) {
+				state.completedSteps = state.completedSteps.filter( function ( s ) { return s !== STEP.FILING_STATUS; } );
+				goToStep( STEP.FILING_STATUS );
+			} else {
+				state.completedSteps = state.completedSteps.filter( function ( s ) { return s !== STEP.TYPE; } );
+				goToStep( STEP.TYPE );
+			}
+			updateSummaryPanel();
+		} );
+	} );
+
+	wizard.querySelectorAll( '[data-step="3"] [data-action="to-questions"]' ).forEach( function ( btn ) {
 		btn.addEventListener( 'click', function () {
 			if ( ! validateContactFields() ) {
 				return;
@@ -734,6 +800,7 @@
 			// Note: updateAssetBandOptionsForBusiness is called after sections are added to DOM
 		}
 
+				
 		// Questions list
 		var questionsList = document.createElement( 'div' );
 		questionsList.className = 'tqb-questions-list';
@@ -743,20 +810,31 @@
 		var items = type === 'individual' ? tqbData.individualItems : tqbData.businessItems;
 		renderQuestionRows( questionsList, items, type, businessIndex );
 
-		// Pre-select W-2 for individual
-		if ( type === 'individual' ) {
-			var w2Row = questionsList.querySelector( '[data-item-key="w2_wages"]' );
-			if ( w2Row ) {
-				var w2Checkbox = w2Row.querySelector( 'input[type="checkbox"]' );
-				w2Checkbox.checked = true;
-				w2Checkbox.disabled = true;
-			}
-		}
-
 		return section;
 	}
 
 	function buildBusinessBasics( container, businessId ) {
+		// Business name field
+		var nameWrap = document.createElement( 'div' );
+		nameWrap.className = 'tqb-field-group';
+		
+		var nameLabel = document.createElement( 'label' );
+		nameLabel.className = 'tqb-field-group__label';
+		nameLabel.setAttribute( 'for', businessId + '-name' );
+		nameLabel.textContent = 'Business name';
+		nameWrap.appendChild( nameLabel );
+		
+		var nameInput = document.createElement( 'input' );
+		nameInput.type = 'text';
+		nameInput.id = businessId + '-name';
+		nameInput.name = businessId + '-name';
+		nameInput.className = 'tqb-field-group__input';
+		nameInput.placeholder = 'Enter your business name';
+		nameInput.addEventListener( 'input', updateSummaryPanel );
+		nameWrap.appendChild( nameInput );
+		
+		container.appendChild( nameWrap );
+
 		container.appendChild(
 			buildSelectField( businessId + '-entity', 'Business type', ENTITY_OPTIONS, function () {
 				updateAssetBandOptionsForBusiness( businessId );
@@ -926,8 +1004,16 @@
 			label.textContent = item.label;
 			textWrap.appendChild( label );
 
-			// Add tooltip icon if tooltip text exists
+			// Add help text below question (using tooltip field for help text in conversational form)
 			if ( item.tooltip ) {
+				var helpText = document.createElement( 'p' );
+				helpText.className = 'tqb-question-row__help-text';
+				helpText.textContent = item.tooltip;
+				textWrap.appendChild( helpText );
+			}
+
+			// Add tooltip icon if tooltip text exists (legacy support)
+			if ( false && item.tooltip ) {
 				var tooltipWrap = document.createElement( 'span' );
 				tooltipWrap.className = 'tqb-question-row__tooltip-wrap';
 
@@ -1013,7 +1099,7 @@
 	// Step 3 nav -> Step 4 (Review)
 	// ---------------------------------------------------------------------
 
-	wizard.querySelectorAll( '[data-step="3"] [data-action="back"]' ).forEach( function ( btn ) {
+	wizard.querySelectorAll( '[data-step="5"] [data-action="back"]' ).forEach( function ( btn ) {
 		btn.addEventListener( 'click', function () {
 			// Remove contact step from completed (going back)
 			state.completedSteps = state.completedSteps.filter( function ( s ) { return s !== STEP.CONTACT; } );
@@ -1022,7 +1108,7 @@
 		} );
 	} );
 
-	wizard.querySelectorAll( '[data-step="3"] [data-action="to-review"]' ).forEach( function ( btn ) {
+	wizard.querySelectorAll( '[data-step="4"] [data-action="to-review"]' ).forEach( function ( btn ) {
 		btn.addEventListener( 'click', function () {
 			// Mark questions step as completed
 			if ( ! state.completedSteps.includes( STEP.QUESTIONS ) ) {
@@ -1036,7 +1122,7 @@
 		} );
 	} );
 
-	wizard.querySelectorAll( '[data-step="4"] [data-action="back"]' ).forEach( function ( btn ) {
+	wizard.querySelectorAll( '[data-step="5"] [data-action="back"]' ).forEach( function ( btn ) {
 		btn.addEventListener( 'click', function () {
 			// Remove questions step from completed (going back)
 			state.completedSteps = state.completedSteps.filter( function ( s ) { return s !== STEP.QUESTIONS; } );
@@ -1045,7 +1131,7 @@
 		} );
 	} );
 
-	wizard.querySelectorAll( '[data-step="4"] [data-action="submit"]' ).forEach( function ( btn ) {
+	wizard.querySelectorAll( '[data-step="5"] [data-action="submit"]' ).forEach( function ( btn ) {
 		btn.addEventListener( 'click', submitQuote );
 	} );
 
@@ -1681,7 +1767,7 @@
 		var errorEl = document.getElementById( 'tqb-form-error' );
 		errorEl.hidden = true;
 
-		var submitBtn = wizard.querySelector( '[data-step="4"] [data-action="submit"]' );
+		var submitBtn = wizard.querySelector( '[data-step="5"] [data-action="submit"]' );
 		var labelEl = submitBtn.querySelector( '.tqb-btn__label' );
 		var spinner = submitBtn.querySelector( '.tqb-btn__spinner' );
 		submitBtn.disabled = true;
@@ -1711,6 +1797,7 @@
 		state.selectedTypes.forEach( function ( type ) {
 			if ( type === 'business' ) {
 				var bizId = 'tqb-business-' + businessIndex;
+				body.append( 'businesses[' + businessIndex + '][business_name]', document.getElementById( bizId + '-name' ).value );
 				body.append( 'businesses[' + businessIndex + '][entity_type]', document.getElementById( bizId + '-entity' ).value );
 				body.append( 'businesses[' + businessIndex + '][asset_band]', document.getElementById( bizId + '-assets' ).value );
 				body.append( 'businesses[' + businessIndex + '][revenue_band]', document.getElementById( bizId + '-revenue' ).value );

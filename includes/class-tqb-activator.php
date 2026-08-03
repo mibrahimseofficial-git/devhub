@@ -23,11 +23,96 @@ class TQB_Activator {
 
 		$charset_collate = $wpdb->get_charset_collate();
 
+		// Create all tables using dbDelta
 		self::create_submissions_table( $wpdb, $charset_collate );
 		self::create_line_items_table( $wpdb, $charset_collate );
 		self::create_rate_bands_table( $wpdb, $charset_collate );
+		self::create_question_sets_table( $wpdb, $charset_collate );
+		self::create_question_set_items_table( $wpdb, $charset_collate );
+
+		// Verify all critical tables were created; if not, create them with direct SQL
+		$line_items_table = $wpdb->prefix . TQB_TABLE_LINE_ITEMS;
+		$question_sets_table = $wpdb->prefix . TQB_TABLE_QUESTION_SETS;
+		$question_set_items_table = $wpdb->prefix . TQB_TABLE_QUESTION_SET_ITEMS;
+
+		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$line_items_table}'" ) !== $line_items_table ) {
+			error_log( 'TQB: line_items table not created, using SQL fallback' );
+			$wpdb->query( "CREATE TABLE IF NOT EXISTS `{$line_items_table}` (
+				`id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+				`quote_type` VARCHAR(20) NOT NULL,
+				`item_key` VARCHAR(100) NOT NULL,
+				`label` VARCHAR(255) NOT NULL,
+				`fee` DECIMAL(10,2) NOT NULL DEFAULT 0,
+				`pricing_pattern` VARCHAR(20) NOT NULL DEFAULT 'qty_times_fee',
+				`hardcoded_value` DECIMAL(10,2) NULL,
+				`is_custom_quote_trigger` TINYINT(1) NOT NULL DEFAULT 0,
+				`threshold_rules` LONGTEXT NULL,
+				`reveal_followup` TINYINT(1) NOT NULL DEFAULT 1,
+				`is_active` TINYINT(1) NOT NULL DEFAULT 1,
+				`sort_order` INT NOT NULL DEFAULT 0,
+				`tooltip` TEXT NULL,
+				`notes` TEXT NULL,
+				PRIMARY KEY  (`id`),
+				UNIQUE KEY `item_key_type` (`item_key`, `quote_type`),
+				KEY `quote_type` (`quote_type`),
+				KEY `sort_order` (`sort_order`)
+			) {$charset_collate}" );
+		}
+
+		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$question_sets_table}'" ) !== $question_sets_table ) {
+			error_log( 'TQB: question_sets table not created, using SQL fallback' );
+			$wpdb->query( "CREATE TABLE IF NOT EXISTS `{$question_sets_table}` (
+				`id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+				`name` VARCHAR(100) NOT NULL UNIQUE,
+				`return_type` VARCHAR(20) NOT NULL,
+				`filing_status` VARCHAR(50) NULL,
+				`parent_set_id` BIGINT UNSIGNED NULL,
+				`description` TEXT NULL,
+				`is_active` TINYINT(1) NOT NULL DEFAULT 1,
+				`created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				`updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				PRIMARY KEY  (`id`),
+				UNIQUE KEY `return_type_filing` (`return_type`, `filing_status`),
+				KEY `return_type` (`return_type`),
+				KEY `filing_status` (`filing_status`),
+				KEY `parent_set_id` (`parent_set_id`)
+			) {$charset_collate}" );
+		}
+
+		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$question_set_items_table}'" ) !== $question_set_items_table ) {
+			error_log( 'TQB: question_set_items table not created, using SQL fallback' );
+			$wpdb->query( "CREATE TABLE IF NOT EXISTS `{$question_set_items_table}` (
+				`id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+				`question_set_id` BIGINT UNSIGNED NOT NULL,
+				`line_item_id` BIGINT UNSIGNED NOT NULL,
+				`sort_order` INT NOT NULL DEFAULT 0,
+				`override_label` VARCHAR(255) NULL,
+				`override_followup_label` VARCHAR(255) NULL,
+				`override_fee` DECIMAL(10,2) NULL,
+				`override_reveal_followup` TINYINT(1) NULL,
+				`is_hidden` TINYINT(1) NOT NULL DEFAULT 0,
+				`created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				`updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				PRIMARY KEY  (`id`),
+				UNIQUE KEY `set_item` (`question_set_id`, `line_item_id`),
+				KEY `question_set_id` (`question_set_id`),
+				KEY `line_item_id` (`line_item_id`),
+				KEY `sort_order` (`sort_order`)
+			) {$charset_collate}" );
+		}
+
+		// Now seed the data
 		self::seed_default_data();
+		self::seed_default_question_sets();
 		self::seed_default_settings();
+
+		// Recovery: If question sets table exists but is empty (partial failure on previous activation),
+		// force re-seed to ensure data integrity on new sites
+		$sets_table = $wpdb->prefix . TQB_TABLE_QUESTION_SETS;
+		$existing_count = $wpdb->get_var( "SELECT COUNT(*) FROM {$sets_table}" );
+		if ( empty( $existing_count ) ) {
+			self::seed_default_question_sets();
+		}
 
 		// Schedule cron jobs for HubSpot retry (hourly)
 		if ( ! wp_next_scheduled( 'tqb_retry_hubspot_syncs' ) ) {
@@ -47,6 +132,16 @@ class TQB_Activator {
 	 */
 	public static function upgrade() {
 		global $wpdb;
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		$charset_collate = $wpdb->get_charset_collate();
+
+		// Safety: Ensure all tables exist first (in case of partial installation)
+		self::create_submissions_table( $wpdb, $charset_collate );
+		self::create_line_items_table( $wpdb, $charset_collate );
+		self::create_rate_bands_table( $wpdb, $charset_collate );
+		self::create_question_sets_table( $wpdb, $charset_collate );
+		self::create_question_set_items_table( $wpdb, $charset_collate );
 
 		// Safety check: ensure tables exist before trying to upgrade
 		$submissions_table = $wpdb->prefix . 'tqb_submissions';
@@ -136,12 +231,25 @@ class TQB_Activator {
 			array( '%s' )
 		);
 
-		// --- Submissions table: add abandoned quote columns ---
+		// --- Submissions table: add filing_status column (Task 4) ---
 		$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
 		if ( ! is_array( $sub_columns ) ) {
 			$sub_columns = array();
 		}
 		$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
+
+		if ( ! in_array( 'filing_status', $sub_column_names, true ) ) {
+			$after = in_array( 'quote_type', $sub_column_names, true ) ? 'quote_type' : null;
+			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN filing_status VARCHAR(50) NULL COMMENT 'single, mfj, mfs, hoh for individual; NULL for business'";
+			if ( $after ) { $sql .= " AFTER {$after}"; }
+			$wpdb->query( $sql );
+		}
+
+		// Re-fetch columns after adding filing_status
+		$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
+		$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
+
+		// --- Submissions table: add abandoned quote columns ---
 
 		// Add status column
 		if ( ! in_array( 'status', $sub_column_names, true ) ) {
@@ -410,6 +518,62 @@ class TQB_Activator {
 	}
 
 	/**
+	 * Question Sets table — stores base and filing-status-specific question configurations.
+	 * Uses inheritance model: base set (filing_status=NULL) + overrides per filing status.
+	 */
+	private static function create_question_sets_table( $wpdb, $charset_collate ) {
+		$table_name = $wpdb->prefix . TQB_TABLE_QUESTION_SETS;
+
+		$sql = "CREATE TABLE {$table_name} (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			name VARCHAR(100) NOT NULL UNIQUE COMMENT 'e.g. Individual, Individual_MFJ, Business',
+			return_type VARCHAR(20) NOT NULL COMMENT 'individual or business',
+			filing_status VARCHAR(50) NULL COMMENT 'NULL for base; single/mfj/mfs/hoh for variants',
+			parent_set_id BIGINT UNSIGNED NULL COMMENT 'FK to base set for inheritance',
+			description TEXT NULL,
+			is_active TINYINT(1) NOT NULL DEFAULT 1,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY return_type_filing (return_type, filing_status),
+			KEY return_type (return_type),
+			KEY filing_status (filing_status),
+			KEY parent_set_id (parent_set_id)
+		) {$charset_collate};";
+
+		dbDelta( $sql );
+	}
+
+	/**
+	 * Question Set Items table — maps line items to question sets with optional overrides.
+	 * Supports inheritance: NULL override values mean "use parent/base value".
+	 */
+	private static function create_question_set_items_table( $wpdb, $charset_collate ) {
+		$table_name = $wpdb->prefix . TQB_TABLE_QUESTION_SET_ITEMS;
+
+		$sql = "CREATE TABLE {$table_name} (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			question_set_id BIGINT UNSIGNED NOT NULL COMMENT 'FK to question_sets',
+			line_item_id BIGINT UNSIGNED NOT NULL COMMENT 'FK to line_items',
+			sort_order INT NOT NULL DEFAULT 0,
+			override_label VARCHAR(255) NULL COMMENT 'Filing-status-specific wording; NULL = use base',
+			override_followup_label VARCHAR(255) NULL COMMENT 'Custom quantity field label',
+			override_fee DECIMAL(10,2) NULL COMMENT 'Filing-status-specific pricing; NULL = use base',
+			override_reveal_followup TINYINT(1) NULL COMMENT '1/0; NULL = use base',
+			is_hidden TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = hide this question for this filing status',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY set_item (question_set_id, line_item_id),
+			KEY question_set_id (question_set_id),
+			KEY line_item_id (line_item_id),
+			KEY sort_order (sort_order)
+		) {$charset_collate};";
+
+		dbDelta( $sql );
+	}
+
+	/**
 	 * Seeds the tables with the exact values from the client's actual Excel
 	 * calculator (per PROJECT_SPEC.md), so the plugin is testable immediately
 	 * after activation without manual data entry. Uses INSERT IGNORE-style
@@ -427,25 +591,47 @@ class TQB_Activator {
 		}
 
 		$individual_items = array(
-			array( 'w2_wages', 'W-2 wage income', 350, 'qty_times_fee', null, 0, null, null, 1, 0, 'Your W-2 form shows wages you earned as an employee. This applies to everyone filing a personal return.' ),
-			array( 'multi_state', 'Lived or worked in more than one state', 150, 'qty_times_fee', null, 0, null, null, 1, 10, 'If you earned income or worked in a state other than your primary residence, additional state filings may be required.' ),
-			array( 'interest_dividends', 'Bank or investment account interest/dividend statements', 25, 'flat', null, 0, null, null, 1, 20, 'Look for 1099-INT (interest) and 1099-DIV (dividends) forms from your banks and investment accounts.' ),
-			array( 'brokerage_sales', 'Brokerage statement showing stock or investment sales', 25, 'qty_times_fee', null, 0, null, null, 1, 30, 'If you sold stocks, bonds, or other investments, you should receive a 1099-B form from your brokerage.' ),
-			array( 'rental_property', 'Owns rental property', 200, 'qty_times_fee', null, 0, null, null, 1, 40, 'Income and expenses from rental properties need to be reported on your tax return.' ),
-			array( 'self_employed', 'Self-employed or owns a small business / single-member LLC', 200, 'qty_times_fee', null, 0, null, null, 1, 50, 'If you run your own business or are a sole proprietor, your business income and expenses are reported on a Schedule C.' ),
-			array( 'farm_income', 'Farm income', 275, 'qty_times_fee', null, 0, null, null, 1, 60, 'Income from farming activities, including livestock, crops, and other agricultural products.' ),
-			array( 'k1_received', 'Received a K-1', 50, 'qty_times_fee', null, 0, null, null, 1, 70, 'A K-1 form reports income from partnerships, S-corporations, or estates/trusts.' ),
-			array( 'foreign_accounts', 'Has foreign bank accounts or foreign income (FBAR)', 250, 'qty_times_fee', null, 1, null, null, 1, 80, 'If you have foreign bank accounts exceeding $10,000 at any point during the year, you may need to file an FBAR (FinCEN Form 114).' ),
-			array( 'crypto', 'Bought, sold, or traded cryptocurrency', 250, 'qty_times_fee', null, 0, 100, 'above', 1, 90, 'Cryptocurrency transactions (buying, selling, trading) are taxable and must be reported on your return. Trading more than $100K may require a custom quote.' ),
-			array( 'tuition', 'Paid college tuition (1098-T)', 25, 'flat', null, 0, null, null, 1, 100, 'You should receive a 1098-T form from your educational institution showing tuition paid.' ),
-			array( 'childcare', 'Paid for childcare or dependent care', 25, 'flat', null, 0, null, null, 1, 110, 'Child and dependent care expenses may qualify for a tax credit. You will need the provider\'s name and tax ID.' ),
-			array( 'hsa', 'Has an HSA', 25, 'qty_times_fee', null, 0, null, null, 1, 120, 'Health Savings Account contributions and distributions are reported on Form 8889.' ),
-			array( 'home_sale', 'Sold any home during the year (1099-S)', 150, 'qty_times_fee', null, 0, null, null, 1, 130, 'If you sold a home, you should receive a 1099-S form. There may be capital gains implications.' ),
-			array( 'retirement_distributions', 'Retirement Distributions (401K, IRA, ROTH IRA etc.)', 25, 'hardcoded', 100, 0, null, null, 1, 140, 'Distributions from retirement accounts like 401(k)s, IRAs, and Roth IRAs are taxable.' ),
-			array( 'meetings', 'Meetings (end of year recap, tax return review, misc.)', 250, 'qty_times_fee', null, 0, null, null, 0, 150, 'Internal use only.' ),
+			array( 'w2_wages', 'Did anyone in your household receive W-2 income from an employer?', 350, 'qty_times_fee', null, 0, null, 1, 0, 'This includes wages, salaries, bonuses, commissions, and other employment income reported on a W-2.' ),
+			array( 'multi_state', 'Did anyone in your household live or work in more than one state during the year?', 150, 'qty_times_fee', null, 0, null, 1, 10, 'This helps determine whether multiple state tax returns may be required.' ),
+			array( 'interest_dividends', 'Did anyone in your household earn interest or dividends from a bank or investment account?', 25, 'flat', null, 0, null, 1, 20, 'Look for Forms 1099-INT or 1099-DIV from your bank or brokerage.' ),
+			array( 'brokerage_sales', 'Did anyone in your household sell stocks, ETFs, mutual funds, or other investments?', 25, 'qty_times_fee', null, 0, null, 1, 30, 'You can usually find this information on Form 1099-B or your year-end brokerage statement.' ),
+			array( 'rental_property', 'Did anyone in your household own a rental property during the year?', 200, 'qty_times_fee', null, 0, null, 1, 40, 'Include long-term, short-term, or vacation rentals.' ),
+			array( 'self_employed', 'Was anyone in your household self-employed or the owner of a sole proprietorship or single-member LLC?', 200, 'qty_times_fee', null, 0, null, 1, 50, 'Include freelance work, consulting, side businesses, or gig economy income (1099 income).' ),
+			array( 'farm_income', 'Did anyone in your household receive farm income?', 275, 'qty_times_fee', null, 0, null, 1, 60, 'Include income and expenses from farming or agricultural operations.' ),
+			array( 'k1_received', 'Did anyone in your household receive a Schedule K-1?', 50, 'qty_times_fee', null, 0, null, 1, 70, 'K-1s are commonly issued by partnerships, S corporations, estates, or trusts.' ),
+			array( 'foreign_accounts', 'Did anyone in your household have foreign bank accounts or earn foreign income?', 250, 'qty_times_fee', null, 1, null, 1, 80, 'This helps determine whether FBAR or other international reporting requirements apply.' ),
+			array( 'crypto', 'Did anyone in your household buy, sell, or trade cryptocurrency?', 250, 'qty_times_fee', null, 0, null, 1, 90, 'Include Bitcoin, Ethereum, NFTs, or any other digital assets. If over 100 transactions or $100K, custom quote required.' ),
+			array( 'tuition', 'Did anyone in your household pay qualified college tuition?', 25, 'flat', null, 0, null, 1, 100, 'Look for Form 1098-T from the educational institution.' ),
+			array( 'childcare', 'Did anyone in your household pay for childcare or dependent care?', 25, 'flat', null, 0, null, 1, 110, 'Include daycare, preschool, before/after-school care, or summer day camps.' ),
+			array( 'hsa', 'Did anyone in your household contribute to or receive distributions from a Health Savings Account (HSA)?', 25, 'qty_times_fee', null, 0, null, 1, 120, 'Look for Forms 1099-SA or 5498-SA.' ),
+			array( 'home_sale', 'Did anyone in your household sell a home during the year?', 150, 'qty_times_fee', null, 0, null, 1, 130, 'Look for Form 1099-S or include the sale of your primary residence or investment property.' ),
+			array( 'retirement_distributions', 'Did anyone in your household receive retirement distributions?', 25, 'hardcoded', 100, 0, null, 1, 140, 'Include withdrawals from a 401(k), IRA, Roth IRA, pension, annuity, or similar retirement account.' ),
+			array( 'additional_personal', 'Do you also need a quote for additional personal tax returns?', 0, 'flat', 0, 0, null, 1, 160, 'Select Yes if you need quotes for more than one personal tax return.' ),
+			array( 'additional_business', 'Do you also need a quote for any business tax returns?', 0, 'flat', 0, 0, null, 1, 170, 'Select Yes if you need quotes for business tax returns in addition to what you have already selected.' ),
+			array( 'meetings', 'Meetings (end of year recap, tax return review, misc.)', 250, 'qty_times_fee', null, 0, null, 0, 150, 'Internal use only.' ),
 		);
 
 		foreach ( $individual_items as $item ) {
+			// Special handling for crypto: use threshold_rules JSON
+			$threshold_rules = null;
+			if ( $item[0] === 'crypto' ) {
+				$threshold_rules = wp_json_encode( array(
+					'logic'      => 'OR',
+					'conditions' => array(
+						array(
+							'type'     => 'transactions',
+							'operator' => 'above',
+							'value'    => 100,
+						),
+						array(
+							'type'     => 'dollar_value',
+							'operator' => 'above',
+							'value'    => 100000,
+						),
+					),
+				) );
+			}
+
 			$wpdb->insert(
 				$line_items_table,
 				array(
@@ -456,8 +642,8 @@ class TQB_Activator {
 					'pricing_pattern'         => $item[3],
 					'hardcoded_value'         => $item[4],
 					'is_custom_quote_trigger' => $item[5],
-					'threshold_qty'           => $item[6],
-					'threshold_trigger'        => $item[7],
+					'threshold_rules'         => $threshold_rules,
+					'reveal_followup'         => $item[7],
 					'is_active'               => $item[8],
 					'sort_order'              => $item[9],
 					'tooltip'                 => $item[10],
@@ -466,13 +652,13 @@ class TQB_Activator {
 		}
 
 		$business_items = array(
-			array( 'extra_k1s', 'Multiple partners/owners (extra K-1s to issue)', 25, 'qty_times_fee', null, 0, null, null, 1, 10, 'Each additional partner or owner requires a separate K-1 form to be issued.' ),
-			array( 'multi_state', 'Business operates in more than one state', 250, 'qty_times_fee', null, 0, null, null, 1, 20, 'If your business has income or activities in states other than your home state, additional state filings may be required.' ),
-			array( 'depreciation_schedule', 'Need a fixed asset / depreciation schedule built or maintained', 250, 'qty_times_fee', null, 0, null, null, 1, 30, 'A depreciation schedule tracks the cost of business assets over time. Required if you have significant equipment, vehicles, or property.' ),
-			array( 'foreign_partner', 'Has a foreign partner/owner', 350, 'qty_times_fee', null, 0, null, null, 1, 40, 'Foreign partner/owner interests require additional reporting and may have tax implications.' ),
-			array( 'books_dont_match', "Books don't match tax records (book-to-tax adjustments)", 250, 'qty_times_fee', null, 0, null, null, 1, 50, 'If your bookkeeping does not align with your tax filings, additional work is needed to reconcile the differences.' ),
-			array( 'excess_equipment', 'More than 25 pieces of equipment/fixed assets', 250, 'qty_times_fee', null, 0, null, null, 1, 60, 'Larger numbers of fixed assets require detailed depreciation calculations.' ),
-			array( 'audit_support', 'Under IRS audit / needs audit support', 350, 'qty_times_fee', null, 0, null, null, 0, 70, 'Audit representation is not included in standard engagement.' ),
+			array( 'extra_k1s', 'Does your business have more than one owner or partner?', 25, 'qty_times_fee', null, 0, null, 1, 10, 'Include any business where ownership is shared with another individual or entity. This helps us determine whether additional Schedule K-1s will need to be prepared.' ),
+			array( 'multi_state', 'Does your business operate or file taxes in more than one state?', 250, 'qty_times_fee', null, 0, null, 1, 20, 'This includes having employees, offices, property, or business activity in multiple states that may require additional state tax filings.' ),
+			array( 'depreciation_schedule', 'Do you need us to create or maintain a fixed asset and depreciation schedule?', 250, 'qty_times_fee', null, 0, null, 1, 30, 'Select "Yes" if your business has purchased equipment, furniture, vehicles, buildings, or other assets that need to be tracked and depreciated.' ),
+			array( 'foreign_partner', 'Does your business have any foreign owners or partners?', 350, 'qty_times_fee', null, 0, null, 1, 40, 'This includes individuals or entities that are not U.S. persons and may require additional tax reporting.' ),
+			array( 'books_dont_match', 'Do your accounting records differ from what was reported on your prior tax returns?', 250, 'qty_times_fee', null, 0, null, 1, 50, 'For example, if your QuickBooks balance doesn\'t match your last filed tax return or if prior accountant adjustments haven\'t been recorded.' ),
+			array( 'excess_equipment', 'Does your business own more than 25 fixed assets or pieces of equipment?', 250, 'qty_times_fee', null, 0, null, 1, 60, 'Include machinery, vehicles, computers, furniture, buildings, and other depreciable business assets. This helps us estimate the complexity of maintaining your depreciation schedule.' ),
+			array( 'audit_support', 'Under IRS audit / needs audit support', 350, 'qty_times_fee', null, 0, null, 0, 70, 'Audit representation is not included in standard engagement.' ),
 		);
 
 		foreach ( $business_items as $item ) {
@@ -486,8 +672,7 @@ class TQB_Activator {
 					'pricing_pattern'         => $item[3],
 					'hardcoded_value'         => $item[4],
 					'is_custom_quote_trigger' => $item[5],
-					'threshold_qty'           => $item[6],
-					'threshold_trigger'        => $item[7],
+					'reveal_followup'         => $item[7],
 					'is_active'               => $item[8],
 					'sort_order'              => $item[9],
 					'tooltip'                 => $item[10],
@@ -768,5 +953,185 @@ class TQB_Activator {
 				array( '%d' )
 			);
 		}
+	}
+
+	/**
+	 * Seeds the default question sets for filing status support (Task 4).
+	 * Creates base Individual set + 4 filing status variants (Single, MFJ, MFS, HOH),
+	 * plus Business set.
+	 *
+	 * Only runs if question_sets table is empty to avoid duplicates on reactivation.
+	 */
+	private static function seed_default_question_sets() {
+		global $wpdb;
+
+		$sets_table = $wpdb->prefix . TQB_TABLE_QUESTION_SETS;
+		$items_table = $wpdb->prefix . TQB_TABLE_QUESTION_SET_ITEMS;
+		$line_items_table = $wpdb->prefix . TQB_TABLE_LINE_ITEMS;
+
+		// Only seed if table is empty
+		$existing_count = $wpdb->get_var( "SELECT COUNT(*) FROM {$sets_table}" );
+		if ( $existing_count > 0 ) {
+			return;
+		}
+
+		// Create base Individual set
+		$wpdb->insert(
+			$sets_table,
+			array(
+				'name'           => 'Individual',
+				'return_type'    => 'individual',
+				'filing_status'  => null,
+				'parent_set_id'  => null,
+				'description'    => 'Base Individual return set (inherited by all filing statuses)',
+				'is_active'      => 1,
+			),
+			array( '%s', '%s', '%s', '%d', '%s', '%d' )
+		);
+
+		$base_set_id = $wpdb->insert_id;
+
+		// Create filing status variant sets (inherit from base)
+		$filing_statuses = array( 'single', 'mfj', 'mfs', 'hoh' );
+		$set_ids = array();
+
+		foreach ( $filing_statuses as $status ) {
+			$label = TQB_FILING_STATUS_LABELS[ $status ] ?? ucfirst( $status );
+			$wpdb->insert(
+				$sets_table,
+				array(
+					'name'           => 'Individual_' . $status,
+					'return_type'    => 'individual',
+					'filing_status'  => $status,
+					'parent_set_id'  => $base_set_id,
+					'description'    => $label . ' return set (inherits from Individual base)',
+					'is_active'      => 1,
+				),
+				array( '%s', '%s', '%s', '%d', '%s', '%d' )
+			);
+			$set_ids[ $status ] = $wpdb->insert_id;
+		}
+
+		// Create Business set
+		$wpdb->insert(
+			$sets_table,
+			array(
+				'name'           => 'Business',
+				'return_type'    => 'business',
+				'filing_status'  => null,
+				'parent_set_id'  => null,
+				'description'    => 'Business return set (no filing status variations)',
+				'is_active'      => 1,
+			),
+			array( '%s', '%s', '%s', '%d', '%s', '%d' )
+		);
+
+		$business_set_id = $wpdb->insert_id;
+
+		// Populate base Individual set with all line items
+		$individual_items = $wpdb->get_results(
+			"SELECT id, sort_order FROM {$line_items_table} WHERE quote_type = 'individual' ORDER BY sort_order ASC",
+			ARRAY_A
+		);
+
+		foreach ( $individual_items as $item ) {
+			$wpdb->insert(
+				$items_table,
+				array(
+					'question_set_id' => $base_set_id,
+					'line_item_id'    => $item['id'],
+					'sort_order'      => $item['sort_order'],
+				),
+				array( '%d', '%d', '%d' )
+			);
+		}
+
+		// Populate Business set with all business line items
+		$business_items = $wpdb->get_results(
+			"SELECT id, sort_order FROM {$line_items_table} WHERE quote_type = 'business' ORDER BY sort_order ASC",
+			ARRAY_A
+		);
+
+		foreach ( $business_items as $item ) {
+			$wpdb->insert(
+				$items_table,
+				array(
+					'question_set_id' => $business_set_id,
+					'line_item_id'    => $item['id'],
+					'sort_order'      => $item['sort_order'],
+				),
+				array( '%d', '%d', '%d' )
+			);
+		}
+
+		// Add wording overrides for MFJ (change "anyone" to "you or your spouse")
+		// This is an example — the admin will add more overrides via the UI
+		$mfj_overrides = array(
+			'w2_wages'          => 'Did you or your spouse receive W-2 income from an employer?',
+			'multi_state'       => 'Did you or your spouse live or work in more than one state during the year?',
+			'interest_dividends' => 'Did you or your spouse earn interest or dividends from a bank or investment account?',
+			'brokerage_sales'   => 'Did you or your spouse sell stocks, ETFs, mutual funds, or other investments?',
+			'rental_property'   => 'Did you or your spouse own a rental property during the year?',
+			'k1_received'       => 'Did you or your spouse receive a Schedule K-1?',
+			'foreign_accounts'  => 'Did you or your spouse have foreign bank accounts or earn foreign income?',
+			'crypto'            => 'Did you or your spouse buy, sell, or trade cryptocurrency?',
+			'tuition'           => 'Did you or your spouse pay qualified college tuition?',
+			'childcare'         => 'Did you or your spouse pay for childcare or dependent care?',
+			'hsa'               => 'Did you or your spouse contribute to or receive distributions from a Health Savings Account (HSA)?',
+			'home_sale'         => 'Did you or your spouse sell a home during the year?',
+			'retirement_distributions' => 'Did you or your spouse receive retirement distributions?',
+		);
+
+		foreach ( $mfj_overrides as $item_key => $override_label ) {
+			$line_item_id = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT id FROM {$line_items_table} WHERE item_key = %s AND quote_type = 'individual'",
+					$item_key
+				)
+			);
+
+			if ( $line_item_id ) {
+				$wpdb->update(
+					$items_table,
+					array( 'override_label' => $override_label ),
+					array(
+						'question_set_id' => $set_ids['mfj'],
+						'line_item_id'    => $line_item_id,
+					),
+					array( '%s' ),
+					array( '%d', '%d' )
+				);
+			}
+		}
+	}
+
+	/**
+	 * Checks if all required tables exist. For debugging/recovery.
+	 * Can be called manually via WP-CLI or admin settings page.
+	 *
+	 * @return array Status array with 'all_exist' (bool) and 'missing_tables' (array)
+	 */
+	public static function verify_tables_exist() {
+		global $wpdb;
+
+		$tables_to_check = array(
+			TQB_TABLE_SUBMISSIONS => $wpdb->prefix . TQB_TABLE_SUBMISSIONS,
+			TQB_TABLE_LINE_ITEMS => $wpdb->prefix . TQB_TABLE_LINE_ITEMS,
+			TQB_TABLE_RATE_BANDS => $wpdb->prefix . TQB_TABLE_RATE_BANDS,
+			TQB_TABLE_QUESTION_SETS => $wpdb->prefix . TQB_TABLE_QUESTION_SETS,
+			TQB_TABLE_QUESTION_SET_ITEMS => $wpdb->prefix . TQB_TABLE_QUESTION_SET_ITEMS,
+		);
+
+		$missing = array();
+		foreach ( $tables_to_check as $label => $table_name ) {
+			if ( $wpdb->get_var( "SHOW TABLES LIKE '{$table_name}'" ) !== $table_name ) {
+				$missing[] = $label;
+			}
+		}
+
+		return array(
+			'all_exist' => empty( $missing ),
+			'missing_tables' => $missing,
+		);
 	}
 }

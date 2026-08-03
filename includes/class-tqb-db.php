@@ -374,4 +374,71 @@ class TQB_DB {
 			ARRAY_A
 		);
 	}
+
+	/**
+	 * Get a question set by return_type and filing_status.
+	 * Used by admin to get filing status variant sets.
+	 */
+	public static function get_question_set_by_return_and_status( $return_type, $filing_status ) {
+		global $wpdb;
+		$table = $wpdb->prefix . TQB_TABLE_QUESTION_SETS;
+
+		return $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$table} WHERE return_type = %s AND filing_status = %s",
+				$return_type,
+				$filing_status
+			),
+			ARRAY_A
+		);
+	}
+
+	/**
+	 * Get a question set item (override) by set ID and line item ID.
+	 * Used by admin to get filing status overrides for a question.
+	 */
+	public static function get_question_set_item( $question_set_id, $line_item_id ) {
+		global $wpdb;
+		$table = $wpdb->prefix . TQB_TABLE_QUESTION_SET_ITEMS;
+
+		return $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$table} WHERE question_set_id = %d AND line_item_id = %d",
+				$question_set_id,
+				$line_item_id
+			),
+			ARRAY_A
+		);
+	}
+
+	/**
+	 * Update a question set item (filing status override).
+	 * Used by admin AJAX to save override changes.
+	 */
+	public static function update_question_set_item( $question_set_id, $line_item_id, $data ) {
+		global $wpdb;
+		$table = $wpdb->prefix . TQB_TABLE_QUESTION_SET_ITEMS;
+
+		// Check if item already exists
+		$existing = self::get_question_set_item( $question_set_id, $line_item_id );
+
+		if ( $existing ) {
+			// Update existing
+			return $wpdb->update(
+				$table,
+				$data,
+				array(
+					'question_set_id' => $question_set_id,
+					'line_item_id'    => $line_item_id,
+				),
+				array( '%s', '%s', '%s', '%s', '%d', '%d' ),
+				array( '%d', '%d' )
+			);
+		} else {
+			// Insert new
+			$data['question_set_id'] = $question_set_id;
+			$data['line_item_id']    = $line_item_id;
+			return $wpdb->insert( $table, $data );
+		}
+	}
 }

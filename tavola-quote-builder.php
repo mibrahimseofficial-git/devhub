@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Tavola Quote Builder
  * Description: Self-service pricing questionnaire for Individual and Business tax return quotes. Generates instant proposals or routes out-of-range submissions to a custom-quote path.
- * Version: 0.7.5
+ * Version: 1.1
  * Author: Sabeeh
  * Text Domain: tavola-quote-builder
  *
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Plugin constants
  */
-define( 'TQB_VERSION', '0.7.5' );
+define( 'TQB_VERSION', '1.2' );
 define( 'TQB_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'TQB_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'TQB_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -27,6 +27,25 @@ define( 'TQB_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 define( 'TQB_TABLE_SUBMISSIONS', 'tqb_submissions' );
 define( 'TQB_TABLE_LINE_ITEMS', 'tqb_line_items' );
 define( 'TQB_TABLE_RATE_BANDS', 'tqb_rate_bands' );
+define( 'TQB_TABLE_QUESTION_SETS', 'tqb_question_sets' );
+define( 'TQB_TABLE_QUESTION_SET_ITEMS', 'tqb_question_set_items' );
+
+// Filing status options
+define( 'TQB_FILING_STATUSES', array( 'single', 'mfj', 'mfs', 'hoh' ) );
+define( 'TQB_FILING_STATUS_LABELS', array(
+	'single' => 'Single',
+	'mfj'    => 'Married Filing Jointly',
+	'mfs'    => 'Married Filing Separately',
+	'hoh'    => 'Head of Household'
+) );
+
+// Filing status pricing surcharges (base price + surcharge)
+define( 'TQB_FILING_STATUS_PRICES', array(
+	'single' => 0,      // Base price
+	'mfj'    => 200,    // +$200
+	'mfs'    => 300,    // +$300
+	'hoh'    => 150     // +$150
+) );
 
 /**
  * Returns a cache-busting version string for a plugin asset, based on the
@@ -70,6 +89,8 @@ require_once TQB_PLUGIN_DIR . 'includes/class-tqb-pricing-engine.php';
 require_once TQB_PLUGIN_DIR . 'includes/class-tqb-quote-handler.php';
 require_once TQB_PLUGIN_DIR . 'includes/class-tqb-email.php';
 require_once TQB_PLUGIN_DIR . 'includes/class-tqb-hubspot.php';
+require_once TQB_PLUGIN_DIR . 'includes/class-tqb-question-sets.php';
+require_once TQB_PLUGIN_DIR . 'includes/class-tqb-public-ajax.php';
 require_once TQB_PLUGIN_DIR . 'includes/class-tqb-public.php';
 
 if ( is_admin() ) {

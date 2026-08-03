@@ -28,6 +28,7 @@ class TQB_Admin {
 		add_action( 'admin_post_tqb_delete_submissions', array( $this, 'handle_bulk_delete_submissions' ) );
 		add_action( 'wp_ajax_tqb_fetch_hubspot_pipelines', array( $this, 'handle_fetch_hubspot_pipelines' ) );
 		add_action( 'wp_ajax_tqb_get_submission', array( $this, 'ajax_get_submission' ) );
+		add_action( 'wp_ajax_tqb_save_filing_status_override', array( $this, 'handle_save_filing_status_override' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_saved_notice' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 	}
@@ -59,7 +60,7 @@ class TQB_Admin {
 
 		wp_localize_script( 'tqb-admin', 'tqbAdminData', array(
 			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-			'nonce'   => wp_create_nonce( 'tqb_admin_nonce' ),
+			'nonce'   => wp_create_nonce( 'tqb_fetch_pipelines' ),
 		) );
 
 		// Submissions page JS (modal functionality)
@@ -186,6 +187,40 @@ class TQB_Admin {
 		$items      = TQB_DB::get_line_items( 'individual', false );
 		$quote_type = 'individual';
 		$heading    = 'Individual Return — Line Items';
+		
+		// Get filing status variants for each line item
+		$filing_statuses = array( 'single', 'mfj', 'mfs', 'hoh' );
+		$filing_status_labels = array(
+			'single' => 'Single',
+			'mfj'    => 'Married Filing Jointly',
+			'mfs'    => 'Married Filing Separately',
+			'hoh'    => 'Head of Household',
+		);
+		
+		// Get question set IDs for each filing status
+		$question_sets = array();
+		foreach ( $filing_statuses as $status ) {
+			$set = TQB_DB::get_question_set_by_return_and_status( 'individual', $status );
+			if ( $set ) {
+				$question_sets[ $status ] = $set['id'];
+			}
+		}
+		
+		// For each line item, get its overrides for each filing status
+		$overrides = array();
+		foreach ( $items as &$item ) {
+			$overrides[ $item['id'] ] = array();
+			foreach ( $filing_statuses as $status ) {
+				if ( isset( $question_sets[ $status ] ) ) {
+					$override = TQB_DB::get_question_set_item( 
+						$question_sets[ $status ],
+						$item['id']
+					);
+					$overrides[ $item['id'] ][ $status ] = $override ? $override : array();
+				}
+			}
+		}
+		
 		include TQB_PLUGIN_DIR . 'admin/views/line-items-tab.php';
 	}
 
@@ -210,6 +245,7 @@ class TQB_Admin {
 		$followup_email_hours = get_option( 'tqb_followup_email_hours', '72' );
 		$final_email_hours = get_option( 'tqb_final_email_hours', '168' );
 		$office_address = get_option( 'tqb_office_address', "939 W North Ave, Suite 750,\nChicago, IL 60642" );
+		$delete_data_on_uninstall = get_option( 'tqb_delete_data_on_uninstall', '0' );
 		include TQB_PLUGIN_DIR . 'admin/views/general-tab.php';
 	}
 
@@ -433,6 +469,7 @@ class TQB_Admin {
 		$followup_email_hours = isset( $_POST['followup_email_hours'] ) ? absint( $_POST['followup_email_hours'] ) : 72;
 		$final_email_hours = isset( $_POST['final_email_hours'] ) ? absint( $_POST['final_email_hours'] ) : 168;
 		$office_address = isset( $_POST['office_address'] ) ? sanitize_textarea_field( wp_unslash( $_POST['office_address'] ) ) : '';
+		$delete_data_on_uninstall = isset( $_POST['delete_data_on_uninstall'] ) ? '1' : '0';
 
 		update_option( 'tqb_disclaimer_text', $disclaimer_text );
 		update_option( 'tqb_scheduling_link', $scheduling_link );
@@ -448,6 +485,7 @@ class TQB_Admin {
 		update_option( 'tqb_followup_email_hours', $followup_email_hours );
 		update_option( 'tqb_final_email_hours', $final_email_hours );
 		update_option( 'tqb_office_address', $office_address );
+		update_option( 'tqb_delete_data_on_uninstall', $delete_data_on_uninstall );
 
 		wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=general&tqb_saved=1' ) );
 		exit;
@@ -552,5 +590,49 @@ class TQB_Admin {
 		}
 
 		wp_send_json_success( array( 'pipelines' => $pipelines ) );
+	}
+
+	/**
+	 * AJAX: Save filing status override for a line item.
+	 */
+	public function handle_save_filing_status_override() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( 'Permission denied.' );
+		}
+
+		check_ajax_referer( 'tqb_nonce' );
+
+		$item_id = isset( $_POST['item_id'] ) ? absint( $_POST['item_id'] ) : 0;
+		$status = isset( $_POST['status'] ) ? sanitize_key( $_POST['status'] ) : '';
+		$override_label = isset( $_POST['override_label'] ) ? sanitize_text_field( wp_unslash( $_POST['override_label'] ) ) : '';
+		$override_fee = isset( $_POST['override_fee'] ) ? floatval( $_POST['override_fee'] ) : null;
+		$is_hidden = isset( $_POST['is_hidden'] ) ? absint( $_POST['is_hidden'] ) : 0;
+
+		if ( ! $item_id || ! $status ) {
+			wp_send_json_error( 'Missing item_id or status.' );
+		}
+
+		// Get the question set ID for this filing status
+		$question_set = TQB_DB::get_question_set_by_return_and_status( 'individual', $status );
+
+		if ( ! $question_set ) {
+			wp_send_json_error( 'Question set not found for filing status.' );
+		}
+
+		// Prepare data for update
+		$data = array(
+			'override_label' => $override_label ? $override_label : null,
+			'override_fee'   => $override_fee,
+			'is_hidden'      => $is_hidden,
+		);
+
+		// Update or insert the question set item
+		$result = TQB_DB::update_question_set_item( $question_set['id'], $item_id, $data );
+
+		if ( false === $result ) {
+			wp_send_json_error( 'Failed to save override.' );
+		}
+
+		wp_send_json_success( array( 'message' => 'Override saved successfully.' ) );
 	}
 }

@@ -196,6 +196,38 @@ if ( ! defined( 'ABSPATH' ) ) {
 		</div>
 	</div>
 
+	<!-- Uninstall Settings -->
+	<div class="tqb-card">
+		<div class="tqb-card-header">
+			<h2>
+				<span class="dashicons dashicons-trash"></span>
+				Uninstall Settings
+			</h2>
+		</div>
+		<div class="tqb-card-body">
+			<div class="tqb-alert tqb-alert-warning">
+				<span class="dashicons dashicons-warning"></span>
+				<div><strong>Warning:</strong> This setting only affects what happens when you delete the plugin. It does not affect deactivation.</div>
+			</div>
+
+			<table class="tqb-form-table">
+				<tr>
+					<th scope="row">On Uninstall</th>
+					<td>
+						<label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+							<input type="checkbox" id="tqb_delete_data_on_uninstall" name="delete_data_on_uninstall" value="1" <?php checked( $delete_data_on_uninstall, '1' ); ?> />
+							<span>Delete all plugin data when uninstalled</span>
+						</label>
+						<p class="tqb-description">
+							If <strong>checked</strong>: All tables, settings, and submissions will be permanently deleted when you uninstall the plugin.<br />
+							If <strong>unchecked</strong>: All data will be preserved in the database (in case you reinstall later).
+						</p>
+					</td>
+				</tr>
+			</table>
+		</div>
+	</div>
+
 	<div class="tqb-submit">
 		<button type="submit" class="tqb-btn tqb-btn-primary">
 			<span class="dashicons dashicons-saved" style="font-size:18px;"></span>
