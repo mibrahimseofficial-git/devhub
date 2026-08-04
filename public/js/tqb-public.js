@@ -1245,6 +1245,7 @@
 			html += '</div>';
 			grandTotal += individualSubtotal;
 		}
+		}
 
 		// BUSINESS SECTION(S)
 		if ( state.selectedTypes.includes( 'business' ) && state.businessCount > 0 ) {
