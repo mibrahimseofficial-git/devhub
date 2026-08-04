@@ -1677,10 +1677,17 @@
 						} )
 					} ).then( function () {
 						resetForm();
+						// Explicitly clear checkbox visual states for Type step
+						wizard.querySelectorAll( '.tqb-type-card' ).forEach( function ( card ) {
+							card.classList.remove( 'is-selected' );
+						} );
 						goToStep( STEP.TYPE );
 					} ).catch( function () {
 						// Continue even if dismiss fails
 						resetForm();
+						wizard.querySelectorAll( '.tqb-type-card' ).forEach( function ( card ) {
+							card.classList.remove( 'is-selected' );
+						} );
 						goToStep( STEP.TYPE );
 					} );
 				}

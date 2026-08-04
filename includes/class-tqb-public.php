@@ -414,7 +414,7 @@ class TQB_Public {
 		$email = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
 
 		if ( empty( $email ) ) {
-			wp_send_json_success();
+			wp_send_json_error( array( 'message' => 'No email provided', 'email' => $email ), 400 );
 			return;
 		}
 
@@ -427,17 +427,33 @@ class TQB_Public {
 		$column_names = wp_list_pluck( $columns, 'Field' );
 		$has_status_column = in_array( 'status', $column_names, true );
 
+		$updated = false;
 		if ( $has_status_column ) {
-			$wpdb->update(
-				$table,
-				array( 'status' => 'abandoned' ),
-				array( 'contact_email' => $email, 'status' => 'in_progress' ),
-				array( '%s' ),
-				array( '%s', '%s' )
+			// First try to find a matching record
+			$existing = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT id, status FROM {$table} WHERE contact_email = %s AND calculated_total IS NULL ORDER BY created_at DESC LIMIT 1",
+					$email
+				)
 			);
+
+			if ( $existing ) {
+				$updated = $wpdb->update(
+					$table,
+					array( 'status' => 'abandoned' ),
+					array( 'id' => $existing->id ),
+					array( '%s' ),
+					array( '%d' )
+				);
+			}
 		}
 
-		wp_send_json_success();
+		wp_send_json_success( array(
+			'updated' => (bool) $updated,
+			'email' => $email,
+			'existing_id' => isset( $existing ) ? $existing->id : null,
+			'existing_status' => isset( $existing ) ? $existing->status : null
+		) );
 	}
 
 	/**
