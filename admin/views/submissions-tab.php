@@ -708,7 +708,7 @@ function tqb_get_sort_indicator( $column ) {
 
 /* Modal Sections */
 .tqb-modal-section {
-	margin-bottom: 28px;
+	margin-bottom: 20px;
 }
 
 .tqb-modal-section:last-child {
@@ -721,32 +721,32 @@ function tqb_get_sort_indicator( $column ) {
 	text-transform: uppercase;
 	letter-spacing: 1px;
 	color: #001a44;
-	margin-bottom: 16px;
-	padding-bottom: 10px;
+	margin-bottom: 12px;
+	padding-bottom: 8px;
 	border-bottom: 2px solid #001a44;
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 6px;
 }
 
 .tqb-modal-section-title .dashicons {
-	font-size: 16px;
-	width: 16px;
-	height: 16px;
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
 }
 
 /* Info Grid */
 .tqb-info-grid {
 	display: grid;
 	grid-template-columns: repeat(2, 1fr);
-	gap: 16px;
+	gap: 12px;
 }
 
 .tqb-info-card {
 	background: #f8fafc;
-	padding: 16px 20px;
-	border-radius: 10px;
-	border-left: 4px solid #001a44;
+	padding: 12px 16px;
+	border-radius: 8px;
+	border-left: 3px solid #001a44;
 }
 
 .tqb-info-card.full {
@@ -754,16 +754,16 @@ function tqb_get_sort_indicator( $column ) {
 }
 
 .tqb-info-label {
-	font-size: 11px;
+	font-size: 10px;
 	font-weight: 600;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
 	color: #64748b;
-	margin-bottom: 6px;
+	margin-bottom: 4px;
 }
 
 .tqb-info-value {
-	font-size: 15px;
+	font-size: 13px;
 	font-weight: 600;
 	color: #1e293b;
 }
@@ -781,10 +781,10 @@ function tqb_get_sort_indicator( $column ) {
 /* The table itself scrolls within a fixed-height wrapper instead of pushing
    the whole modal taller — sticky header stays visible while scrolling. */
 .tqb-answers-table-wrap {
-	max-height: 320px;
+	max-height: 240px;
 	overflow-y: auto;
 	overflow-x: hidden;
-	border-radius: 10px;
+	border-radius: 6px;
 	box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
@@ -798,9 +798,9 @@ function tqb_get_sort_indicator( $column ) {
 	position: sticky;
 	top: 0;
 	text-align: left;
-	padding: 10px 16px;
+	padding: 8px 12px;
 	background: #f8fafc;
-	font-size: 11px;
+	font-size: 10px;
 	font-weight: 700;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
@@ -808,7 +808,7 @@ function tqb_get_sort_indicator( $column ) {
 }
 
 .tqb-answers-table td {
-	padding: 9px 16px;
+	padding: 7px 12px;
 	border-top: 1px solid #f1f5f9;
 }
 
@@ -819,11 +819,13 @@ function tqb_get_sort_indicator( $column ) {
 .tqb-question-cell {
 	font-weight: 500;
 	color: #475569;
+	font-size: 12px;
 }
 
 .tqb-answer-cell {
 	color: #1e293b;
 	font-weight: 600;
+	font-size: 12px;
 }
 
 .tqb-answer-yes {
