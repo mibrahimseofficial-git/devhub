@@ -32,13 +32,10 @@ class TQB_Quote_Handler {
 			return self::$column_cache[ $cache_key ];
 		}
 
-		$exists = (bool) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME = %s",
-				$table,
-				$column_name
-			)
-		);
+		// Use SHOW COLUMNS which is more reliable than INFORMATION_SCHEMA
+		$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$table}", ARRAY_A );
+		$column_names = wp_list_pluck( $columns, 'Field' );
+		$exists = in_array( $column_name, $column_names, true );
 
 		self::$column_cache[ $cache_key ] = $exists;
 		return $exists;
