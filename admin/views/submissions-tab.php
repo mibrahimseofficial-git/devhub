@@ -11,9 +11,9 @@ $total_pages = ceil( $total_count / $per_page );
 
 // Determine display status
 function tqb_get_display_status( $status ) {
-	if ( empty( $status ) || $status === 'completed' ) {
+	if ( $status === 'completed' ) {
 		return array( 'label' => 'Completed', 'class' => 'completed' );
-	} elseif ( $status === 'in_progress' ) {
+	} elseif ( $status === 'in_progress' || empty( $status ) ) {
 		return array( 'label' => 'In Progress', 'class' => 'in_progress' );
 	} elseif ( $status === 'abandoned' ) {
 		return array( 'label' => 'Abandoned', 'class' => 'abandoned' );
