@@ -1231,21 +1231,19 @@
 					}
 				} );
 
-				if ( individualRows !== '' || state.individualNames[ p ] ) {
-					var personalLabel = p === 0 ? 'Personal Tax Return' : 'Additional Personal Return #' + ( p + 1 );
-					if ( state.individualNames[ p ] ) {
-						personalLabel += ' \u2014 ' + state.individualNames[ p ];
-					}
-					html += '<div class="tqb-summary__section">';
-					html += '<div class="tqb-summary__type">' + escapeHtml( personalLabel ) + '</div>';
-					html += individualRows;
-					if ( individualSubtotal > 0 ) {
-						html += '<div class="tqb-summary__subtotal"><span>Subtotal</span><span>$' + individualSubtotal.toFixed( 2 ) + '</span></div>';
-					}
-					html += '</div>';
-					grandTotal += individualSubtotal;
-				}
+				// Always show section header if individual is selected, even without details yet
+			var personalLabel = p === 0 ? 'Personal Tax Return' : 'Additional Personal Return #' + ( p + 1 );
+			if ( state.individualNames && state.individualNames[ p ] ) {
+				personalLabel += ' \u2014 ' + state.individualNames[ p ];
 			}
+			html += '<div class="tqb-summary__section">';
+			html += '<div class="tqb-summary__type">' + escapeHtml( personalLabel ) + '</div>';
+			html += individualRows;
+			if ( individualSubtotal > 0 ) {
+				html += '<div class="tqb-summary__subtotal"><span>Subtotal</span><span>$' + individualSubtotal.toFixed( 2 ) + '</span></div>';
+			}
+			html += '</div>';
+			grandTotal += individualSubtotal;
 		}
 
 		// BUSINESS SECTION(S)
@@ -1294,20 +1292,19 @@
 					}
 				} );
 
-				if ( businessRows !== '' || state.businessTypes[ b ] || state.businessNames[ b ] ) {
-					var businessLabel = 'Business' + ( state.businessCount > 1 ? ' #' + ( b + 1 ) : '' );
-					if ( state.businessNames[ b ] ) {
-						businessLabel += ' \u2014 ' + state.businessNames[ b ];
-					}
-					html += '<div class="tqb-summary__section">';
-					html += '<div class="tqb-summary__type">' + escapeHtml( businessLabel ) + '</div>';
-					html += businessRows;
-					if ( businessSubtotal > 0 ) {
-						html += '<div class="tqb-summary__subtotal"><span>Subtotal</span><span>$' + businessSubtotal.toFixed( 2 ) + '</span></div>';
-					}
-					html += '</div>';
-					grandTotal += businessSubtotal;
+							// Always show section header if business is selected, even without details yet
+				var businessLabel = 'Business' + ( state.businessCount > 1 ? ' #' + ( b + 1 ) : '' );
+				if ( state.businessNames && state.businessNames[ b ] ) {
+					businessLabel += ' \u2014 ' + state.businessNames[ b ];
 				}
+				html += '<div class="tqb-summary__section">';
+				html += '<div class="tqb-summary__type">' + escapeHtml( businessLabel ) + '</div>';
+				html += businessRows;
+				if ( businessSubtotal > 0 ) {
+					html += '<div class="tqb-summary__subtotal"><span>Subtotal</span><span>$' + businessSubtotal.toFixed( 2 ) + '</span></div>';
+				}
+				html += '</div>';
+				grandTotal += businessSubtotal;
 			}
 		}
 
