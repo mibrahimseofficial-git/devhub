@@ -88,7 +88,6 @@
             h += '<div class="tqb-info-card"><div class="tqb-info-label">Phone Number</div><div class="tqb-info-value">' + escHtml(data.contact_phone || '—') + '</div></div>';
             var quoteTypeLabel = '—';
             if (parsed.quoteTypes.length > 0) {
-                // e.g. ['individual', 'business', 'business'] -> "Individual + Business (x2)"
                 var counts = {};
                 parsed.quoteTypes.forEach(function(t) { counts[t] = (counts[t] || 0) + 1; });
                 quoteTypeLabel = Object.keys(counts).map(function(t) {
@@ -101,9 +100,9 @@
             h += '<div class="tqb-info-card"><div class="tqb-info-label">Quote Type</div><div class="tqb-info-value"><span class="tqb-type-badge ' + escHtml(data.quote_type || '') + '">' + escHtml(quoteTypeLabel) + '</span></div></div>';
             h += '</div></div>';
 
-            // Quote Details
+            // Quote Status
             h += '<div class="tqb-modal-section">';
-            h += '<div class="tqb-modal-section-title"><span class="dashicons dashicons-money-alt"></span> Quote Details</div>';
+            h += '<div class="tqb-modal-section-title"><span class="dashicons dashicons-chart-pie"></span> Quote Status</div>';
             h += '<div class="tqb-info-grid">';
             h += '<div class="tqb-info-card"><div class="tqb-info-label">Status</div><div class="tqb-info-value">' + getStatusBadge(data.status) + '</div></div>';
             h += '<div class="tqb-info-card"><div class="tqb-info-label">Progress</div><div class="tqb-info-value"><span class="tqb-progress-badge">' + (function() {
@@ -122,24 +121,42 @@
             }
             h += '</div></div>';
 
-            // Business Details (only present on combined submissions with a business section)
-            if (businesses.length > 0) {
+            // Individual/Personal Details (if individual type selected)
+            var hasIndividual = parsed.quoteTypes.indexOf('individual') !== -1;
+            if (hasIndividual) {
                 h += '<div class="tqb-modal-section">';
-                h += '<div class="tqb-modal-section-title"><span class="dashicons dashicons-building"></span> Business Details</div>';
+                h += '<div class="tqb-modal-section-title"><span class="dashicons dashicons-admin-users"></span> Personal Details</div>';
                 h += '<div class="tqb-info-grid">';
+                var filingLabel = '—';
+                if (data.filing_status) {
+                    var filingLabels = { single: 'Single', mfj: 'Married Filing Jointly', mfs: 'Married Filing Separately', hoh: 'Head of Household' };
+                    filingLabel = filingLabels[data.filing_status] || data.filing_status;
+                }
+                h += '<div class="tqb-info-card"><div class="tqb-info-label">Filing Status</div><div class="tqb-info-value">' + escHtml(filingLabel) + '</div></div>';
+                h += '</div></div>';
+            }
+
+            // Business Details - each business grouped together
+            if (businesses.length > 0) {
                 businesses.forEach(function(biz, i) {
                     var label = businesses.length > 1 ? 'Business ' + (i + 1) : 'Business';
+                    h += '<div class="tqb-modal-section">';
+                    h += '<div class="tqb-modal-section-title"><span class="dashicons dashicons-building"></span> ' + escHtml(label) + '</div>';
+                    h += '<div class="tqb-info-grid">';
                     var entityLabel = ENTITY_LABELS[biz.entity_type] || biz.entity_type || '—';
-                    h += '<div class="tqb-info-card"><div class="tqb-info-label">' + escHtml(label) + ' — Entity Type</div><div class="tqb-info-value">' + escHtml(entityLabel) + '</div></div>';
-                    h += '<div class="tqb-info-card"><div class="tqb-info-label">' + escHtml(label) + ' — Total Assets</div><div class="tqb-info-value">' + escHtml(biz.asset_band || '—') + '</div></div>';
-                    h += '<div class="tqb-info-card"><div class="tqb-info-label">' + escHtml(label) + ' — Annual Revenue</div><div class="tqb-info-value">' + escHtml(biz.revenue_band || '—') + '</div></div>';
+                    h += '<div class="tqb-info-card"><div class="tqb-info-label">Entity Type</div><div class="tqb-info-value">' + escHtml(entityLabel) + '</div></div>';
+                    h += '<div class="tqb-info-card"><div class="tqb-info-label">Total Assets</div><div class="tqb-info-value">' + escHtml(biz.asset_band || '—') + '</div></div>';
+                    h += '<div class="tqb-info-card"><div class="tqb-info-label">Annual Revenue</div><div class="tqb-info-value">' + escHtml(biz.revenue_band || '—') + '</div></div>';
+                    if (biz.business_name) {
+                        h += '<div class="tqb-info-card full"><div class="tqb-info-label">Business Name</div><div class="tqb-info-value">' + escHtml(biz.business_name) + '</div></div>';
+                    }
+                    h += '</div></div>';
                 });
-                h += '</div></div>';
             }
 
             // Submitted Answers
             h += '<div class="tqb-modal-section">';
-            h += '<div class="tqb-modal-section-title"><span class="dashicons dashicons-list-view"></span> Submitted Answers</div>';
+            h += '<div class="tqb-modal-section-title"><span class="dashicons dashicons-yes-alt"></span> Selected Add-ons</div>';
 
             var answerKeys = Object.keys(ans);
             if (answerKeys.length > 0) {
