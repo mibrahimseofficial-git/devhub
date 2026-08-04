@@ -378,7 +378,6 @@ class TQB_Public {
 		$quote_types = mb_substr( $quote_types, 0, 500 ); // Limit size
 		$answers = isset( $_POST['answers'] ) ? (array) $_POST['answers'] : array();
 		$businesses = isset( $_POST['businesses'] ) ? (array) $_POST['businesses'] : array();
-		$user_ip = $this->get_client_ip();
 
 		$result = TQB_Quote_Handler::save_partial_submission(
 			$email,
@@ -387,27 +386,11 @@ class TQB_Public {
 			$name,
 			$phone,
 			$answers,
-			$businesses,
-			$user_ip
+			$businesses
 		);
 
 		if ( is_wp_error( $result ) ) {
-			$error_code = $result->get_error_code();
 			$message = $result->get_error_message();
-			
-			if ( $error_code === 'ip_conflict' ) {
-				wp_send_json_error( array( 
-					'message' => $message,
-					'ip_conflict' => true,
-				), 400 );
-				return;
-			}
-			
-			if ( $error_code === 'db_error' ) {
-				// Log detailed error for debugging
-				error_log( 'TQB_Email: Database error in save_partial: ' . $message );
-			}
-			
 			wp_send_json_error( array( 'message' => $message ), 400 );
 			return;
 		}
@@ -467,9 +450,9 @@ class TQB_Public {
 			return;
 		}
 
-		$user_ip = $this->get_client_ip();
+		$email = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
 
-		if ( empty( $user_ip ) ) {
+		if ( empty( $email ) ) {
 			wp_send_json_success();
 			return;
 		}
@@ -487,16 +470,9 @@ class TQB_Public {
 			$wpdb->update(
 				$table,
 				array( 'status' => 'abandoned' ),
-				array( 'user_ip' => $user_ip, 'status' => 'in_progress' ),
+				array( 'contact_email' => $email, 'status' => 'in_progress' ),
 				array( '%s' ),
 				array( '%s', '%s' )
-			);
-		} else {
-			// Fallback: delete the partial if no status column
-			$wpdb->delete(
-				$table,
-				array( 'user_ip' => $user_ip, 'calculated_total' => null ),
-				array( '%s', 'NULL' )
 			);
 		}
 

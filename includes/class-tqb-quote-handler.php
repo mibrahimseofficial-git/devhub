@@ -387,35 +387,6 @@ class TQB_Quote_Handler {
 	}
 
 	/**
-	 * Get existing partial submission by IP address.
-	 * Used to auto-populate form when user returns from same device.
-	 *
-	 * @param string $ip User's IP address
-	 * @return array|false Partial submission data if exists, false otherwise
-	 */
-	public static function get_partial_by_ip( $ip ) {
-		global $wpdb;
-		$table = $wpdb->prefix . 'tqb_submissions';
-
-		// Check if user_ip column exists
-		$has_status_column = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'user_ip'" );
-
-		if ( ! $has_status_column ) {
-			return false;
-		}
-
-		$result = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT id, contact_email, contact_name, contact_phone, answers, last_completed_step FROM {$table} WHERE user_ip = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
-				$ip
-			),
-			ARRAY_A
-		);
-
-		return $result;
-	}
-
-	/**
 	 * Check for existing partial submission using contact info (name + email + phone).
 	 *
 	 * @param string $name Contact name
@@ -442,49 +413,6 @@ class TQB_Quote_Handler {
 		);
 
 		return $partial;
-	}
-
-	/**
-	 * Check if IP already has a partial submission with DIFFERENT email.
-	 * This helps detect when someone is trying to submit from same IP but different email.
-	 *
-	 * @param string $ip         User's IP address
-	 * @param string $email      User's email
-	 * @return array|false Array with 'exists' and optional 'message', or false if no conflict
-	 */
-	public static function check_ip_email_conflict( $ip, $email ) {
-		global $wpdb;
-		$table = $wpdb->prefix . 'tqb_submissions';
-
-		// Check if user_ip column exists
-		$has_status_column = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'user_ip'" );
-
-		if ( ! $has_status_column ) {
-			return false;
-		}
-
-		// Find partial with this IP but different email
-		$result = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT contact_email, contact_name FROM {$table} WHERE user_ip = %s AND status = 'in_progress' AND contact_email != %s ORDER BY created_at DESC LIMIT 1",
-				$ip,
-				$email
-			),
-			ARRAY_A
-		);
-
-		if ( $result ) {
-			return array(
-				'exists'  => true,
-				'message'  => sprintf(
-					'This device already has a quote in progress for %s. Please use the same email (%s) or contact us directly.',
-					$result['contact_email'],
-					$result['contact_email']
-				),
-			);
-		}
-
-		return false;
 	}
 
 	/**
@@ -663,15 +591,13 @@ class TQB_Quote_Handler {
 		$name = '',
 		$phone = '',
 		$answers = array(),
-		$businesses = array(),
-		$user_ip = ''
+		$businesses = array()
 	) {
 		global $wpdb;
 		$table = $wpdb->prefix . 'tqb_submissions';
 
 		// Use cached column existence checks
 		$has_status_column = self::column_exists( 'status' );
-		$has_ip_column = self::column_exists( 'user_ip' );
 
 		// Build answers JSON
 		$answers_json = wp_json_encode( array(
@@ -750,16 +676,8 @@ class TQB_Quote_Handler {
 				$update_data['status'] = 'in_progress';
 			}
 
-			// Update IP if column exists and we have an IP
-			if ( $has_ip_column && ! empty( $user_ip ) ) {
-				$update_data['user_ip'] = $user_ip;
-			}
-
 			$update_format = array( '%s', '%d', '%s' );
 			if ( $has_status_column ) {
-				$update_format[] = '%s';
-			}
-			if ( $has_ip_column && ! empty( $user_ip ) ) {
 				$update_format[] = '%s';
 			}
 
@@ -791,11 +709,6 @@ class TQB_Quote_Handler {
 			$insert_data['status'] = 'in_progress';
 			$insert_data['last_completed_step'] = $step;
 			$insert_format = array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%d' );
-		}
-
-		if ( $has_ip_column && ! empty( $user_ip ) ) {
-			$insert_data['user_ip'] = $user_ip;
-			$insert_format[] = '%s';
 		}
 
 		$result = $wpdb->insert( $table, $insert_data, $insert_format );

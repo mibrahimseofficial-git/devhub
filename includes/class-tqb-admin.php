@@ -235,7 +235,7 @@ class TQB_Admin {
 		$search = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
 
 		// Sorting
-		$allowed_columns = array( 'id', 'contact_name', 'contact_email', 'contact_phone', 'quote_type', 'status', 'calculated_total', 'created_at', 'user_ip' );
+		$allowed_columns = array( 'id', 'contact_name', 'contact_email', 'contact_phone', 'quote_type', 'status', 'calculated_total', 'created_at' );
 		$orderby = isset( $_GET['orderby'] ) && in_array( $_GET['orderby'], $allowed_columns, true ) ? $_GET['orderby'] : 'created_at';
 		$order = isset( $_GET['order'] ) && 'asc' === strtolower( $_GET['order'] ) ? 'ASC' : 'DESC';
 
