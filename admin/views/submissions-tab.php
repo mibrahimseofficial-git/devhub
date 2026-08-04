@@ -1092,7 +1092,7 @@ function tqb_get_sort_indicator( $column ) {
 							<td>
 								<span class="tqb-progress-badge">
 									<?php
-									$step_labels = array( '', '1-Type', '2-Contact', '3-Questions', '4-Review', '5-Complete' );
+									$step_labels = array( '', '1-Type', '2-Filing Status', '3-Contact', '4-Questions', '5-Review', '6-Result' );
 									$step = isset( $sub['last_completed_step'] ) ? (int) $sub['last_completed_step'] : 0;
 									echo esc_html( $step_labels[ $step ] ?? '—' );
 									?>

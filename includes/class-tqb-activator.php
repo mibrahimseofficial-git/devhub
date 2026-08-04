@@ -225,6 +225,18 @@ class TQB_Activator {
 			$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
 		}
 
+		// Migration: Fix status values for existing partial submissions
+		// Submissions with status='completed' but NULL calculated_total are actually partial (in_progress)
+		if ( in_array( 'status', $sub_column_names, true ) && in_array( 'last_completed_step', $sub_column_names, true ) ) {
+			$wpdb->query(
+				"UPDATE {$submissions_table} SET status = 'in_progress' WHERE status = 'completed' AND calculated_total IS NULL"
+			);
+			// Mark submissions with calculated_total as completed
+			$wpdb->query(
+				"UPDATE {$submissions_table} SET status = 'completed' WHERE calculated_total IS NOT NULL AND status = 'in_progress'"
+			);
+		}
+
 		// Add reminder_email_sent column
 		if ( ! in_array( 'reminder_email_sent', $sub_column_names, true ) ) {
 			$after = in_array( 'confirmation_email_sent', $sub_column_names, true ) ? 'confirmation_email_sent' : null;
@@ -498,7 +510,7 @@ class TQB_Activator {
 			calculated_total DECIMAL(10,2) NULL COMMENT 'NULL when is_custom_quote = 1',
 			is_custom_quote TINYINT(1) NOT NULL DEFAULT 0,
 			custom_quote_reason VARCHAR(255) NULL COMMENT 'e.g. crypto, foreign_accounts, assets_over_5m',
-			status VARCHAR(20) NOT NULL DEFAULT 'completed' COMMENT 'completed, in_progress, abandoned',
+			status VARCHAR(20) NOT NULL DEFAULT 'in_progress' COMMENT 'completed, in_progress, abandoned',
 			last_completed_step INT NOT NULL DEFAULT 0 COMMENT '1-5 for tracking partial submissions',
 			user_ip VARCHAR(45) NULL COMMENT 'IPv4 or IPv6 address for tracking',
 			hubspot_synced TINYINT(1) NOT NULL DEFAULT 0,
