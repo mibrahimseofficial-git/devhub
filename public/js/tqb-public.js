@@ -1402,7 +1402,6 @@
 			answers: {},
 			completedSteps: [],
 			partialSubmissionId: null,
-			resumeToken: null,
 			summaryNeedsUpdate: true
 		};
 
@@ -1417,39 +1416,6 @@
 
 		clearError();
 		updateSummaryPanel();
-	}
-
-	// =====================================================================
-	// TOKEN MANAGEMENT
-	// =====================================================================
-	function generateToken() {
-		return 'tqb_' + Date.now().toString(36) + Math.random().toString(36).substr( 2, 16 );
-	}
-
-	function getStoredToken() {
-		var stored = localStorage.getItem( 'tqb_resume_token' );
-		if ( stored ) {
-			try {
-				var data = JSON.parse( stored );
-				if ( data.email === state.contactEmail ) {
-					return data.token;
-				}
-			} catch ( e ) {
-				return null;
-			}
-		}
-		return null;
-	}
-
-	function saveTokenToStorage( token ) {
-		localStorage.setItem( 'tqb_resume_token', JSON.stringify( {
-			token: token,
-			email: state.contactEmail
-		} ) );
-	}
-
-	function clearTokenFromStorage() {
-		localStorage.removeItem( 'tqb_resume_token' );
 	}
 
 	// =====================================================================
@@ -1487,12 +1453,6 @@
 			};
 		} );
 
-		// Use existing token or generate new one
-		var token = state.resumeToken || getStoredToken();
-		if ( ! token ) {
-			token = generateToken();
-		}
-
 		var params = new URLSearchParams();
 		params.append( 'action', 'tqb_save_partial' );
 		params.append( 'nonce', tqbData.nonceSavePartial );
@@ -1503,7 +1463,6 @@
 		params.append( 'quote_types', JSON.stringify( state.selectedTypes || [] ) );
 		params.append( 'answers', JSON.stringify( answersForSubmit ) );
 		params.append( 'businesses', JSON.stringify( businesses ) );
-		params.append( 'token', token );
 
 		fetch( tqbData.ajaxUrl, {
 			method: 'POST',
@@ -1518,10 +1477,8 @@
 		.then( function ( data ) {
 			if ( data.success && data.data && data.data.submission_id ) {
 				state.partialSubmissionId = data.data.submission_id;
-				state.resumeToken = token;
-				saveTokenToStorage( token );
 			} else if ( data.success === false && data.data && data.data.message ) {
-				// Show error to user (e.g., IP conflict)
+				// Show error to user
 				showError( data.data.message );
 			}
 		} )
@@ -1562,97 +1519,19 @@
 						} )
 					} ).then( function () {
 						resetForm();
-						clearTokenFromStorage();
 						goToStep( STEP.TYPE );
 					} ).catch( function () {
 						// Continue even if dismiss fails
 						resetForm();
-						clearTokenFromStorage();
 						goToStep( STEP.TYPE );
 					} );
 				}
 			} );
 		} );
 
-		// Check for existing partial submission
-		checkForExistingPartial();
-
 		// Initial state
 		goToStep( STEP.TYPE );
 		updateSummaryPanel();
-	}
-
-	// Check for existing partial submission using token or contact info
-	function checkForExistingPartial() {
-		var stored = localStorage.getItem( 'tqb_resume_token' );
-		if ( stored ) {
-			try {
-				var tokenData = JSON.parse( stored );
-				fetch( tqbData.ajaxUrl, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-					body: new URLSearchParams( {
-						action: 'tqb_check_partial_by_ip',
-						nonce: tqbData.nonceCheckPartial,
-						token: tokenData.token || ''
-					} )
-				} )
-				.then( function ( response ) {
-					return response.json();
-				} )
-				.then( function ( data ) {
-					if ( data.success && data.data && data.data.has_partial ) {
-						var partial = data.data;
-						// Check if stored token matches the partial's token
-						if ( tokenData.token && partial.resume_token && tokenData.token === partial.resume_token ) {
-							// Token matches - same device, restore session
-							restorePartialSession( partial );
-						}
-					}
-				} )
-				.catch( function () {
-					// Silently fail
-				} );
-			} catch ( e ) {
-				// Invalid JSON in localStorage
-			}
-		}
-	}
-
-	// Restore partial session data
-	function restorePartialSession( partial ) {
-		state.resumeToken = partial.resume_token;
-		state.partialSubmissionId = partial.submission_id;
-		state.contactName = partial.contact_name;
-		state.contactEmail = partial.contact_email;
-		state.contactPhone = partial.contact_phone;
-		state.selectedTypes = partial.quote_types || [];
-		state.answers = partial.answers || {};
-		state.businesses = partial.businesses || [];
-		
-		// Mark the step as completed
-		if ( partial.last_step ) {
-			state.completedSteps = [];
-			for ( var i = 1; i < partial.last_step; i++ ) {
-				state.completedSteps.push( i );
-			}
-		}
-
-		// Show resume prompt
-		if ( confirm( 'We found your previous quote session. Would you like to continue where you left off?' ) ) {
-			goToStep( partial.last_step || STEP.CONTACT );
-		} else {
-			// User chose not to resume - clear the session
-			fetch( tqbData.ajaxUrl, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-				body: new URLSearchParams( {
-					action: 'tqb_dismiss_partial',
-					nonce: tqbData.nonceDismissPartial
-				} )
-			} );
-			clearTokenFromStorage();
-		}
 	}
 
 	// Start the wizard

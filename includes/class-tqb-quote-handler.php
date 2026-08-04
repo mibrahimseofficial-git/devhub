@@ -416,49 +416,30 @@ class TQB_Quote_Handler {
 	}
 
 	/**
-	 * Check for existing partial submission using token OR contact info.
-	 * Token match = same device
-	 * Contact info match = different device with same name+email+phone
+	 * Check for existing partial submission using contact info (name + email + phone).
 	 *
-	 * @param string $token Token from localStorage (optional)
-	 * @param string $name Contact name (optional)
-	 * @param string $email Contact email (optional)
-	 * @param string $phone Contact phone (optional)
+	 * @param string $name Contact name
+	 * @param string $email Contact email
+	 * @param string $phone Contact phone
 	 * @return array|false Partial submission data or false
 	 */
-	public static function check_partial_for_resume( $token = '', $name = '', $email = '', $phone = '' ) {
+	public static function check_partial_for_resume( $name = '', $email = '', $phone = '' ) {
 		global $wpdb;
 		$table = $wpdb->prefix . 'tqb_submissions';
 
-		// Check if columns exist
-		$has_status_column = self::column_exists( 'status' );
-		$has_token_column = self::column_exists( 'resume_token' );
-
-		$partial = null;
-
-		// First try: match by token (same device)
-		if ( ! empty( $token ) && $has_token_column ) {
-			$partial = $wpdb->get_row(
-				$wpdb->prepare(
-					"SELECT id, contact_email, contact_name, contact_phone, answers, last_completed_step, resume_token FROM {$table} WHERE resume_token = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
-					$token
-				),
-				ARRAY_A
-			);
+		if ( empty( $email ) || empty( $name ) || empty( $phone ) ) {
+			return false;
 		}
 
-		// Second try: match by contact info (different device)
-		if ( ! $partial && ! empty( $email ) && ! empty( $name ) && ! empty( $phone ) ) {
-			$partial = $wpdb->get_row(
-				$wpdb->prepare(
-					"SELECT id, contact_email, contact_name, contact_phone, answers, last_completed_step, resume_token FROM {$table} WHERE contact_email = %s AND contact_name = %s AND contact_phone = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
-					$email,
-					$name,
-					$phone
-				),
-				ARRAY_A
-			);
-		}
+		$partial = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, contact_email, contact_name, contact_phone, answers, last_completed_step FROM {$table} WHERE contact_email = %s AND contact_name = %s AND contact_phone = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
+				$email,
+				$name,
+				$phone
+			),
+			ARRAY_A
+		);
 
 		return $partial;
 	}
@@ -683,8 +664,7 @@ class TQB_Quote_Handler {
 		$phone = '',
 		$answers = array(),
 		$businesses = array(),
-		$user_ip = '',
-		$token = ''
+		$user_ip = ''
 	) {
 		global $wpdb;
 		$table = $wpdb->prefix . 'tqb_submissions';
@@ -692,7 +672,6 @@ class TQB_Quote_Handler {
 		// Use cached column existence checks
 		$has_status_column = self::column_exists( 'status' );
 		$has_ip_column = self::column_exists( 'user_ip' );
-		$has_token_column = self::column_exists( 'resume_token' );
 
 		// Build answers JSON
 		$answers_json = wp_json_encode( array(
@@ -710,29 +689,14 @@ class TQB_Quote_Handler {
 			}
 		}
 
-		// Check for existing partial submission by email OR token
-			// First try to find by token if provided
-			$existing = null;
-			if ( ! empty( $token ) && $has_token_column ) {
-				$existing = $wpdb->get_row(
-					$wpdb->prepare(
-						"SELECT id, contact_name, contact_phone FROM {$table} WHERE resume_token = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
-						$token
-					),
-					ARRAY_A
-				);
-			}
-
-			// If not found by token, try by email with status = 'in_progress'
-			if ( ! $existing ) {
-				$existing = $wpdb->get_row(
-					$wpdb->prepare(
-						"SELECT id, contact_name, contact_phone FROM {$table} WHERE contact_email = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
-						$email
-					),
-					ARRAY_A
-				);
-			}
+		// Check for existing partial submission by email
+			$existing = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT id, contact_name, contact_phone FROM {$table} WHERE contact_email = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
+					$email
+				),
+				ARRAY_A
+			);
 
 			// If not found, try to find a record with NULL calculated_total AND NOT abandoned
 			// This handles old records that might have incorrect status values
@@ -791,19 +755,11 @@ class TQB_Quote_Handler {
 				$update_data['user_ip'] = $user_ip;
 			}
 
-			// Update token if column exists and we have a token
-			if ( $has_token_column && ! empty( $token ) ) {
-				$update_data['resume_token'] = $token;
-			}
-
 			$update_format = array( '%s', '%d', '%s' );
 			if ( $has_status_column ) {
 				$update_format[] = '%s';
 			}
 			if ( $has_ip_column && ! empty( $user_ip ) ) {
-				$update_format[] = '%s';
-			}
-			if ( $has_token_column && ! empty( $token ) ) {
 				$update_format[] = '%s';
 			}
 
@@ -839,11 +795,6 @@ class TQB_Quote_Handler {
 
 		if ( $has_ip_column && ! empty( $user_ip ) ) {
 			$insert_data['user_ip'] = $user_ip;
-			$insert_format[] = '%s';
-		}
-
-		if ( $has_token_column && ! empty( $token ) ) {
-			$insert_data['resume_token'] = $token;
 			$insert_format[] = '%s';
 		}
 
