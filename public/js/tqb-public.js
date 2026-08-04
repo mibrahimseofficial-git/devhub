@@ -1202,7 +1202,7 @@
 				var individualSubtotal = 0;
 				var individualRows = '';
 				var individualContextKey = 'individual_' + p;
-				var personalFilingStatus = state.individualFilingStatuses[ p ];
+				var personalFilingStatus = state.individualFilingStatuses ? state.individualFilingStatuses[ p ] : null;
 
 				// Filing status surcharge, if selected
 				if ( personalFilingStatus && tqbData.filing_status_prices ) {
@@ -1393,9 +1393,14 @@
 		state = {
 			selectedTypes: [],
 			filingStatus: null,
+			individualCount: 0,
+			individualNames: {},
+			individualFilingStatuses: {},
 			businessCount: 0,
 			businessNames: {},
 			businessTypes: {},
+			businessAssetBands: {},
+			businessRevenueBands: {},
 			contactName: null,
 			contactEmail: null,
 			contactPhone: null,
