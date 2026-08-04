@@ -630,7 +630,7 @@ class TQB_Quote_Handler {
 					$wpdb->query( 'ROLLBACK' );
 					return new WP_Error( 
 						'contact_mismatch', 
-						'Contact information does not match existing submission. Please use the original name and phone.' 
+						'This email is already in progress. If you want to continue, please use the correct contact information.' 
 					);
 				}
 
