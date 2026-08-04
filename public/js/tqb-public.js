@@ -1419,6 +1419,13 @@
 			}
 		} );
 
+		// Reset hidden sections
+		var filingStatusStep = document.getElementById( 'tqb-filing-status-step' );
+		if ( filingStatusStep ) filingStatusStep.hidden = true;
+
+		var addBusinessSection = document.getElementById( 'tqb-add-business-section' );
+		if ( addBusinessSection ) addBusinessSection.hidden = true;
+
 		clearError();
 		updateSummaryPanel();
 	}
