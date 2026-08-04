@@ -386,34 +386,6 @@ class TQB_Quote_Handler {
 		return $result;
 	}
 
-	/**
-	 * Check for existing partial submission using contact info (name + email + phone).
-	 *
-	 * @param string $name Contact name
-	 * @param string $email Contact email
-	 * @param string $phone Contact phone
-	 * @return array|false Partial submission data or false
-	 */
-	public static function check_partial_for_resume( $name = '', $email = '', $phone = '' ) {
-		global $wpdb;
-		$table = $wpdb->prefix . 'tqb_submissions';
-
-		if ( empty( $email ) || empty( $name ) || empty( $phone ) ) {
-			return false;
-		}
-
-		$partial = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT id, contact_email, contact_name, contact_phone, answers, last_completed_step FROM {$table} WHERE contact_email = %s AND contact_name = %s AND contact_phone = %s AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1",
-				$email,
-				$name,
-				$phone
-			),
-			ARRAY_A
-		);
-
-		return $partial;
-	}
 
 	/**
 	 * Get existing partial submission ID for an email.

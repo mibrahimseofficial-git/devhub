@@ -402,45 +402,6 @@ class TQB_Public {
 	}
 
 	/**
-	 * Check for existing partial by IP and return data for auto-population.
-	 * Called via AJAX when page loads.
-	 */
-	public function handle_check_partial_by_ip() {
-		// Verify CSRF token
-		$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
-		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION_CHECK_PARTIAL ) ) {
-			wp_send_json_error( array( 'message' => 'Security verification failed.' ), 403 );
-			return;
-		}
-
-		$name = isset( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '';
-		$email = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
-		$phone = isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : '';
-
-		$partial = TQB_Quote_Handler::check_partial_for_resume( $name, $email, $phone );
-
-		if ( ! $partial ) {
-			wp_send_json_success( array( 'has_partial' => false ) );
-			return;
-		}
-
-		// Decode answers JSON
-		$answers_data = json_decode( $partial['answers'], true );
-
-		wp_send_json_success( array(
-			'has_partial' => true,
-			'submission_id' => $partial['id'],
-			'contact_email' => $partial['contact_email'],
-			'contact_name' => $partial['contact_name'],
-			'contact_phone' => $partial['contact_phone'],
-			'last_step' => $partial['last_completed_step'],
-			'quote_types' => $answers_data['quote_types'] ?? array(),
-			'answers' => $answers_data['answers'] ?? array(),
-			'businesses' => $answers_data['businesses'] ?? array(),
-		) );
-	}
-
-	/**
 	 * Dismisses/abandons the current partial submission so user can start fresh.
 	 */
 	public function handle_dismiss_partial() {
