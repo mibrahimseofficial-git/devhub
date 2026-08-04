@@ -1049,7 +1049,7 @@ function tqb_get_sort_indicator( $column ) {
 								Created<?php echo tqb_get_sort_indicator( 'created_at' ); ?>
 							</a>
 						</th>
-						<th style="width: 130px;">IP Address</th>
+						
 						<th style="width: 100px;">Actions</th>
 					</tr>
 				</thead>
@@ -1121,12 +1121,6 @@ function tqb_get_sort_indicator( $column ) {
 									<br />
 									<span style="font-size: 11px;"><?php echo esc_html( $created->format( 'g:i A CT' ) ); ?></span>
 								</span>
-							</td>
-							<td>
-								<?php 
-								$ip = isset( $sub['user_ip'] ) && ! empty( $sub['user_ip'] ) ? esc_html( $sub['user_ip'] ) : '<span style="color: #94a3b8;">—</span>';
-								echo $ip;
-								?>
 							</td>
 							<td>
 								<button type="button" class="tqb-action-btn view" title="View Details" data-id="<?php echo esc_attr( $sub['id'] ); ?>">
