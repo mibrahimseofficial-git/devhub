@@ -552,7 +552,6 @@ class TQB_Quote_Handler {
 	 * @param string $phone        Contact phone (used for verification)
 	 * @param array  $answers      Answers array
 	 * @param array  $businesses   Businesses array
-	 * @param string $user_ip      User's IP address
 	 *
 	 * @return int|WP_Error Submission ID or error
 	 */
