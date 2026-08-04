@@ -128,6 +128,10 @@
 		}
 
 		window.scrollTo( { top: 0, behavior: 'smooth' } );
+
+		// Always update summary panel on step change to ensure real-time updates
+		state.summaryNeedsUpdate = true;
+		updateSummaryPanel();
 	}
 
 	// =====================================================================
@@ -1209,9 +1213,8 @@
 					var filingLabel = ( tqbData.filing_status_labels && tqbData.filing_status_labels[ personalFilingStatus ] ) || personalFilingStatus;
 					var filingPrice = parseFloat( tqbData.filing_status_prices[ personalFilingStatus ] || 0 );
 					individualSubtotal += filingPrice;
-					if ( filingPrice > 0 ) {
-						individualRows += '<div class="tqb-summary__item"><span>' + escapeHtml( filingLabel ) + ' filing surcharge</span><span class="tqb-summary__item-amount">$' + filingPrice.toFixed( 2 ) + '</span></div>';
-					}
+					// Always show filing status when selected (even if price is 0)
+					individualRows += '<div class="tqb-summary__item"><span>Status: ' + escapeHtml( filingLabel ) + '</span><span class="tqb-summary__item-amount">' + ( filingPrice > 0 ? '$' + filingPrice.toFixed( 2 ) : 'No surcharge' ) + '</span></div>';
 				}
 
 				Object.keys( state.answers ).forEach( function ( key ) {
