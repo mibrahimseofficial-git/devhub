@@ -378,6 +378,7 @@ class TQB_Public {
 		$quote_types = mb_substr( $quote_types, 0, 500 ); // Limit size
 		$answers = isset( $_POST['answers'] ) ? (array) $_POST['answers'] : array();
 		$businesses = isset( $_POST['businesses'] ) ? (array) $_POST['businesses'] : array();
+		$token = isset( $_POST['token'] ) ? sanitize_text_field( wp_unslash( $_POST['token'] ) ) : '';
 		$user_ip = $this->get_client_ip();
 
 		$result = TQB_Quote_Handler::save_partial_submission(
@@ -388,7 +389,8 @@ class TQB_Public {
 			$phone,
 			$answers,
 			$businesses,
-			$user_ip
+			$user_ip,
+			$token
 		);
 
 		if ( is_wp_error( $result ) ) {
@@ -430,14 +432,12 @@ class TQB_Public {
 			return;
 		}
 
-		$user_ip = $this->get_client_ip();
+		$token = isset( $_POST['token'] ) ? sanitize_text_field( wp_unslash( $_POST['token'] ) ) : '';
+		$name = isset( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '';
+		$email = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
+		$phone = isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : '';
 
-		if ( empty( $user_ip ) ) {
-			wp_send_json_success( array( 'has_partial' => false ) );
-			return;
-		}
-
-		$partial = TQB_Quote_Handler::get_partial_by_ip( $user_ip );
+		$partial = TQB_Quote_Handler::check_partial_for_resume( $token, $name, $email, $phone );
 
 		if ( ! $partial ) {
 			wp_send_json_success( array( 'has_partial' => false ) );
@@ -454,6 +454,7 @@ class TQB_Public {
 			'contact_name' => $partial['contact_name'],
 			'contact_phone' => $partial['contact_phone'],
 			'last_step' => $partial['last_completed_step'],
+			'resume_token' => $partial['resume_token'] ?? '',
 			'quote_types' => $answers_data['quote_types'] ?? array(),
 			'answers' => $answers_data['answers'] ?? array(),
 			'businesses' => $answers_data['businesses'] ?? array(),

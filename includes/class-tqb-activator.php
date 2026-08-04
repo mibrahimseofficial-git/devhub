@@ -313,6 +313,16 @@ class TQB_Activator {
 			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN user_ip VARCHAR(45) NULL";
 			if ( $after ) { $sql .= " AFTER {$after}"; }
 			$wpdb->query( $sql );
+			$sub_columns = $wpdb->get_results( "SHOW COLUMNS FROM {$submissions_table}", ARRAY_A );
+			$sub_column_names = wp_list_pluck( $sub_columns, 'Field' );
+		}
+
+		// Add resume_token column
+		if ( ! in_array( 'resume_token', $sub_column_names, true ) ) {
+			$after = in_array( 'user_ip', $sub_column_names, true ) ? 'user_ip' : null;
+			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN resume_token VARCHAR(64) NULL";
+			if ( $after ) { $sql .= " AFTER {$after}"; }
+			$wpdb->query( $sql );
 		}
 
 			// Add hubspot_sync_failed column for retry tracking
@@ -513,6 +523,7 @@ class TQB_Activator {
 			status VARCHAR(20) NOT NULL DEFAULT 'in_progress' COMMENT 'completed, in_progress, abandoned',
 			last_completed_step INT NOT NULL DEFAULT 0 COMMENT '1-5 for tracking partial submissions',
 			user_ip VARCHAR(45) NULL COMMENT 'IPv4 or IPv6 address for tracking',
+			resume_token VARCHAR(64) NULL COMMENT 'Unique token for resuming from same device',
 			hubspot_synced TINYINT(1) NOT NULL DEFAULT 0,
 			hubspot_contact_id VARCHAR(100) NULL,
 			hubspot_deal_id VARCHAR(100) NULL,
