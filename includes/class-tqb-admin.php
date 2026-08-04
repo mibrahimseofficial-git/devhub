@@ -284,11 +284,11 @@ class TQB_Admin {
 			ARRAY_A
 		);
 
-		// Get counts by status
+		// Get counts by status (including NULL/empty as in_progress to match display logic)
 		$counts = array(
 			'all' => $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" ),
 			'completed' => $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'completed'" ),
-			'in_progress' => $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'in_progress'" ),
+			'in_progress' => $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'in_progress' OR status IS NULL OR status = ''" ),
 			'abandoned' => $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'abandoned'" ),
 		);
 
