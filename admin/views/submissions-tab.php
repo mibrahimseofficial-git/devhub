@@ -1095,7 +1095,14 @@ function tqb_get_sort_indicator( $column ) {
 									<?php
 									$step_labels = array( '', '1-Type', '2-Filing Status', '3-Contact', '4-Questions', '5-Review', '6-Result' );
 									$step = isset( $sub['last_completed_step'] ) ? (int) $sub['last_completed_step'] : 0;
-									echo esc_html( $step_labels[ $step ] ?? '—' );
+									$status = $sub['status'] ?? '';
+									if ( $status === 'completed' ) {
+										echo '<span style="color: #22c55e; font-weight: 500;">✓ Done</span>';
+									} elseif ( $status === 'abandoned' ) {
+										echo '<span style="color: #94a3b8;">Abandoned</span>';
+									} else {
+										echo esc_html( $step_labels[ $step ] ?? '—' );
+									}
 									?>
 								</span>
 							</td>
