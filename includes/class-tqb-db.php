@@ -100,21 +100,35 @@ class TQB_DB {
 		global $wpdb;
 		$table = $wpdb->prefix . TQB_TABLE_SUBMISSIONS;
 
+		$insert_data = array(
+			'quote_type'          => $data['quote_type'],
+			'filing_status'       => $data['filing_status'] ?? null,
+			'contact_name'        => $data['contact_name'],
+			'contact_email'       => $data['contact_email'],
+			'contact_phone'       => $data['contact_phone'],
+			'business_name'       => $data['business_name'] ?? null,
+			'answers'             => wp_json_encode( $data['answers'] ),
+			'calculated_total'    => $data['calculated_total'] ?? null,
+			'is_custom_quote'     => ! empty( $data['is_custom_quote'] ) ? 1 : 0,
+			'custom_quote_reason' => $data['custom_quote_reason'] ?? null,
+			'status'              => $data['status'] ?? 'completed',
+			'last_completed_step' => $data['last_completed_step'] ?? 5,
+		);
+
+		$insert_format = array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%s', '%s', '%d' );
+
+		// Check if status column exists before inserting it
+		$has_status = $wpdb->get_var( "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table}' AND COLUMN_NAME = 'status'" );
+		if ( ! $has_status ) {
+			unset( $insert_data['status'] );
+			unset( $insert_data['last_completed_step'] );
+			$insert_format = array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%s' );
+		}
+
 		$inserted = $wpdb->insert(
 			$table,
-			array(
-				'quote_type'          => $data['quote_type'],
-				'filing_status'       => $data['filing_status'] ?? null,
-				'contact_name'        => $data['contact_name'],
-				'contact_email'       => $data['contact_email'],
-				'contact_phone'       => $data['contact_phone'],
-				'business_name'       => $data['business_name'] ?? null,
-				'answers'             => wp_json_encode( $data['answers'] ),
-				'calculated_total'    => $data['calculated_total'] ?? null,
-				'is_custom_quote'     => ! empty( $data['is_custom_quote'] ) ? 1 : 0,
-				'custom_quote_reason' => $data['custom_quote_reason'] ?? null,
-			),
-			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%s' )
+			$insert_data,
+			$insert_format
 		);
 
 		return $inserted ? $wpdb->insert_id : false;
