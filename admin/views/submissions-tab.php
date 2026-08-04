@@ -658,7 +658,7 @@ function tqb_get_sort_indicator( $column ) {
 .tqb-modal-header {
 	background: linear-gradient(135deg, #001a44 0%, #0f3d7a 100%);
 	color: #fff;
-	padding: 24px 28px;
+	padding: 16px 20px;
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
@@ -666,18 +666,18 @@ function tqb_get_sort_indicator( $column ) {
 
 .tqb-modal-header h2 {
 	margin: 0;
-	font-size: 20px;
+	font-size: 18px;
 	font-weight: 600;
 	color: #fff;
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 10px;
 }
 
 .tqb-modal-header h2 .dashicons {
-	font-size: 24px;
-	width: 24px;
-	height: 24px;
+	font-size: 20px;
+	width: 20px;
+	height: 20px;
 }
 
 .tqb-modal-close {

@@ -1672,7 +1672,8 @@
 						headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 						body: new URLSearchParams( {
 							action: 'tqb_dismiss_partial',
-							nonce: tqbData.nonceDismissPartial
+							nonce: tqbData.nonceDismissPartial,
+							email: state.contactEmail || ''
 						} )
 					} ).then( function () {
 						resetForm();
