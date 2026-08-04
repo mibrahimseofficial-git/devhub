@@ -18,12 +18,14 @@ class TQB_Admin {
 	const NONCE_ACTION_LINE_ITEMS = 'tqb_save_line_items';
 	const NONCE_ACTION_RATE_BANDS = 'tqb_save_rate_bands';
 	const NONCE_ACTION_GENERAL = 'tqb_save_general_settings';
+	const NONCE_ACTION_FILING_STATUS = 'tqb_save_filing_status';
 
 	public function __construct() {
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
 		add_action( 'admin_post_tqb_save_line_items', array( $this, 'handle_save_line_items' ) );
 		add_action( 'admin_post_tqb_save_rate_bands', array( $this, 'handle_save_rate_bands' ) );
 		add_action( 'admin_post_tqb_save_general_settings', array( $this, 'handle_save_general_settings' ) );
+		add_action( 'admin_post_tqb_save_filing_status', array( $this, 'handle_save_filing_status' ) );
 		add_action( 'admin_post_tqb_delete_submission', array( $this, 'handle_delete_submission' ) );
 		add_action( 'admin_post_tqb_delete_submissions', array( $this, 'handle_bulk_delete_submissions' ) );
 		add_action( 'wp_ajax_tqb_fetch_hubspot_pipelines', array( $this, 'handle_fetch_hubspot_pipelines' ) );
@@ -437,22 +439,6 @@ class TQB_Admin {
 		$office_address = isset( $_POST['office_address'] ) ? sanitize_textarea_field( wp_unslash( $_POST['office_address'] ) ) : '';
 		$delete_data_on_uninstall = isset( $_POST['delete_data_on_uninstall'] ) ? '1' : '0';
 
-		// Filing Status Configuration
-		$base_price = isset( $_POST['tqb_individual_base_price'] ) ? floatval( $_POST['tqb_individual_base_price'] ) : 500;
-		$filing_statuses = array( 'single', 'mfj', 'mfs', 'hoh' );
-		
-		update_option( 'tqb_individual_base_price', $base_price );
-		
-		foreach ( $filing_statuses as $status ) {
-			$label = isset( $_POST[ 'tqb_filing_status_label_' . $status ] ) ? sanitize_text_field( wp_unslash( $_POST[ 'tqb_filing_status_label_' . $status ] ) ) : '';
-			$price = isset( $_POST[ 'tqb_filing_status_price_' . $status ] ) ? floatval( $_POST[ 'tqb_filing_status_price_' . $status ] ) : 0;
-			
-			if ( $label ) {
-				update_option( 'tqb_filing_status_label_' . $status, $label );
-			}
-			update_option( 'tqb_filing_status_price_' . $status, $price );
-		}
-
 		update_option( 'tqb_disclaimer_text', $disclaimer_text );
 		update_option( 'tqb_scheduling_link', $scheduling_link );
 		update_option( 'tqb_team_notification_email', $notification_email );
@@ -472,6 +458,39 @@ class TQB_Admin {
 		// Redirect back to the current tab (default to general if not set)
 		$current_tab = isset( $_POST['tqb_current_tab'] ) ? sanitize_key( $_POST['tqb_current_tab'] ) : 'general';
 		wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=' . $current_tab . '&tqb_saved=1' ) );
+		exit;
+	}
+
+	/**
+	 * Handles the "Filing Status Configuration" panel on the Individual tab
+	 * (base price + per-status label/surcharge). Split out from
+	 * handle_save_general_settings() because the two forms don't share the
+	 * same fields — reusing one handler for both meant saving one form
+	 * silently reset the other's values to their fallback defaults.
+	 */
+	public function handle_save_filing_status() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do this.', 'tavola-quote-builder' ) );
+		}
+
+		check_admin_referer( self::NONCE_ACTION_FILING_STATUS, 'tqb_nonce' );
+
+		$base_price = isset( $_POST['tqb_individual_base_price'] ) ? floatval( $_POST['tqb_individual_base_price'] ) : 500;
+		update_option( 'tqb_individual_base_price', $base_price );
+
+		$filing_statuses = array( 'single', 'mfj', 'mfs', 'hoh' );
+
+		foreach ( $filing_statuses as $status ) {
+			$label = isset( $_POST[ 'tqb_filing_status_label_' . $status ] ) ? sanitize_text_field( wp_unslash( $_POST[ 'tqb_filing_status_label_' . $status ] ) ) : '';
+			$price = isset( $_POST[ 'tqb_filing_status_price_' . $status ] ) ? floatval( $_POST[ 'tqb_filing_status_price_' . $status ] ) : 0;
+
+			if ( $label ) {
+				update_option( 'tqb_filing_status_label_' . $status, $label );
+			}
+			update_option( 'tqb_filing_status_price_' . $status, $price );
+		}
+
+		wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=individual&tqb_saved=1' ) );
 		exit;
 	}
 

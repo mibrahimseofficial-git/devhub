@@ -256,9 +256,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<p class="tqb-description">Configure filing status options and pricing for individual tax returns. The surcharge is added to the base price.</p>
 
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-			<?php wp_nonce_field( TQB_Admin::NONCE_ACTION_GENERAL, 'tqb_nonce' ); ?>
-			<input type="hidden" name="action" value="tqb_save_general_settings" />
-			<input type="hidden" name="tqb_current_tab" value="line-items" />
+			<?php wp_nonce_field( TQB_Admin::NONCE_ACTION_FILING_STATUS, 'tqb_nonce' ); ?>
+			<input type="hidden" name="action" value="tqb_save_filing_status" />
 
 			<table class="wp-list-table widefat striped" style="margin-bottom:20px;">
 				<thead>
@@ -283,9 +282,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 					foreach ( $filing_statuses as $status ) {
 						$label = get_option( 'tqb_filing_status_label_' . $status, $filing_labels[ $status ] );
 						$surcharge = (float) get_option( 'tqb_filing_status_price_' . $status, 0 );
-						if ( $status === 'mfj' ) $surcharge = 200;
-						if ( $status === 'mfs' ) $surcharge = 300;
-						if ( $status === 'hoh' ) $surcharge = 150;
 						$total = $base_price + $surcharge;
 						?>
 						<tr>

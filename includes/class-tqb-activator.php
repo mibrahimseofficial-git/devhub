@@ -480,6 +480,17 @@ class TQB_Activator {
 		add_option( 'tqb_followup_email_hours', '72' ); // Hours after abandonment to send follow-up with call offer
 		add_option( 'tqb_final_email_hours', '168' ); // Hours after abandonment to send final email
 		add_option( 'tqb_office_address', "939 W North Ave, Suite 750,\nChicago, IL 60642" );
+
+		// Individual filing status base price + surcharges (Filing Status Configuration panel).
+		add_option( 'tqb_individual_base_price', 500 );
+		add_option( 'tqb_filing_status_label_single', 'Single' );
+		add_option( 'tqb_filing_status_price_single', 0 );
+		add_option( 'tqb_filing_status_label_mfj', 'Married Filing Jointly' );
+		add_option( 'tqb_filing_status_price_mfj', 200 );
+		add_option( 'tqb_filing_status_label_mfs', 'Married Filing Separately' );
+		add_option( 'tqb_filing_status_price_mfs', 300 );
+		add_option( 'tqb_filing_status_label_hoh', 'Head of Household' );
+		add_option( 'tqb_filing_status_price_hoh', 150 );
 	}
 
 	/**
@@ -602,10 +613,13 @@ class TQB_Activator {
 	}
 
 	/**
-	 * Seeds the tables with the exact values from the client's actual Excel
-	 * calculator (per PROJECT_SPEC.md), so the plugin is testable immediately
-	 * after activation without manual data entry. Uses INSERT IGNORE-style
-	 * checks so re-activating doesn't duplicate rows.
+	 * Seeds the tables with the exact production values exported from the
+	 * live Tavola site (tavola.sql), so a fresh activation reproduces the
+	 * client's real configuration immediately — no manual re-entry needed.
+	 * Uses named keys (not positional array offsets) to avoid the field
+	 * misalignment bug the previous version of this function had, where
+	 * is_active/sort_order/tooltip were silently shifted by one column.
+	 * Only the submissions table is deliberately left empty on activation.
 	 */
 	private static function seed_default_data() {
 		global $wpdb;
@@ -619,88 +633,330 @@ class TQB_Activator {
 		}
 
 		$individual_items = array(
-			array( 'w2_wages', 'Did anyone in your household receive W-2 income from an employer?', 350, 'qty_times_fee', null, 0, null, 1, 0, 'This includes wages, salaries, bonuses, commissions, and other employment income reported on a W-2.' ),
-			array( 'multi_state', 'Did anyone in your household live or work in more than one state during the year?', 150, 'qty_times_fee', null, 0, null, 1, 10, 'This helps determine whether multiple state tax returns may be required.' ),
-			array( 'interest_dividends', 'Did anyone in your household earn interest or dividends from a bank or investment account?', 25, 'flat', null, 0, null, 1, 20, 'Look for Forms 1099-INT or 1099-DIV from your bank or brokerage.' ),
-			array( 'brokerage_sales', 'Did anyone in your household sell stocks, ETFs, mutual funds, or other investments?', 25, 'qty_times_fee', null, 0, null, 1, 30, 'You can usually find this information on Form 1099-B or your year-end brokerage statement.' ),
-			array( 'rental_property', 'Did anyone in your household own a rental property during the year?', 200, 'qty_times_fee', null, 0, null, 1, 40, 'Include long-term, short-term, or vacation rentals.' ),
-			array( 'self_employed', 'Was anyone in your household self-employed or the owner of a sole proprietorship or single-member LLC?', 200, 'qty_times_fee', null, 0, null, 1, 50, 'Include freelance work, consulting, side businesses, or gig economy income (1099 income).' ),
-			array( 'farm_income', 'Did anyone in your household receive farm income?', 275, 'qty_times_fee', null, 0, null, 1, 60, 'Include income and expenses from farming or agricultural operations.' ),
-			array( 'k1_received', 'Did anyone in your household receive a Schedule K-1?', 50, 'qty_times_fee', null, 0, null, 1, 70, 'K-1s are commonly issued by partnerships, S corporations, estates, or trusts.' ),
-			array( 'foreign_accounts', 'Did anyone in your household have foreign bank accounts or earn foreign income?', 250, 'qty_times_fee', null, 1, null, 1, 80, 'This helps determine whether FBAR or other international reporting requirements apply.' ),
-			array( 'crypto', 'Did anyone in your household buy, sell, or trade cryptocurrency?', 250, 'qty_times_fee', null, 0, null, 1, 90, 'Include Bitcoin, Ethereum, NFTs, or any other digital assets. If over 100 transactions or $100K, custom quote required.' ),
-			array( 'tuition', 'Did anyone in your household pay qualified college tuition?', 25, 'flat', null, 0, null, 1, 100, 'Look for Form 1098-T from the educational institution.' ),
-			array( 'childcare', 'Did anyone in your household pay for childcare or dependent care?', 25, 'flat', null, 0, null, 1, 110, 'Include daycare, preschool, before/after-school care, or summer day camps.' ),
-			array( 'hsa', 'Did anyone in your household contribute to or receive distributions from a Health Savings Account (HSA)?', 25, 'qty_times_fee', null, 0, null, 1, 120, 'Look for Forms 1099-SA or 5498-SA.' ),
-			array( 'home_sale', 'Did anyone in your household sell a home during the year?', 150, 'qty_times_fee', null, 0, null, 1, 130, 'Look for Form 1099-S or include the sale of your primary residence or investment property.' ),
-			array( 'retirement_distributions', 'Did anyone in your household receive retirement distributions?', 100, 'flat', null, 0, null, 1, 140, 'Include withdrawals from a 401(k), IRA, Roth IRA, pension, annuity, or similar retirement account.' ),
-			array( 'meetings', 'Meetings (end of year recap, tax return review, misc.)', 250, 'qty_times_fee', null, 0, null, 0, 150, 'Internal use only.' ),
-		);
-
-		foreach ( $individual_items as $item ) {
-			// Special handling for crypto: use threshold_rules JSON
-			$threshold_rules = null;
-			if ( $item[0] === 'crypto' ) {
-				$threshold_rules = wp_json_encode( array(
-					'logic'      => 'OR',
+			array(
+				'item_key'        => 'w2_wages',
+				'label'           => 'Did anyone in your household receive W-2 income from an employer?',
+				'fee'             => 350,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'This includes wages, salaries, bonuses, commissions, and other employment income reported on a W-2.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'multi_state',
+				'label'           => 'Did anyone in your household live or work in more than one state during the year?',
+				'fee'             => 150,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'This helps determine whether multiple state tax returns may be required.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'interest_dividends',
+				'label'           => 'Did anyone in your household earn interest or dividends from a bank or investment account?',
+				'fee'             => 25,
+				'pricing_pattern' => 'flat',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'Look for Forms 1099-INT or 1099-DIV from your bank or brokerage.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'brokerage_sales',
+				'label'           => 'Did anyone in your household sell stocks, ETFs, mutual funds, or other investments?',
+				'fee'             => 25,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'You can usually find this information on Form 1099-B or your year-end brokerage statement.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'rental_property',
+				'label'           => 'Did anyone in your household own a rental property during the year?',
+				'fee'             => 200,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'Include long-term, short-term, or vacation rentals.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'self_employed',
+				'label'           => 'Was anyone in your household self-employed or the owner of a sole proprietorship or single-member LLC?',
+				'fee'             => 200,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'Include freelance work, consulting, side businesses, or gig economy income (1099 income).',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'farm_income',
+				'label'           => 'Did anyone in your household receive farm income?',
+				'fee'             => 275,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'Include income and expenses from farming or agricultural operations.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'k1_received',
+				'label'           => 'Did anyone in your household receive a Schedule K-1?',
+				'fee'             => 50,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'K-1s are commonly issued by partnerships, S corporations, estates, or trusts.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'foreign_accounts',
+				'label'           => 'Did anyone in your household have foreign bank accounts or earn foreign income?',
+				'fee'             => 250,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 1,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'This helps determine whether FBAR or other international reporting requirements apply.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'crypto',
+				'label'           => 'Did anyone in your household buy, sell, or trade cryptocurrency?',
+				'fee'             => 250,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => wp_json_encode( array(
+					'logic'      => 'AND',
 					'conditions' => array(
 						array(
-							'type'     => 'transactions',
+							'type'     => 'qty',
 							'operator' => 'above',
 							'value'    => 100,
 						),
-						array(
-							'type'     => 'dollar_value',
-							'operator' => 'above',
-							'value'    => 100000,
-						),
 					),
-				) );
-			}
+				) ),
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'Include Bitcoin, Ethereum, NFTs, or any other digital assets.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'tuition',
+				'label'           => 'Did anyone in your household pay qualified college tuition?',
+				'fee'             => 25,
+				'pricing_pattern' => 'flat',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'Look for Form 1098-T from the educational institution.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'childcare',
+				'label'           => 'Did anyone in your household pay for childcare or dependent care?',
+				'fee'             => 25,
+				'pricing_pattern' => 'flat',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'Include daycare, preschool, before/after-school care, or summer day camps.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'hsa',
+				'label'           => 'Did anyone in your household contribute to or receive distributions from a Health Savings Account (HSA)?',
+				'fee'             => 25,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'Look for Forms 1099-SA or 5498-SA.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'home_sale',
+				'label'           => 'Did anyone in your household sell a home during the year?',
+				'fee'             => 150,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'Look for Form 1099-S or include the sale of your primary residence or investment property.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'retirement_distributions',
+				'label'           => 'Did anyone in your household receive retirement distributions?',
+				'fee'             => 25,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'Include withdrawals from a 401(k), IRA, Roth IRA, pension, annuity, or similar retirement account.',
+				'filing_status'   => 'mfj',
+			),
+			array(
+				'item_key'        => 'meetings',
+				'label'           => 'Meetings (end of year recap, tax return review, misc.)',
+				'fee'             => 250,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 0,
+				'is_active'       => 0,
+				'sort_order'      => 0,
+				'tooltip'         => '',
+				'filing_status'   => 'mfj',
+			),
+		);
 
+		foreach ( $individual_items as $item ) {
 			$wpdb->insert(
 				$line_items_table,
-				array(
-					'quote_type'              => 'individual',
-					'item_key'                => $item[0],
-					'label'                   => $item[1],
-					'fee'                     => $item[2],
-					'pricing_pattern'         => $item[3],
-					'is_custom_quote_trigger' => $item[5],
-					'threshold_rules'         => $threshold_rules,
-					'reveal_followup'         => $item[7],
-					'is_active'               => $item[8],
-					'sort_order'              => $item[9],
-					'tooltip'                 => $item[10],
-				)
+				array_merge( array( 'quote_type' => 'individual' ), $item )
 			);
 		}
 
 		$business_items = array(
-			array( 'extra_k1s', 'Does your business have more than one owner or partner?', 25, 'qty_times_fee', null, 0, null, 1, 10, 'Include any business where ownership is shared with another individual or entity. This helps us determine whether additional Schedule K-1s will need to be prepared.' ),
-			array( 'multi_state', 'Does your business operate or file taxes in more than one state?', 250, 'qty_times_fee', null, 0, null, 1, 20, 'This includes having employees, offices, property, or business activity in multiple states that may require additional state tax filings.' ),
-			array( 'depreciation_schedule', 'Do you need us to create or maintain a fixed asset and depreciation schedule?', 250, 'qty_times_fee', null, 0, null, 1, 30, 'Select "Yes" if your business has purchased equipment, furniture, vehicles, buildings, or other assets that need to be tracked and depreciated.' ),
-			array( 'foreign_partner', 'Does your business have any foreign owners or partners?', 350, 'qty_times_fee', null, 0, null, 1, 40, 'This includes individuals or entities that are not U.S. persons and may require additional tax reporting.' ),
-			array( 'books_dont_match', 'Do your accounting records differ from what was reported on your prior tax returns?', 250, 'qty_times_fee', null, 0, null, 1, 50, 'For example, if your QuickBooks balance doesn\'t match your last filed tax return or if prior accountant adjustments haven\'t been recorded.' ),
-			array( 'excess_equipment', 'Does your business own more than 25 fixed assets or pieces of equipment?', 250, 'qty_times_fee', null, 0, null, 1, 60, 'Include machinery, vehicles, computers, furniture, buildings, and other depreciable business assets. This helps us estimate the complexity of maintaining your depreciation schedule.' ),
-			array( 'audit_support', 'Under IRS audit / needs audit support', 350, 'qty_times_fee', null, 0, null, 0, 70, 'Audit representation is not included in standard engagement.' ),
+			array(
+				'item_key'        => 'extra_k1s',
+				'label'           => 'Does your business have more than one owner or partner?',
+				'fee'             => 25,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'Include any business where ownership is shared with another individual or entity. This helps us determine whether additional Schedule K-1s will need to be prepared.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'multi_state',
+				'label'           => 'Does your business operate or file taxes in more than one state?',
+				'fee'             => 250,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'This includes having employees, offices, property, or business activity in multiple states that may require additional state tax filings.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'depreciation_schedule',
+				'label'           => 'Do you need us to create or maintain a fixed asset and depreciation schedule?',
+				'fee'             => 250,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'Select "Yes" if your business has purchased equipment, furniture, vehicles, buildings, or other assets that need to be tracked and depreciated.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'foreign_partner',
+				'label'           => 'Does your business have any foreign owners or partners?',
+				'fee'             => 350,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'This includes individuals or entities that are not U.S. persons and may require additional tax reporting.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'books_dont_match',
+				'label'           => 'Do your accounting records differ from what was reported on your prior tax returns?',
+				'fee'             => 250,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'For example, if your QuickBooks balance doesn\'t match your last filed tax return or if prior accountant adjustments haven\'t been recorded.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'excess_equipment',
+				'label'           => 'Does your business own more than 25 fixed assets or pieces of equipment?',
+				'fee'             => 250,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 1,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => 'Include machinery, vehicles, computers, furniture, buildings, and other depreciable business assets. This helps us estimate the complexity of maintaining your depreciation schedule.',
+				'filing_status'   => null,
+			),
+			array(
+				'item_key'        => 'audit_support',
+				'label'           => 'Under IRS audit / needs audit support',
+				'fee'             => 350,
+				'pricing_pattern' => 'qty_times_fee',
+				'is_custom_quote_trigger' => 0,
+				'threshold_rules' => null,
+				'reveal_followup' => 0,
+				'is_active'       => 1,
+				'sort_order'      => 0,
+				'tooltip'         => '',
+				'filing_status'   => null,
+			),
 		);
 
 		foreach ( $business_items as $item ) {
 			$wpdb->insert(
 				$line_items_table,
-				array(
-					'quote_type'              => 'business',
-					'item_key'                => $item[0],
-					'label'                   => $item[1],
-					'fee'                     => $item[2],
-					'pricing_pattern'         => $item[3],
-					'is_custom_quote_trigger' => $item[5],
-					'reveal_followup'         => $item[7],
-					'is_active'               => $item[8],
-					'sort_order'              => $item[9],
-					'tooltip'                 => $item[10],
-				)
+				array_merge( array( 'quote_type' => 'business' ), $item )
 			);
 		}
 
