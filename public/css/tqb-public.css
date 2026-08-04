@@ -978,6 +978,21 @@
 	color: #fff !important;
 }
 
+.tqb-btn--secondary {
+	background: var(--tqb-line) !important;
+	color: var(--tqb-text) !important;
+	border-color: var(--tqb-line) !important;
+}
+
+.tqb-btn--secondary:hover {
+	background: var(--tqb-line-light) !important;
+}
+
+.tqb-btn--small {
+	font-size: 13px !important;
+	padding: 6px 14px !important;
+}
+
 .tqb-btn:focus-visible {
 	outline: 2px solid var(--tqb-focus);
 	outline-offset: 2px;

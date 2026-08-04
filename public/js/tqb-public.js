@@ -598,9 +598,29 @@
 		section.className = 'tqb-question-section';
 		section.id = 'tqb-business-section-' + businessIndex;
 
+		var headerWrapper = document.createElement( 'div' );
+		headerWrapper.style.display = 'flex';
+		headerWrapper.style.justifyContent = 'space-between';
+		headerWrapper.style.alignItems = 'center';
+
 		var header = document.createElement( 'h3' );
 		header.textContent = businessIndex === 0 ? 'Business Information' : 'Additional Business #' + (businessIndex + 1);
-		section.appendChild( header );
+		headerWrapper.appendChild( header );
+
+		// Add remove button for additional businesses (not the first one)
+		if ( businessIndex > 0 ) {
+			var removeBtn = document.createElement( 'button' );
+			removeBtn.type = 'button';
+			removeBtn.className = 'tqb-btn tqb-btn--secondary tqb-btn--small';
+			removeBtn.textContent = 'Remove Business';
+			removeBtn.style.marginLeft = '12px';
+			removeBtn.addEventListener( 'click', function () {
+				removeBusiness( businessIndex );
+			} );
+			headerWrapper.appendChild( removeBtn );
+		}
+
+		section.appendChild( headerWrapper );
 
 		// Business name input (appears first)
 		var nameField = document.createElement( 'div' );
@@ -790,6 +810,123 @@
 		}
 
 		return wrapper;
+	}
+
+	// Remove a business by index and re-index remaining businesses
+	function removeBusiness( businessIndex ) {
+		if ( ! confirm( 'Are you sure you want to remove this business?' ) ) {
+			return;
+		}
+
+		// Remove the business section from DOM
+		var section = document.getElementById( 'tqb-business-section-' + businessIndex );
+		if ( section ) {
+			section.remove();
+		}
+
+		// Clear state for this business
+		delete state.businessNames[ businessIndex ];
+		delete state.businessTypes[ businessIndex ];
+		delete state.businessAssetBands[ businessIndex ];
+		delete state.businessRevenueBands[ businessIndex ];
+
+		// Clear answers for this business
+		var contextPrefix = 'business_' + businessIndex;
+		Object.keys( state.answers ).forEach( function ( key ) {
+			if ( key.indexOf( contextPrefix ) === 0 ) {
+				delete state.answers[ key ];
+			}
+		} );
+
+		// Decrement business count
+		state.businessCount--;
+
+		// If no businesses left, hide the add business section and uncheck business type
+		if ( state.businessCount <= 0 ) {
+			state.businessCount = 0;
+			state.selectedTypes = state.selectedTypes.filter( function ( type ) { return type !== 'business'; } );
+			var addBusinessSection = document.getElementById( 'tqb-add-business-section' );
+			if ( addBusinessSection ) addBusinessSection.hidden = true;
+			var businessCheckbox = document.getElementById( 'tqb-select-business' );
+			if ( businessCheckbox ) businessCheckbox.checked = false;
+		} else {
+			// Re-index remaining businesses to fill the gap
+			reindexBusinesses();
+		}
+
+		// Update UI
+		state.summaryNeedsUpdate = true;
+		updateSummaryPanel();
+
+		// Show add business button if we still have businesses
+		var addBusinessBtn = wizard.querySelector( '[data-action="add-business"]' );
+		var addBusinessSection = document.getElementById( 'tqb-add-business-section' );
+		if ( addBusinessBtn && addBusinessSection && state.businessCount > 0 ) {
+			addBusinessSection.hidden = false;
+			addBusinessBtn.style.display = 'inline-block';
+		}
+	}
+
+	// Re-index businesses after removal
+	function reindexBusinesses() {
+		var newBusinessNames = {};
+		var newBusinessTypes = {};
+		var newBusinessAssetBands = {};
+		var newBusinessRevenueBands = {};
+		var newAnswers = {};
+		var newIndex = 0;
+
+		for ( var oldIndex = 0; oldIndex < state.businessCount + 1; oldIndex++ ) {
+			if ( state.businessNames[ oldIndex ] !== undefined || 
+				 state.businessTypes[ oldIndex ] !== undefined ||
+				 state.businessAssetBands[ oldIndex ] !== undefined ||
+				 state.businessRevenueBands[ oldIndex ] !== undefined ) {
+				
+				// Copy state
+				if ( state.businessNames[ oldIndex ] !== undefined ) newBusinessNames[ newIndex ] = state.businessNames[ oldIndex ];
+				if ( state.businessTypes[ oldIndex ] !== undefined ) newBusinessTypes[ newIndex ] = state.businessTypes[ oldIndex ];
+				if ( state.businessAssetBands[ oldIndex ] !== undefined ) newBusinessAssetBands[ newIndex ] = state.businessAssetBands[ oldIndex ];
+				if ( state.businessRevenueBands[ oldIndex ] !== undefined ) newBusinessRevenueBands[ newIndex ] = state.businessRevenueBands[ oldIndex ];
+
+				// Copy and re-index answers
+				var oldPrefix = 'business_' + oldIndex;
+				var newPrefix = 'business_' + newIndex;
+				Object.keys( state.answers ).forEach( function ( key ) {
+					if ( key.indexOf( oldPrefix ) === 0 ) {
+						var newKey = key.replace( oldPrefix, newPrefix );
+						newAnswers[ newKey ] = state.answers[ key ];
+					}
+				} );
+
+				// Update DOM element IDs
+				var section = document.getElementById( 'tqb-business-section-' + oldIndex );
+				if ( section ) {
+					section.id = 'tqb-business-section-' + newIndex;
+					// Update header
+					var h3 = section.querySelector( 'h3' );
+					if ( h3 ) {
+						h3.textContent = newIndex === 0 ? 'Business Information' : 'Additional Business #' + ( newIndex + 1 );
+					}
+					// Update remove button data attribute (keep the button for index > 0)
+					// Update input IDs and data attributes
+					section.querySelectorAll( '[id^="tqb-business-name-"], [id^="tqb-entity-type-"], [id^="tqb-asset-band-"], [id^="tqb-revenue-band-"]' ).forEach( function ( el ) {
+						var oldId = el.id;
+						el.id = oldId.replace( '-' + oldIndex + '-', '-' + newIndex + '-' );
+						if ( el.dataset.businessIndex !== undefined ) {
+							el.dataset.businessIndex = newIndex;
+						}
+					} );
+				}
+
+				newIndex++;
+			}
+		}
+
+		state.businessNames = newBusinessNames;
+		state.businessTypes = newBusinessTypes;
+		state.businessAssetBands = newBusinessAssetBands;
+		state.businessRevenueBands = newBusinessRevenueBands;
+		state.answers = newAnswers;
 	}
 
 	function onQuestionAnswered( questionContext, question, answer ) {
@@ -1261,6 +1398,13 @@
 				var entityType = state.businessTypes[ b ];
 				var assetBandLabel = state.businessAssetBands[ b ];
 				var revenueBandLabel = state.businessRevenueBands[ b ];
+
+				// Always show entity type when selected
+				if ( entityType ) {
+					var foundEntity = ENTITY_OPTIONS.find( function ( opt ) { return opt.value === entityType; } );
+					var entityDisplayLabel = foundEntity ? foundEntity.label : entityType;
+					businessRows += '<div class="tqb-summary__item"><span>Entity Type: ' + escapeHtml( entityDisplayLabel ) + '</span></div>';
+				}
 
 				if ( entityType && assetBandLabel && tqbData.assetBands ) {
 					var group = ( entityType === 'partnership' ) ? 'partnership' : 'c_s_corp';
