@@ -1473,6 +1473,9 @@
 		.then( function ( data ) {
 			if ( data.success && data.data && data.data.submission_id ) {
 				state.partialSubmissionId = data.data.submission_id;
+			} else if ( data.success === false && data.data && data.data.message ) {
+				// Show error to user (e.g., IP conflict)
+				showError( data.data.message );
 			}
 		} )
 		.catch( function ( error ) {
@@ -1502,8 +1505,22 @@
 		wizard.querySelectorAll( '[data-action="reset-all"]' ).forEach( function ( btn ) {
 			btn.addEventListener( 'click', function () {
 				if ( confirm( 'Are you sure? This will clear all your answers.' ) ) {
-					resetForm();
-					goToStep( STEP.TYPE );
+					// Mark current partial as abandoned before resetting
+					fetch( tqbData.ajaxUrl, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+						body: new URLSearchParams( {
+							action: 'tqb_dismiss_partial',
+							nonce: tqbData.nonceDismissPartial
+						} )
+					} ).then( function () {
+						resetForm();
+						goToStep( STEP.TYPE );
+					} ).catch( function () {
+						// Continue even if dismiss fails
+						resetForm();
+						goToStep( STEP.TYPE );
+					} );
 				}
 			} );
 		} );
