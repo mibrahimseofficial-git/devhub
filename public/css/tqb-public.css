@@ -1916,3 +1916,7 @@ border: 0;
     border-bottom: none;
     color: #1f2937;
 }
+
+.tqb-modal-section:last-child {
+    margin-bottom: 40px;
+}
