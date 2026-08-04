@@ -24,8 +24,7 @@ class TQB_Pricing_Engine {
 	 *   [
 	 *     'item_key' => 'rental_property',
 	 *     'fee' => 200.0,
-	 *     'pricing_pattern' => 'qty_times_fee' | 'flat' | 'hardcoded',
-	 *     'hardcoded_value' => 100.0 | null,
+	 *     'pricing_pattern' => 'qty_times_fee' | 'flat',
 	 *     'is_custom_quote_trigger' => 0 | 1,
 	 *     'threshold_qty' => 100.0 | null,        // Quantity threshold (e.g. 100 = $100K)
 	 *     'threshold_trigger' => 'above' | null,  // 'above' = qty > threshold triggers custom; 'below' = qty < threshold triggers custom
@@ -308,10 +307,6 @@ class TQB_Pricing_Engine {
 			case 'flat':
 				// IF(Yes, Fee, 0) — qty is ignored entirely.
 				return (float) $item['fee'];
-
-			case 'hardcoded':
-				// IF(Yes, hardcoded_value, 0) — ignores the fee column.
-				return (float) $item['hardcoded_value'];
 
 			case 'qty_times_fee':
 			default:

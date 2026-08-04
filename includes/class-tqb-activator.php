@@ -27,13 +27,9 @@ class TQB_Activator {
 		self::create_submissions_table( $wpdb, $charset_collate );
 		self::create_line_items_table( $wpdb, $charset_collate );
 		self::create_rate_bands_table( $wpdb, $charset_collate );
-		self::create_question_sets_table( $wpdb, $charset_collate );
-		self::create_question_set_items_table( $wpdb, $charset_collate );
 
-		// Verify all critical tables were created; if not, create them with direct SQL
+		// Verify critical table was created; if not, create it with direct SQL
 		$line_items_table = $wpdb->prefix . TQB_TABLE_LINE_ITEMS;
-		$question_sets_table = $wpdb->prefix . TQB_TABLE_QUESTION_SETS;
-		$question_set_items_table = $wpdb->prefix . TQB_TABLE_QUESTION_SET_ITEMS;
 
 		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$line_items_table}'" ) !== $line_items_table ) {
 			error_log( 'TQB: line_items table not created, using SQL fallback' );
@@ -44,7 +40,6 @@ class TQB_Activator {
 				`label` VARCHAR(255) NOT NULL,
 				`fee` DECIMAL(10,2) NOT NULL DEFAULT 0,
 				`pricing_pattern` VARCHAR(20) NOT NULL DEFAULT 'qty_times_fee',
-				`hardcoded_value` DECIMAL(10,2) NULL,
 				`is_custom_quote_trigger` TINYINT(1) NOT NULL DEFAULT 0,
 				`threshold_rules` LONGTEXT NULL,
 				`reveal_followup` TINYINT(1) NOT NULL DEFAULT 1,
@@ -52,6 +47,7 @@ class TQB_Activator {
 				`sort_order` INT NOT NULL DEFAULT 0,
 				`tooltip` TEXT NULL,
 				`notes` TEXT NULL,
+				`filing_status` VARCHAR(50) NULL,
 				PRIMARY KEY  (`id`),
 				UNIQUE KEY `item_key_type` (`item_key`, `quote_type`),
 				KEY `quote_type` (`quote_type`),
@@ -59,60 +55,9 @@ class TQB_Activator {
 			) {$charset_collate}" );
 		}
 
-		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$question_sets_table}'" ) !== $question_sets_table ) {
-			error_log( 'TQB: question_sets table not created, using SQL fallback' );
-			$wpdb->query( "CREATE TABLE IF NOT EXISTS `{$question_sets_table}` (
-				`id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-				`name` VARCHAR(100) NOT NULL UNIQUE,
-				`return_type` VARCHAR(20) NOT NULL,
-				`filing_status` VARCHAR(50) NULL,
-				`parent_set_id` BIGINT UNSIGNED NULL,
-				`description` TEXT NULL,
-				`is_active` TINYINT(1) NOT NULL DEFAULT 1,
-				`created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				`updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-				PRIMARY KEY  (`id`),
-				UNIQUE KEY `return_type_filing` (`return_type`, `filing_status`),
-				KEY `return_type` (`return_type`),
-				KEY `filing_status` (`filing_status`),
-				KEY `parent_set_id` (`parent_set_id`)
-			) {$charset_collate}" );
-		}
-
-		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$question_set_items_table}'" ) !== $question_set_items_table ) {
-			error_log( 'TQB: question_set_items table not created, using SQL fallback' );
-			$wpdb->query( "CREATE TABLE IF NOT EXISTS `{$question_set_items_table}` (
-				`id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-				`question_set_id` BIGINT UNSIGNED NOT NULL,
-				`line_item_id` BIGINT UNSIGNED NOT NULL,
-				`sort_order` INT NOT NULL DEFAULT 0,
-				`override_label` VARCHAR(255) NULL,
-				`override_followup_label` VARCHAR(255) NULL,
-				`override_fee` DECIMAL(10,2) NULL,
-				`override_reveal_followup` TINYINT(1) NULL,
-				`is_hidden` TINYINT(1) NOT NULL DEFAULT 0,
-				`created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				`updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-				PRIMARY KEY  (`id`),
-				UNIQUE KEY `set_item` (`question_set_id`, `line_item_id`),
-				KEY `question_set_id` (`question_set_id`),
-				KEY `line_item_id` (`line_item_id`),
-				KEY `sort_order` (`sort_order`)
-			) {$charset_collate}" );
-		}
-
 		// Now seed the data
 		self::seed_default_data();
-		self::seed_default_question_sets();
 		self::seed_default_settings();
-
-		// Recovery: If question sets table exists but is empty (partial failure on previous activation),
-		// force re-seed to ensure data integrity on new sites
-		$sets_table = $wpdb->prefix . TQB_TABLE_QUESTION_SETS;
-		$existing_count = $wpdb->get_var( "SELECT COUNT(*) FROM {$sets_table}" );
-		if ( empty( $existing_count ) ) {
-			self::seed_default_question_sets();
-		}
 
 		// Schedule cron jobs for HubSpot retry (hourly)
 		if ( ! wp_next_scheduled( 'tqb_retry_hubspot_syncs' ) ) {
@@ -140,8 +85,6 @@ class TQB_Activator {
 		self::create_submissions_table( $wpdb, $charset_collate );
 		self::create_line_items_table( $wpdb, $charset_collate );
 		self::create_rate_bands_table( $wpdb, $charset_collate );
-		self::create_question_sets_table( $wpdb, $charset_collate );
-		self::create_question_set_items_table( $wpdb, $charset_collate );
 
 		// Safety check: ensure tables exist before trying to upgrade
 		$submissions_table = $wpdb->prefix . 'tqb_submissions';
@@ -241,6 +184,17 @@ class TQB_Activator {
 		if ( ! in_array( 'filing_status', $sub_column_names, true ) ) {
 			$after = in_array( 'quote_type', $sub_column_names, true ) ? 'quote_type' : null;
 			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN filing_status VARCHAR(50) NULL COMMENT 'single, mfj, mfs, hoh for individual; NULL for business'";
+			if ( $after ) { $sql .= " AFTER {$after}"; }
+			$wpdb->query( $sql );
+		}
+
+		// --- Submissions table: add business_name column ---
+		// (Existed on some earlier live installs via manual ALTER TABLE
+		// outside version control; adding it here properly so fresh installs
+		// and any install that never got it end up consistent.)
+		if ( ! in_array( 'business_name', $sub_column_names, true ) ) {
+			$after = in_array( 'contact_phone', $sub_column_names, true ) ? 'contact_phone' : null;
+			$sql = "ALTER TABLE {$submissions_table} ADD COLUMN business_name VARCHAR(255) NULL";
 			if ( $after ) { $sql .= " AFTER {$after}"; }
 			$wpdb->query( $sql );
 		}
@@ -376,7 +330,129 @@ class TQB_Activator {
 			add_option( 'tqb_office_address', "939 W North Ave, Suite 750,\nChicago, IL 60642" );
 		}
 
+		// --- Remove 'hardcoded' pricing pattern (v1.2 patch) ---
+		// Consolidated into 'flat' since both ignore quantity and only differ
+		// in which admin field supplies the price. Any row still using
+		// 'hardcoded' gets converted: its fee becomes the old hardcoded_value
+		// (the number that was actually being charged), and pattern becomes 'flat'.
+		self::migrate_hardcoded_pricing_pattern( $line_items_table );
+
+		// --- Remove dead schema (v1.4 patch) ---
+		// question_sets / question_set_items were leftover from an abandoned
+		// parallel questions system (see class-tqb-question-sets.php, since
+		// deleted) that was never actually reachable from the frontend.
+		// hardcoded_value / threshold_qty / threshold_trigger on line_items
+		// are deprecated columns the admin UI stopped writing to. Must run
+		// AFTER migrate_hardcoded_pricing_pattern() above, since that function
+		// still needs to read hardcoded_value before this drops it.
+		self::cleanup_deprecated_schema( $line_items_table );
+
 		update_option( 'tqb_db_version', TQB_VERSION );
+	}
+
+	/**
+	 * Converts any line items still using the deprecated 'hardcoded' pricing
+	 * pattern to 'flat', copying hardcoded_value into fee so the charged
+	 * amount stays identical after the migration.
+	 *
+	 * @param string $line_items_table Fully-prefixed table name.
+	 */
+	private static function migrate_hardcoded_pricing_pattern( $line_items_table ) {
+		global $wpdb;
+
+		// Column may already be gone from a previous run of
+		// cleanup_deprecated_schema() — nothing to migrate in that case.
+		if ( ! self::column_exists( $line_items_table, 'hardcoded_value' ) ) {
+			return;
+		}
+
+		$hardcoded_rows = $wpdb->get_results(
+			"SELECT id, fee, hardcoded_value FROM {$line_items_table} WHERE pricing_pattern = 'hardcoded'"
+		);
+
+		if ( empty( $hardcoded_rows ) ) {
+			return;
+		}
+
+		foreach ( $hardcoded_rows as $row ) {
+			$new_fee = ( null !== $row->hardcoded_value && '' !== $row->hardcoded_value )
+				? (float) $row->hardcoded_value
+				: (float) $row->fee; // fallback: keep existing fee if hardcoded_value was never set
+
+			$wpdb->update(
+				$line_items_table,
+				array(
+					'pricing_pattern' => 'flat',
+					'fee'             => $new_fee,
+				),
+				array( 'id' => $row->id ),
+				array( '%s', '%f' ),
+				array( '%d' )
+			);
+		}
+	}
+
+	/**
+	 * One-time cleanup of schema left over from earlier iterations of this
+	 * plugin (v1.4). Safe to call on every upgrade — every step checks
+	 * existence first, so re-running after the first successful cleanup is
+	 * a fast no-op rather than an error.
+	 *
+	 * Removes:
+	 *   - wp_tqb_question_sets, wp_tqb_question_set_items (tables) — belonged
+	 *     to a parallel "question sets" questions system that was built but
+	 *     never actually wired to the frontend (its AJAX handler was never
+	 *     registered). Confirmed zero live references before removal.
+	 *   - hardcoded_value, threshold_qty, threshold_trigger (columns on
+	 *     line_items) — the admin UI no longer writes to any of these; the
+	 *     'hardcoded' pricing pattern was consolidated into 'flat' (see
+	 *     migrate_hardcoded_pricing_pattern(), which must run first and does
+	 *     via the call order in upgrade()), and threshold_qty/trigger were
+	 *     replaced by the JSON threshold_rules column.
+	 *
+	 * @param string $line_items_table Fully-prefixed line_items table name.
+	 */
+	private static function cleanup_deprecated_schema( $line_items_table ) {
+		global $wpdb;
+
+		// Drop the two orphaned tables, if they still exist.
+		$question_sets_table = $wpdb->prefix . 'tqb_question_sets';
+		$question_set_items_table = $wpdb->prefix . 'tqb_question_set_items';
+
+		// Items table first (no real FK constraint, but this is the logical order).
+		$wpdb->query( "DROP TABLE IF EXISTS `{$question_set_items_table}`" );
+		$wpdb->query( "DROP TABLE IF EXISTS `{$question_sets_table}`" );
+
+		// Drop deprecated columns on line_items, one at a time, only if present.
+		$deprecated_columns = array( 'hardcoded_value', 'threshold_qty', 'threshold_trigger' );
+
+		foreach ( $deprecated_columns as $column ) {
+			if ( self::column_exists( $line_items_table, $column ) ) {
+				$wpdb->query( "ALTER TABLE `{$line_items_table}` DROP COLUMN `{$column}`" );
+			}
+		}
+	}
+
+	/**
+	 * Checks whether a column exists on a given table. Used to make schema
+	 * migrations idempotent — safe to run on every upgrade without erroring
+	 * on a column/table that a previous run already removed.
+	 *
+	 * @param string $table  Fully-prefixed table name.
+	 * @param string $column Column name to check for.
+	 * @return bool
+	 */
+	private static function column_exists( $table, $column ) {
+		global $wpdb;
+
+		$result = $wpdb->get_results(
+			$wpdb->prepare(
+				"SHOW COLUMNS FROM `{$table}` LIKE %s",
+				$column
+			)
+		);
+
+		return ! empty( $result );
 	}
 
 	/**
@@ -413,9 +489,11 @@ class TQB_Activator {
 		$sql = "CREATE TABLE {$table_name} (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			quote_type VARCHAR(20) NOT NULL COMMENT 'individual or business',
+			filing_status VARCHAR(50) NULL COMMENT 'single, mfj, mfs, hoh for individual; NULL for business',
 			contact_name VARCHAR(255) NOT NULL,
 			contact_email VARCHAR(255) NOT NULL,
 			contact_phone VARCHAR(50) NOT NULL,
+			business_name VARCHAR(255) NULL,
 			answers LONGTEXT NOT NULL COMMENT 'JSON: raw question answers as submitted',
 			calculated_total DECIMAL(10,2) NULL COMMENT 'NULL when is_custom_quote = 1',
 			is_custom_quote TINYINT(1) NOT NULL DEFAULT 0,
@@ -454,11 +532,16 @@ class TQB_Activator {
 	 * in full, and Part B (extras) of the Business sheet. This is what the
 	 * admin dashboard repeater UI will read from and write to (Phase 3).
 	 *
-	 * pricing_pattern values map directly to the 3 formula patterns found in
-	 * the client's real Excel calculator (see PROJECT_SPEC.md Section 3):
+	 * pricing_pattern values (see PROJECT_SPEC.md Section 3):
 	 *   'qty_times_fee' → IF(Yes, Qty*Fee, 0)
 	 *   'flat'          → IF(Yes, Fee, 0)  — qty ignored
-	 *   'hardcoded'     → IF(Yes, hardcoded_value, 0) — ignores fee column
+	 *
+	 * NOTE: a third pattern, 'hardcoded' (priced off a separate hardcoded_value
+	 * column instead of fee), existed through v1.2 and was removed in v1.3 as
+	 * redundant with 'flat' — both ignore quantity, they only differed in which
+	 * admin field supplied the number. See migrate_hardcoded_pricing_pattern().
+	 * The hardcoded_value column itself is left in place (unused) rather than
+	 * dropped, to avoid a destructive schema change on existing installs.
 	 */
 	private static function create_line_items_table( $wpdb, $charset_collate ) {
 		$table_name = $wpdb->prefix . TQB_TABLE_LINE_ITEMS;
@@ -469,17 +552,15 @@ class TQB_Activator {
 			item_key VARCHAR(100) NOT NULL COMMENT 'stable slug, e.g. rental_property',
 			label VARCHAR(255) NOT NULL,
 			fee DECIMAL(10,2) NOT NULL DEFAULT 0,
-			pricing_pattern VARCHAR(20) NOT NULL DEFAULT 'qty_times_fee',
-			hardcoded_value DECIMAL(10,2) NULL COMMENT 'used only when pricing_pattern = hardcoded',
+			pricing_pattern VARCHAR(20) NOT NULL DEFAULT 'qty_times_fee' COMMENT 'qty_times_fee or flat',
 			is_custom_quote_trigger TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = any Yes answer routes to custom-quote path instead of pricing (e.g. crypto, FBAR)',
-			threshold_qty DECIMAL(14,2) NULL COMMENT 'DEPRECATED: use threshold_rules JSON instead',
-			threshold_trigger VARCHAR(10) NULL COMMENT 'DEPRECATED: use threshold_rules JSON instead',
 			threshold_rules LONGTEXT NULL COMMENT 'JSON: structured threshold logic with logic (AND/OR) and conditions array',
 			reveal_followup TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1 = hide quantity/dollar field until checkbox checked; 0 = always show (legacy behavior)',
 			is_active TINYINT(1) NOT NULL DEFAULT 1 COMMENT '0 = hidden from public form (e.g. audit, meetings)',
 			sort_order INT NOT NULL DEFAULT 0,
 			tooltip TEXT NULL COMMENT 'Customer-facing help text shown on hover',
 			notes TEXT NULL COMMENT 'Internal notes for admin reference',
+			filing_status VARCHAR(50) NULL COMMENT 'NULL = show for all filing statuses; single/mfj/mfs/hoh = restrict',
 			PRIMARY KEY  (id),
 			UNIQUE KEY item_key_type (item_key, quote_type),
 			KEY quote_type (quote_type),
@@ -518,62 +599,6 @@ class TQB_Activator {
 	}
 
 	/**
-	 * Question Sets table — stores base and filing-status-specific question configurations.
-	 * Uses inheritance model: base set (filing_status=NULL) + overrides per filing status.
-	 */
-	private static function create_question_sets_table( $wpdb, $charset_collate ) {
-		$table_name = $wpdb->prefix . TQB_TABLE_QUESTION_SETS;
-
-		$sql = "CREATE TABLE {$table_name} (
-			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-			name VARCHAR(100) NOT NULL UNIQUE COMMENT 'e.g. Individual, Individual_MFJ, Business',
-			return_type VARCHAR(20) NOT NULL COMMENT 'individual or business',
-			filing_status VARCHAR(50) NULL COMMENT 'NULL for base; single/mfj/mfs/hoh for variants',
-			parent_set_id BIGINT UNSIGNED NULL COMMENT 'FK to base set for inheritance',
-			description TEXT NULL,
-			is_active TINYINT(1) NOT NULL DEFAULT 1,
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-			PRIMARY KEY  (id),
-			UNIQUE KEY return_type_filing (return_type, filing_status),
-			KEY return_type (return_type),
-			KEY filing_status (filing_status),
-			KEY parent_set_id (parent_set_id)
-		) {$charset_collate};";
-
-		dbDelta( $sql );
-	}
-
-	/**
-	 * Question Set Items table — maps line items to question sets with optional overrides.
-	 * Supports inheritance: NULL override values mean "use parent/base value".
-	 */
-	private static function create_question_set_items_table( $wpdb, $charset_collate ) {
-		$table_name = $wpdb->prefix . TQB_TABLE_QUESTION_SET_ITEMS;
-
-		$sql = "CREATE TABLE {$table_name} (
-			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-			question_set_id BIGINT UNSIGNED NOT NULL COMMENT 'FK to question_sets',
-			line_item_id BIGINT UNSIGNED NOT NULL COMMENT 'FK to line_items',
-			sort_order INT NOT NULL DEFAULT 0,
-			override_label VARCHAR(255) NULL COMMENT 'Filing-status-specific wording; NULL = use base',
-			override_followup_label VARCHAR(255) NULL COMMENT 'Custom quantity field label',
-			override_fee DECIMAL(10,2) NULL COMMENT 'Filing-status-specific pricing; NULL = use base',
-			override_reveal_followup TINYINT(1) NULL COMMENT '1/0; NULL = use base',
-			is_hidden TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = hide this question for this filing status',
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-			PRIMARY KEY  (id),
-			UNIQUE KEY set_item (question_set_id, line_item_id),
-			KEY question_set_id (question_set_id),
-			KEY line_item_id (line_item_id),
-			KEY sort_order (sort_order)
-		) {$charset_collate};";
-
-		dbDelta( $sql );
-	}
-
-	/**
 	 * Seeds the tables with the exact values from the client's actual Excel
 	 * calculator (per PROJECT_SPEC.md), so the plugin is testable immediately
 	 * after activation without manual data entry. Uses INSERT IGNORE-style
@@ -605,9 +630,7 @@ class TQB_Activator {
 			array( 'childcare', 'Did anyone in your household pay for childcare or dependent care?', 25, 'flat', null, 0, null, 1, 110, 'Include daycare, preschool, before/after-school care, or summer day camps.' ),
 			array( 'hsa', 'Did anyone in your household contribute to or receive distributions from a Health Savings Account (HSA)?', 25, 'qty_times_fee', null, 0, null, 1, 120, 'Look for Forms 1099-SA or 5498-SA.' ),
 			array( 'home_sale', 'Did anyone in your household sell a home during the year?', 150, 'qty_times_fee', null, 0, null, 1, 130, 'Look for Form 1099-S or include the sale of your primary residence or investment property.' ),
-			array( 'retirement_distributions', 'Did anyone in your household receive retirement distributions?', 25, 'hardcoded', 100, 0, null, 1, 140, 'Include withdrawals from a 401(k), IRA, Roth IRA, pension, annuity, or similar retirement account.' ),
-			array( 'additional_personal', 'Do you also need a quote for additional personal tax returns?', 0, 'flat', 0, 0, null, 1, 160, 'Select Yes if you need quotes for more than one personal tax return.' ),
-			array( 'additional_business', 'Do you also need a quote for any business tax returns?', 0, 'flat', 0, 0, null, 1, 170, 'Select Yes if you need quotes for business tax returns in addition to what you have already selected.' ),
+			array( 'retirement_distributions', 'Did anyone in your household receive retirement distributions?', 100, 'flat', null, 0, null, 1, 140, 'Include withdrawals from a 401(k), IRA, Roth IRA, pension, annuity, or similar retirement account.' ),
 			array( 'meetings', 'Meetings (end of year recap, tax return review, misc.)', 250, 'qty_times_fee', null, 0, null, 0, 150, 'Internal use only.' ),
 		);
 
@@ -640,7 +663,6 @@ class TQB_Activator {
 					'label'                   => $item[1],
 					'fee'                     => $item[2],
 					'pricing_pattern'         => $item[3],
-					'hardcoded_value'         => $item[4],
 					'is_custom_quote_trigger' => $item[5],
 					'threshold_rules'         => $threshold_rules,
 					'reveal_followup'         => $item[7],
@@ -670,7 +692,6 @@ class TQB_Activator {
 					'label'                   => $item[1],
 					'fee'                     => $item[2],
 					'pricing_pattern'         => $item[3],
-					'hardcoded_value'         => $item[4],
 					'is_custom_quote_trigger' => $item[5],
 					'reveal_followup'         => $item[7],
 					'is_active'               => $item[8],
@@ -962,148 +983,6 @@ class TQB_Activator {
 	 *
 	 * Only runs if question_sets table is empty to avoid duplicates on reactivation.
 	 */
-	private static function seed_default_question_sets() {
-		global $wpdb;
-
-		$sets_table = $wpdb->prefix . TQB_TABLE_QUESTION_SETS;
-		$items_table = $wpdb->prefix . TQB_TABLE_QUESTION_SET_ITEMS;
-		$line_items_table = $wpdb->prefix . TQB_TABLE_LINE_ITEMS;
-
-		// Only seed if table is empty
-		$existing_count = $wpdb->get_var( "SELECT COUNT(*) FROM {$sets_table}" );
-		if ( $existing_count > 0 ) {
-			return;
-		}
-
-		// Create base Individual set
-		$wpdb->insert(
-			$sets_table,
-			array(
-				'name'           => 'Individual',
-				'return_type'    => 'individual',
-				'filing_status'  => null,
-				'parent_set_id'  => null,
-				'description'    => 'Base Individual return set (inherited by all filing statuses)',
-				'is_active'      => 1,
-			),
-			array( '%s', '%s', '%s', '%d', '%s', '%d' )
-		);
-
-		$base_set_id = $wpdb->insert_id;
-
-		// Create filing status variant sets (inherit from base)
-		$filing_statuses = array( 'single', 'mfj', 'mfs', 'hoh' );
-		$set_ids = array();
-
-		foreach ( $filing_statuses as $status ) {
-			$label = TQB_FILING_STATUS_LABELS[ $status ] ?? ucfirst( $status );
-			$wpdb->insert(
-				$sets_table,
-				array(
-					'name'           => 'Individual_' . $status,
-					'return_type'    => 'individual',
-					'filing_status'  => $status,
-					'parent_set_id'  => $base_set_id,
-					'description'    => $label . ' return set (inherits from Individual base)',
-					'is_active'      => 1,
-				),
-				array( '%s', '%s', '%s', '%d', '%s', '%d' )
-			);
-			$set_ids[ $status ] = $wpdb->insert_id;
-		}
-
-		// Create Business set
-		$wpdb->insert(
-			$sets_table,
-			array(
-				'name'           => 'Business',
-				'return_type'    => 'business',
-				'filing_status'  => null,
-				'parent_set_id'  => null,
-				'description'    => 'Business return set (no filing status variations)',
-				'is_active'      => 1,
-			),
-			array( '%s', '%s', '%s', '%d', '%s', '%d' )
-		);
-
-		$business_set_id = $wpdb->insert_id;
-
-		// Populate base Individual set with all line items
-		$individual_items = $wpdb->get_results(
-			"SELECT id, sort_order FROM {$line_items_table} WHERE quote_type = 'individual' ORDER BY sort_order ASC",
-			ARRAY_A
-		);
-
-		foreach ( $individual_items as $item ) {
-			$wpdb->insert(
-				$items_table,
-				array(
-					'question_set_id' => $base_set_id,
-					'line_item_id'    => $item['id'],
-					'sort_order'      => $item['sort_order'],
-				),
-				array( '%d', '%d', '%d' )
-			);
-		}
-
-		// Populate Business set with all business line items
-		$business_items = $wpdb->get_results(
-			"SELECT id, sort_order FROM {$line_items_table} WHERE quote_type = 'business' ORDER BY sort_order ASC",
-			ARRAY_A
-		);
-
-		foreach ( $business_items as $item ) {
-			$wpdb->insert(
-				$items_table,
-				array(
-					'question_set_id' => $business_set_id,
-					'line_item_id'    => $item['id'],
-					'sort_order'      => $item['sort_order'],
-				),
-				array( '%d', '%d', '%d' )
-			);
-		}
-
-		// Add wording overrides for MFJ (change "anyone" to "you or your spouse")
-		// This is an example — the admin will add more overrides via the UI
-		$mfj_overrides = array(
-			'w2_wages'          => 'Did you or your spouse receive W-2 income from an employer?',
-			'multi_state'       => 'Did you or your spouse live or work in more than one state during the year?',
-			'interest_dividends' => 'Did you or your spouse earn interest or dividends from a bank or investment account?',
-			'brokerage_sales'   => 'Did you or your spouse sell stocks, ETFs, mutual funds, or other investments?',
-			'rental_property'   => 'Did you or your spouse own a rental property during the year?',
-			'k1_received'       => 'Did you or your spouse receive a Schedule K-1?',
-			'foreign_accounts'  => 'Did you or your spouse have foreign bank accounts or earn foreign income?',
-			'crypto'            => 'Did you or your spouse buy, sell, or trade cryptocurrency?',
-			'tuition'           => 'Did you or your spouse pay qualified college tuition?',
-			'childcare'         => 'Did you or your spouse pay for childcare or dependent care?',
-			'hsa'               => 'Did you or your spouse contribute to or receive distributions from a Health Savings Account (HSA)?',
-			'home_sale'         => 'Did you or your spouse sell a home during the year?',
-			'retirement_distributions' => 'Did you or your spouse receive retirement distributions?',
-		);
-
-		foreach ( $mfj_overrides as $item_key => $override_label ) {
-			$line_item_id = $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT id FROM {$line_items_table} WHERE item_key = %s AND quote_type = 'individual'",
-					$item_key
-				)
-			);
-
-			if ( $line_item_id ) {
-				$wpdb->update(
-					$items_table,
-					array( 'override_label' => $override_label ),
-					array(
-						'question_set_id' => $set_ids['mfj'],
-						'line_item_id'    => $line_item_id,
-					),
-					array( '%s' ),
-					array( '%d', '%d' )
-				);
-			}
-		}
-	}
 
 	/**
 	 * Checks if all required tables exist. For debugging/recovery.
@@ -1118,8 +997,6 @@ class TQB_Activator {
 			TQB_TABLE_SUBMISSIONS => $wpdb->prefix . TQB_TABLE_SUBMISSIONS,
 			TQB_TABLE_LINE_ITEMS => $wpdb->prefix . TQB_TABLE_LINE_ITEMS,
 			TQB_TABLE_RATE_BANDS => $wpdb->prefix . TQB_TABLE_RATE_BANDS,
-			TQB_TABLE_QUESTION_SETS => $wpdb->prefix . TQB_TABLE_QUESTION_SETS,
-			TQB_TABLE_QUESTION_SET_ITEMS => $wpdb->prefix . TQB_TABLE_QUESTION_SET_ITEMS,
 		);
 
 		$missing = array();

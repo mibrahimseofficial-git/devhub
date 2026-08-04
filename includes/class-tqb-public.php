@@ -78,6 +78,7 @@ class TQB_Public {
 			'nonceSavePartial' => wp_create_nonce( self::NONCE_ACTION_SAVE_PARTIAL ),
 			'nonceCheckPartial' => wp_create_nonce( self::NONCE_ACTION_CHECK_PARTIAL ),
 			'nonceDismissPartial' => wp_create_nonce( self::NONCE_ACTION_DISMISS_PARTIAL ),
+			'questions'       => $this->get_all_questions(),
 			'individualItems' => $this->format_items_for_js( TQB_DB::get_line_items( 'individual', true ) ),
 			'businessItems'   => $this->format_items_for_js( TQB_DB::get_line_items( 'business', true ) ),
 			'assetBands'      => array(
@@ -86,14 +87,47 @@ class TQB_Public {
 			),
 			'revenueBands'    => $this->format_bands_for_js( TQB_DB::get_revenue_addons() ),
 			'schedulingLink'  => get_option( 'tqb_scheduling_link', '' ),
+			'filing_status_prices' => array(
+				'single' => (int) get_option( 'tqb_filing_status_price_single', 0 ),
+				'mfj'    => (int) get_option( 'tqb_filing_status_price_mfj', 200 ),
+				'mfs'    => (int) get_option( 'tqb_filing_status_price_mfs', 300 ),
+				'hoh'    => (int) get_option( 'tqb_filing_status_price_hoh', 150 )
+			),
+			'filing_status_labels' => array(
+				'single' => get_option( 'tqb_filing_status_label_single', 'Single' ),
+				'mfj'    => get_option( 'tqb_filing_status_label_mfj', 'Married Filing Jointly' ),
+				'mfs'    => get_option( 'tqb_filing_status_label_mfs', 'Married Filing Separately' ),
+				'hoh'    => get_option( 'tqb_filing_status_label_hoh', 'Head of Household' )
+			),
 		) );
 	}
 
 	/**
-	 * Includes pricing data (fee, pattern, hardcoded value) so the front-end
-	 * can calculate a LIVE PREVIEW total in JS as the user checks boxes —
-	 * per developer's explicit request (PROJECT_SPEC.md Section 9.1), chosen
-	 * over calling the server on every change for responsiveness.
+	 * Get all active questions from database with filing status filtering capability
+	 */
+	private function get_all_questions() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tqb_line_items';
+		
+		$questions = $wpdb->get_results( "
+			SELECT 
+				id, item_key, label, quote_type, tooltip, 
+				reveal_followup, threshold_rules, sort_order,
+				is_custom_quote_trigger, fee, filing_status,
+				pricing_pattern
+			FROM $table
+			WHERE is_active = 1
+			ORDER BY sort_order ASC, id ASC
+		" );
+		
+		return is_array( $questions ) ? $questions : array();
+	}
+
+	/**
+	 * Includes pricing data (fee, pattern) so the front-end can calculate a
+	 * LIVE PREVIEW total in JS as the user checks boxes — per developer's
+	 * explicit request (PROJECT_SPEC.md Section 9.1), chosen over calling
+	 * the server on every change for responsiveness.
 	 *
 	 * IMPORTANT — accepted tradeoff, documented here and in the JS: this
 	 * means the pricing logic now exists in TWO places (PHP engine +
@@ -114,14 +148,13 @@ class TQB_Public {
 				'tooltip'              => ! empty( $item['tooltip'] ) ? $item['tooltip'] : '',
 				'fee'                  => (float) $item['fee'],
 				'pricingPattern'       => $item['pricing_pattern'],
-				'hardcodedValue'       => null !== $item['hardcoded_value'] ? (float) $item['hardcoded_value'] : null,
 				'showQty'              => ( 'qty_times_fee' === $item['pricing_pattern'] ),
-				'showDollarValue'      => ( 'qty_times_fee' === $item['pricing_pattern'] ), // Support dollar_value alongside qty
 				'isCustomQuoteTrigger' => (bool) $item['is_custom_quote_trigger'],
 				'thresholdQty'         => null !== $item['threshold_qty'] ? (float) $item['threshold_qty'] : null,
 				'thresholdTrigger'     => ! empty( $item['threshold_trigger'] ) ? $item['threshold_trigger'] : null,
 				'thresholdRules'       => ! empty( $item['threshold_rules'] ) ? $item['threshold_rules'] : null,
 				'reveal_followup'      => (int) ( $item['reveal_followup'] ?? 1 ), // 1 = reveal, 0 = always show
+				'filing_status'        => ! empty( $item['filing_status'] ) ? $item['filing_status'] : null,
 			);
 		}
 		return $formatted;
@@ -180,33 +213,63 @@ class TQB_Public {
 			return;
 		}
 
-		$answers = $this->sanitize_answers( isset( $_POST['answers'] ) ? (array) $_POST['answers'] : array() ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
-                
-                // DEBUG: Log what we received
-                error_log( 'TQB DEBUG answers received: ' . print_r( $answers, true ) );
-                error_log( 'TQB DEBUG raw POST answers: ' . ( isset( $_POST['answers'] ) ? 'SET: ' . print_r( $_POST['answers'], true ) : 'NOT SET' ) );
+		// 'answers' arrives as a JSON string (built client-side via
+		// JSON.stringify), NOT as WordPress bracket-notation POST fields —
+		// so it must be json_decode()'d, not cast with (array). Casting a
+		// string to an array in PHP just wraps it as one throwaway element
+		// rather than parsing it, which silently discarded every answer on
+		// every submission until this fix.
+		$answers_raw     = isset( $_POST['answers'] ) ? wp_unslash( $_POST['answers'] ) : '{}'; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		$answers_decoded = json_decode( $answers_raw, true );
+		$answers         = $this->sanitize_answers( is_array( $answers_decoded ) ? $answers_decoded : array() );
 
-		// Get business data for each business section
+		// Gather business data by actual array length, not by counting how
+		// many times the string 'business' appears in $quote_types (that
+		// string only ever appears once regardless of how many businesses
+		// were added via "Add Another Business", which silently limited
+		// pricing to business #1 only — fixed by reading the real count).
 		$businesses = array();
-		$business_index = 0;
-		foreach ( $quote_types as $type ) {
-			if ( 'business' === $type ) {
-				$entity_type  = isset( $_POST['businesses'][ $business_index ]['entity_type'] ) ? sanitize_key( $_POST['businesses'][ $business_index ]['entity_type'] ) : '';
-				$asset_band   = isset( $_POST['businesses'][ $business_index ]['asset_band'] ) ? sanitize_text_field( wp_unslash( $_POST['businesses'][ $business_index ]['asset_band'] ) ) : '';
-				$revenue_band = isset( $_POST['businesses'][ $business_index ]['revenue_band'] ) ? sanitize_text_field( wp_unslash( $_POST['businesses'][ $business_index ]['revenue_band'] ) ) : '';
+		$business_count = isset( $_POST['business_count'] ) ? absint( $_POST['business_count'] ) : ( in_array( 'business', $quote_types, true ) ? 1 : 0 );
 
-				if ( empty( $entity_type ) || empty( $asset_band ) || empty( $revenue_band ) ) {
-					wp_send_json_error( array( 'message' => 'Please complete all business detail fields.' ), 400 );
-					return;
-				}
+		for ( $i = 0; $i < $business_count; $i++ ) {
+			$entity_type  = isset( $_POST['businesses'][ $i ]['entity_type'] ) ? sanitize_key( $_POST['businesses'][ $i ]['entity_type'] ) : '';
+			$asset_band   = isset( $_POST['businesses'][ $i ]['asset_band'] ) ? sanitize_text_field( wp_unslash( $_POST['businesses'][ $i ]['asset_band'] ) ) : '';
+			$revenue_band = isset( $_POST['businesses'][ $i ]['revenue_band'] ) ? sanitize_text_field( wp_unslash( $_POST['businesses'][ $i ]['revenue_band'] ) ) : '';
+			$business_name = isset( $_POST['businesses'][ $i ]['name'] ) ? sanitize_text_field( wp_unslash( $_POST['businesses'][ $i ]['name'] ) ) : '';
 
-				$businesses[] = array(
-					'entity_type'  => $entity_type,
-					'asset_band'   => $asset_band,
-					'revenue_band' => $revenue_band,
-				);
-				$business_index++;
+			if ( empty( $entity_type ) || empty( $asset_band ) || empty( $revenue_band ) ) {
+				wp_send_json_error( array( 'message' => 'Please complete all business detail fields.' ), 400 );
+				return;
 			}
+
+			$businesses[] = array(
+				'name'         => $business_name,
+				'entity_type'  => $entity_type,
+				'asset_band'   => $asset_band,
+				'revenue_band' => $revenue_band,
+			);
+		}
+
+		// Gather individual (personal filer) data the same way — index 0 is
+		// the primary filer (name from $contact, filing status from Step 2);
+		// index > 0 are additional filers added via "Add Another Personal
+		// Return", each with their own name + filing status.
+		$individuals = array();
+		$individual_count = isset( $_POST['individual_count'] ) ? absint( $_POST['individual_count'] ) : ( in_array( 'individual', $quote_types, true ) ? 1 : 0 );
+
+		for ( $i = 0; $i < $individual_count; $i++ ) {
+			$filer_name    = isset( $_POST['individuals'][ $i ]['name'] ) ? sanitize_text_field( wp_unslash( $_POST['individuals'][ $i ]['name'] ) ) : '';
+			$filing_status = isset( $_POST['individuals'][ $i ]['filing_status'] ) ? sanitize_key( $_POST['individuals'][ $i ]['filing_status'] ) : '';
+
+			if ( empty( $filing_status ) ) {
+				wp_send_json_error( array( 'message' => 'Please select a filing status for each personal return.' ), 400 );
+				return;
+			}
+
+			$individuals[] = array(
+				'name'          => $filer_name ? $filer_name : $contact['name'],
+				'filing_status' => $filing_status,
+			);
 		}
 
 		try {
@@ -221,11 +284,12 @@ class TQB_Public {
 					$contact,
 					$quote_types,
 					$businesses,
+					$individuals,
 					$answers
 				);
 			} else {
 				// No existing partial - create new submission
-				$result = TQB_Quote_Handler::process_combined_quote( $contact, $quote_types, $businesses, $answers );
+				$result = TQB_Quote_Handler::process_combined_quote( $contact, $quote_types, $businesses, $individuals, $answers );
 			}
 		} catch ( InvalidArgumentException $e ) {
 			wp_send_json_error( array( 'message' => 'There was a problem with your submission. Please try again or contact us directly.' ), 400 );

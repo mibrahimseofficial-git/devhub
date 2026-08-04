@@ -154,57 +154,84 @@ class TQB_Quote_Handler {
 	}
 
 	/**
-	 * Process a combined quote (multiple types: individual + business(es)).
+	 * Calculates the combined total across every selected individual filer
+	 * and every selected business, and returns a per-section breakdown.
+	 * Shared by process_combined_quote() and complete_partial_submission()
+	 * so both code paths get the same (correct) pricing logic.
 	 *
-	 * @param array $contact     [ 'name' => ..., 'email' => ..., 'phone' => ... ]
-	 * @param array $quote_types Array of quote types: ['individual', 'business', 'business', ...]
-	 * @param array $businesses  Array of business data for each business section
-	 * @param array $answers     Answers with composite keys: [type-sectionIndex-key => [selected, qty], ...]
-	 * @return array [ 'submission_id' => int, 'result' => combined result ]
+	 * IMPORTANT: loops by the actual length of $individuals / $businesses,
+	 * not by counting occurrences of the strings 'individual'/'business' in
+	 * $quote_types — that string only ever appears once per type regardless
+	 * of how many instances were added via "Add Another Business/Return",
+	 * which previously silently limited pricing to instance #1 only.
+	 *
+	 * @param array $quote_types  ['individual', 'business'] — which types are active at all
+	 * @param array $businesses   [ ['name'=>, 'entity_type'=>, 'asset_band'=>, 'revenue_band'=>], ... ]
+	 * @param array $individuals  [ ['name'=>, 'filing_status'=>], ... ]
+	 * @param array $answers      Flat map: 'individual-0-w2_wages' => ['selected'=>bool,'qty'=>int], ...
+	 * @return array [ 'total' => float, 'is_custom_quote' => bool, 'results' => array ]
 	 */
-	public static function process_combined_quote(
-		array $contact,
+	private static function calculate_combined_pricing(
 		array $quote_types,
 		array $businesses,
+		array $individuals,
 		array $answers
 	) {
-		$total = 0;
+		$total = 0.0;
 		$is_custom_quote = false;
 		$all_results = array();
-		$business_index = 0;
 
-		foreach ( $quote_types as $type ) {
-			if ( 'individual' === $type ) {
-				// Filter answers for this individual section (type-0-itemkey)
-				$prefix = 'individual-0-';
+		if ( in_array( 'individual', $quote_types, true ) ) {
+			foreach ( $individuals as $index => $individual ) {
+				$prefix = 'individual-' . $index . '-';
 				$section_answers = self::filter_answers_with_prefix( $answers, $prefix );
 				$line_items = TQB_DB::get_line_items( 'individual', false );
-				$result = TQB_Pricing_Engine::calculate_individual( $line_items, $section_answers );
 
-				$all_results[] = array(
-					'type' => 'individual',
-					'result' => $result,
-				);
+				// Filter to items that apply to this filer's own filing status
+				// (NULL/empty filing_status on the item = applies to everyone).
+				$filing_status = $individual['filing_status'] ?? '';
+				$filtered_items = array_filter( $line_items, function ( $item ) use ( $filing_status ) {
+					return empty( $item['filing_status'] ) || $item['filing_status'] === $filing_status;
+				} );
 
-				$total += $result['total'];
-				$is_custom_quote = $is_custom_quote || $result['is_custom_quote'];
-			} elseif ( 'business' === $type ) {
-				if ( ! isset( $businesses[ $business_index ] ) ) {
-					throw new InvalidArgumentException( 'Missing business data for business index: ' . $business_index );
+				$result = TQB_Pricing_Engine::calculate_individual( array_values( $filtered_items ), $section_answers );
+
+				// Filing status surcharge (Single/MFJ/MFS/HOH admin-configured
+				// add-on) — previously shown in the frontend preview but never
+				// actually added to the real server-calculated total.
+				$surcharge = (float) get_option( 'tqb_filing_status_price_' . $filing_status, 0 );
+				if ( ! $result['is_custom_quote'] && null !== $result['total'] ) {
+					$result['total'] = round( $result['total'] + $surcharge, 2 );
 				}
 
-				$business = $businesses[ $business_index ];
-				$prefix = 'business-' . $business_index . '-';
+				$all_results[] = array(
+					'type'       => 'individual',
+					'index'      => $index,
+					'individual' => $individual,
+					'result'     => $result,
+				);
+
+				if ( $result['is_custom_quote'] ) {
+					$is_custom_quote = true;
+				} else {
+					$total += (float) $result['total'];
+				}
+			}
+		}
+
+		if ( in_array( 'business', $quote_types, true ) ) {
+			foreach ( $businesses as $index => $business ) {
+				$prefix = 'business-' . $index . '-';
 				$section_answers = self::filter_answers_with_prefix( $answers, $prefix );
 
-				$entity_group = ( 'partnership' === $business['entity_type'] ) ? 'partnership' : 'c_s_corp';
-				$asset_bands = TQB_DB::get_asset_bands( $entity_group );
-				$asset_band = self::find_band_by_label( $asset_bands, $business['asset_band'] );
+				$entity_group  = ( 'partnership' === $business['entity_type'] ) ? 'partnership' : 'c_s_corp';
+				$asset_bands   = TQB_DB::get_asset_bands( $entity_group );
+				$asset_band    = self::find_band_by_label( $asset_bands, $business['asset_band'] );
 				$revenue_bands = TQB_DB::get_revenue_addons();
-				$revenue_band = self::find_band_by_label( $revenue_bands, $business['revenue_band'] );
+				$revenue_band  = self::find_band_by_label( $revenue_bands, $business['revenue_band'] );
 
 				if ( ! $asset_band || ! $revenue_band ) {
-					throw new InvalidArgumentException( 'Invalid asset or revenue band label for business ' . ( $business_index + 1 ) );
+					throw new InvalidArgumentException( 'Invalid asset or revenue band label for business ' . ( $index + 1 ) );
 				}
 
 				$extra_items = TQB_DB::get_line_items( 'business', false );
@@ -217,23 +244,55 @@ class TQB_Quote_Handler {
 				);
 
 				$all_results[] = array(
-					'type' => 'business',
-					'index' => $business_index,
+					'type'     => 'business',
+					'index'    => $index,
 					'business' => $business,
-					'result' => $result,
+					'result'   => $result,
 				);
 
-				$total += $result['total'];
-				$is_custom_quote = $is_custom_quote || $result['is_custom_quote'];
-				$business_index++;
+				if ( $result['is_custom_quote'] ) {
+					$is_custom_quote = true;
+				} else {
+					$total += (float) $result['total'];
+				}
 			}
 		}
+
+		return array(
+			'total'           => $is_custom_quote ? null : round( $total, 2 ),
+			'is_custom_quote' => $is_custom_quote,
+			'results'         => $all_results,
+		);
+	}
+
+	/**
+	 * Process a combined quote (multiple types: individual + business(es)).
+	 *
+	 * @param array $contact     [ 'name' => ..., 'email' => ..., 'phone' => ... ]
+	 * @param array $quote_types Array of quote types present: ['individual', 'business']
+	 * @param array $businesses  Array of business data, one entry per business instance
+	 * @param array $individuals Array of individual filer data, one entry per filer instance
+	 * @param array $answers     Answers with composite keys: [type-sectionIndex-key => [selected, qty], ...]
+	 * @return array [ 'submission_id' => int, 'result' => combined result ]
+	 */
+	public static function process_combined_quote(
+		array $contact,
+		array $quote_types,
+		array $businesses,
+		array $individuals,
+		array $answers
+	) {
+		$pricing = self::calculate_combined_pricing( $quote_types, $businesses, $individuals, $answers );
+		$total = $pricing['total'];
+		$is_custom_quote = $pricing['is_custom_quote'];
+		$all_results = $pricing['results'];
 
 		// Store combined answers
 		$answers_to_store = array(
 			'quote_types' => $quote_types,
-			'businesses' => $businesses,
-			'answers' => $answers,
+			'businesses'  => $businesses,
+			'individuals' => $individuals,
+			'answers'     => $answers,
 		);
 
 		$submission_id = TQB_DB::insert_submission( array(
@@ -241,6 +300,11 @@ class TQB_Quote_Handler {
 			'contact_name'        => $contact['name'],
 			'contact_email'       => $contact['email'],
 			'contact_phone'       => $contact['phone'],
+			// Legacy single-value column — kept populated with the first
+			// business's name for quick-glance display; the full per-business
+			// names for multi-business quotes live in the JSON above.
+			'business_name'       => ! empty( $businesses[0]['name'] ) ? $businesses[0]['name'] : null,
+			'filing_status'       => ! empty( $individuals[0]['filing_status'] ) ? $individuals[0]['filing_status'] : null,
 			'answers'             => $answers_to_store,
 			'calculated_total'    => $total,
 			'is_custom_quote'     => $is_custom_quote,
@@ -437,6 +501,7 @@ class TQB_Quote_Handler {
 	 * @param array $contact      Contact info
 	 * @param array $quote_types  Quote types
 	 * @param array $businesses   Business data
+	 * @param array $individuals  Individual filer data
 	 * @param array $answers      Answers
 	 *
 	 * @return array Result with submission_id and calculation result
@@ -446,78 +511,27 @@ class TQB_Quote_Handler {
 		array $contact,
 		array $quote_types,
 		array $businesses,
+		array $individuals,
 		array $answers
 	) {
 		global $wpdb;
 		$table = $wpdb->prefix . 'tqb_submissions';
 
-		// Calculate the quote
-		$total = 0;
-		$is_custom_quote = false;
-		$all_results = array();
-		$business_index = 0;
-
-		foreach ( $quote_types as $type ) {
-			if ( 'individual' === $type ) {
-				$prefix = 'individual-0-';
-				$section_answers = self::filter_answers_with_prefix( $answers, $prefix );
-				$line_items = TQB_DB::get_line_items( 'individual', false );
-				$result = TQB_Pricing_Engine::calculate_individual( $line_items, $section_answers );
-
-				$all_results[] = array(
-					'type' => 'individual',
-					'result' => $result,
-				);
-
-				$total += $result['total'];
-				$is_custom_quote = $is_custom_quote || $result['is_custom_quote'];
-			} elseif ( 'business' === $type ) {
-				if ( ! isset( $businesses[ $business_index ] ) ) {
-					throw new InvalidArgumentException( 'Missing business data' );
-				}
-
-				$business = $businesses[ $business_index ];
-				$prefix = 'business-' . $business_index . '-';
-				$section_answers = self::filter_answers_with_prefix( $answers, $prefix );
-
-				$entity_group = ( 'partnership' === $business['entity_type'] ) ? 'partnership' : 'c_s_corp';
-				$asset_bands = TQB_DB::get_asset_bands( $entity_group );
-				$asset_band = self::find_band_by_label( $asset_bands, $business['asset_band'] );
-				$revenue_bands = TQB_DB::get_revenue_addons();
-				$revenue_band = self::find_band_by_label( $revenue_bands, $business['revenue_band'] );
-
-				if ( ! $asset_band || ! $revenue_band ) {
-					throw new InvalidArgumentException( 'Invalid asset or revenue band' );
-				}
-
-				$extra_items = TQB_DB::get_line_items( 'business', false );
-				$result = TQB_Pricing_Engine::calculate_business(
-					$business['entity_type'],
-					$asset_band,
-					$revenue_band,
-					$extra_items,
-					$section_answers
-				);
-
-				$all_results[] = array(
-					'type' => 'business',
-					'index' => $business_index,
-					'business' => $business,
-					'result' => $result,
-				);
-
-				$total += $result['total'];
-				$is_custom_quote = $is_custom_quote || $result['is_custom_quote'];
-				$business_index++;
-			}
-		}
+		$pricing = self::calculate_combined_pricing( $quote_types, $businesses, $individuals, $answers );
+		$total = $pricing['total'];
+		$is_custom_quote = $pricing['is_custom_quote'];
+		$all_results = $pricing['results'];
 
 		// Store combined answers
 		$answers_to_store = array(
 			'quote_types' => $quote_types,
-			'businesses' => $businesses,
-			'answers' => $answers,
+			'businesses'  => $businesses,
+			'individuals' => $individuals,
+			'answers'     => $answers,
 		);
+
+		$business_name = ! empty( $businesses[0]['name'] ) ? $businesses[0]['name'] : null;
+		$filing_status = ! empty( $individuals[0]['filing_status'] ) ? $individuals[0]['filing_status'] : null;
 
 		// Update the partial submission to completed
 		$now = current_time( 'mysql' );
@@ -531,6 +545,8 @@ class TQB_Quote_Handler {
 					'contact_name'        => $contact['name'],
 					'contact_email'       => $contact['email'],
 					'contact_phone'       => $contact['phone'],
+					'business_name'       => $business_name,
+					'filing_status'       => $filing_status,
 					'answers'             => wp_json_encode( $answers_to_store ),
 					'calculated_total'     => $total,
 					'is_custom_quote'     => $is_custom_quote,
@@ -540,7 +556,7 @@ class TQB_Quote_Handler {
 					'updated_at'          => $now,
 				),
 				array( 'id' => $partial_id ),
-				array( '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%s', '%s', '%d', '%s' ),
+				array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%s', '%s', '%d', '%s' ),
 				array( '%d' )
 			);
 
@@ -560,13 +576,15 @@ class TQB_Quote_Handler {
 					'contact_name'        => $contact['name'],
 					'contact_email'       => $contact['email'],
 					'contact_phone'       => $contact['phone'],
+					'business_name'       => $business_name,
+					'filing_status'       => $filing_status,
 					'answers'             => wp_json_encode( $answers_to_store ),
 					'calculated_total'    => $total,
 					'is_custom_quote'     => $is_custom_quote,
 					'custom_quote_reason' => $is_custom_quote ? 'Multiple items requiring custom quote' : null,
 				),
 				array( 'id' => $partial_id ),
-				array( '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%s' ),
+				array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%s' ),
 				array( '%d' )
 			);
 

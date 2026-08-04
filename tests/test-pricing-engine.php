@@ -51,7 +51,7 @@ $individual_items = array(
 	array( 'item_key' => 'childcare', 'fee' => 25, 'pricing_pattern' => 'flat', 'hardcoded_value' => null, 'is_custom_quote_trigger' => 0 ),
 	array( 'item_key' => 'hsa', 'fee' => 25, 'pricing_pattern' => 'qty_times_fee', 'hardcoded_value' => null, 'is_custom_quote_trigger' => 0 ),
 	array( 'item_key' => 'home_sale', 'fee' => 150, 'pricing_pattern' => 'qty_times_fee', 'hardcoded_value' => null, 'is_custom_quote_trigger' => 0 ),
-	array( 'item_key' => 'retirement_distributions', 'fee' => 25, 'pricing_pattern' => 'hardcoded', 'hardcoded_value' => 100, 'is_custom_quote_trigger' => 0 ),
+	array( 'item_key' => 'retirement_distributions', 'fee' => 100, 'pricing_pattern' => 'flat', 'hardcoded_value' => null, 'is_custom_quote_trigger' => 0 ),
 	array( 'item_key' => 'meetings', 'fee' => 250, 'pricing_pattern' => 'qty_times_fee', 'hardcoded_value' => null, 'is_custom_quote_trigger' => 0 ),
 );
 

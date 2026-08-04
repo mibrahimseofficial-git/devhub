@@ -101,7 +101,13 @@ class TQB_Email {
 
 		$body .= '<p><strong>Answers submitted:</strong></p>';
 		$body .= '<ul>';
-		foreach ( $submission['answers'] as $key => $value ) {
+		// $submission['answers'] is the wrapper stored at submit time:
+		// { quote_types, businesses, individuals, answers }. The actual flat
+		// item-key => {selected, qty} map is one level deeper, at ['answers'].
+		$flat_answers = isset( $submission['answers']['answers'] ) && is_array( $submission['answers']['answers'] )
+			? $submission['answers']['answers']
+			: array();
+		foreach ( $flat_answers as $key => $value ) {
 			if ( is_array( $value ) ) {
 				if ( empty( $value['selected'] ) ) {
 					continue;

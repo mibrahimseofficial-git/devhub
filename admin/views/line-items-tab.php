@@ -47,10 +47,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<thead>
 						<tr>
 							<th style="width: 5%;">Order</th>
-							<th style="width: 25%;">Label & Tooltip</th>
-							<th style="width: 8%;">Fee ($)</th>
-							<th style="width: 10%;">Pattern</th>
-							<th style="width: 8%;">Hardcoded</th>
+							<th style="width: 15%;">Filing Status</th>
+							<th style="width: 27%;">Label & Tooltip</th>
+							<th style="width: 9%;">Fee ($)</th>
+							<th style="width: 12%;">Pattern</th>
 							<th style="width: 20%;">Threshold</th>
 							<th style="width: 8%;">Reveal Qty</th>
 							<th style="width: 8%;">Active</th>
@@ -75,6 +75,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 											<span class="dashicons dashicons-arrow-down" style="font-size: 14px;"></span>
 										</button>
 									</div>
+								</td>
+
+								<!-- Filing Status Filter -->
+								<td class="tqb-filing-status-cell">
+									<select name="items[<?php echo esc_attr( $item['id'] ); ?>][filing_status]" class="tqb-input" style="width: 100%;">
+										<option value="">All Filing Statuses</option>
+										<option value="single" <?php selected( $item['filing_status'], 'single' ); ?>>Single Only</option>
+										<option value="mfj" <?php selected( $item['filing_status'], 'mfj' ); ?>>MFJ Only</option>
+										<option value="mfs" <?php selected( $item['filing_status'], 'mfs' ); ?>>MFS Only</option>
+										<option value="hoh" <?php selected( $item['filing_status'], 'hoh' ); ?>>HOH Only</option>
+									</select>
 								</td>
 
 								<!-- Label & Tooltip (merged, vertical stack) -->
@@ -111,16 +122,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 									<select name="items[<?php echo esc_attr( $item['id'] ); ?>][pricing_pattern]" class="tqb-input">
 										<option value="qty_times_fee" <?php selected( $item['pricing_pattern'], 'qty_times_fee' ); ?>>Qty × Fee</option>
 										<option value="flat" <?php selected( $item['pricing_pattern'], 'flat' ); ?>>Flat</option>
-										<option value="hardcoded" <?php selected( $item['pricing_pattern'], 'hardcoded' ); ?>>Hardcoded</option>
 									</select>
-								</td>
-
-								<!-- Hardcoded -->
-								<td>
-									<input type="number" step="0.01" min="0"
-										name="items[<?php echo esc_attr( $item['id'] ); ?>][hardcoded_value]"
-										value="<?php echo esc_attr( $item['hardcoded_value'] ); ?>"
-										class="tqb-input" />
 								</td>
 
 									<!-- Threshold (Inline UI - Single Condition) -->
@@ -231,95 +233,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 				</button>
 			</div>
 
-			<?php if ( 'individual' === $quote_type && ! empty( $overrides ) ) : ?>
-				<!-- Filing Status Overrides Section -->
-				<div class="tqb-card" style="margin-top: 30px;">
-					<div class="tqb-card-header">
-						<h2>
-							<span class="dashicons dashicons-admin-network"></span>
-							Filing Status Overrides
-						</h2>
-					</div>
-					<div class="tqb-card-body">
-						<div class="tqb-alert tqb-alert-info">
-							<span class="dashicons dashicons-info"></span>
-							<div>
-								<strong>Customize per filing status:</strong> Click on a question below to edit how it appears for different filing statuses (Single, MFJ, MFS, HOH). You can override the label, fee, and visibility for each status.
-							</div>
-						</div>
-
-						<div class="tqb-filing-status-overrides">
-							<?php foreach ( $items as $item ) : ?>
-								<div class="tqb-filing-status-item" data-item-id="<?php echo esc_attr( $item['id'] ); ?>">
-									<div class="tqb-filing-status-header" onclick="tqbToggleFilingStatusOverrides(event, <?php echo esc_attr( $item['id'] ); ?>)">
-										<span class="tqb-toggle-icon">▶</span>
-										<strong><?php echo esc_html( $item['label'] ); ?></strong>
-										<span class="tqb-item-key"><?php echo esc_html( $item['item_key'] ); ?></span>
-									</div>
-
-									<div class="tqb-filing-status-content" style="display: none;">
-										<?php foreach ( $filing_statuses as $status ) : ?>
-											<?php 
-												$override = isset( $overrides[ $item['id'] ][ $status ] ) ? $overrides[ $item['id'] ][ $status ] : array();
-												$status_label = $filing_status_labels[ $status ];
-											?>
-											<div class="tqb-filing-status-row">
-												<div class="tqb-status-label">
-													<strong><?php echo esc_html( $status_label ); ?></strong>
-												</div>
-
-												<div class="tqb-status-fields">
-													<div class="tqb-field-group">
-														<label>Label Override</label>
-														<input type="text" 
-															class="tqb-override-label" 
-															data-item-id="<?php echo esc_attr( $item['id'] ); ?>"
-															data-status="<?php echo esc_attr( $status ); ?>"
-															value="<?php echo isset( $override['override_label'] ) && $override['override_label'] ? esc_attr( $override['override_label'] ) : '(use base)'; ?>"
-															placeholder="(use base label)" />
-													</div>
-
-													<div class="tqb-field-group">
-														<label>Fee Override ($)</label>
-														<input type="number" 
-															step="0.01"
-															class="tqb-override-fee" 
-															data-item-id="<?php echo esc_attr( $item['id'] ); ?>"
-															data-status="<?php echo esc_attr( $status ); ?>"
-															value="<?php echo isset( $override['override_fee'] ) && $override['override_fee'] !== null ? esc_attr( $override['override_fee'] ) : ''; ?>"
-															placeholder="(use base fee)" />
-													</div>
-
-													<div class="tqb-field-group">
-														<label style="display: flex; align-items: center; gap: 8px;">
-															<input type="checkbox" 
-																class="tqb-override-hidden" 
-																data-item-id="<?php echo esc_attr( $item['id'] ); ?>"
-																data-status="<?php echo esc_attr( $status ); ?>"
-																<?php checked( isset( $override['is_hidden'] ) && $override['is_hidden'] ); ?> />
-															<span>Hide for this filing status</span>
-														</label>
-													</div>
-
-													<button type="button" 
-														class="tqb-btn tqb-btn-sm tqb-btn-secondary tqb-save-override"
-														data-item-id="<?php echo esc_attr( $item['id'] ); ?>"
-														data-status="<?php echo esc_attr( $status ); ?>"
-														onclick="tqbSaveFilingStatusOverride(event, <?php echo esc_attr( $item['id'] ); ?>, '<?php echo esc_attr( $status ); ?>')">
-														<span class="dashicons dashicons-yes" style="font-size: 14px;"></span>
-														Save Override
-													</button>
-												</div>
-											</div>
-										<?php endforeach; ?>
-									</div>
-								</div>
-							<?php endforeach; ?>
-						</div>
-					</div>
-				</div>
-			<?php endif; ?>
-
 			<div class="tqb-submit">
 				<button type="submit" class="tqb-btn tqb-btn-primary">
 					<span class="dashicons dashicons-saved" style="font-size:18px;"></span>
@@ -329,6 +242,106 @@ if ( ! defined( 'ABSPATH' ) ) {
 		</form>
 	</div>
 </div>
+
+<?php if ( $quote_type === 'individual' ) : ?>
+<!-- Filing Status Configuration -->
+<div class="tqb-card">
+	<div class="tqb-card-header">
+		<h2>
+			<span class="dashicons dashicons-admin-settings"></span>
+			Filing Status Configuration
+		</h2>
+	</div>
+	<div class="tqb-card-body">
+		<p class="tqb-description">Configure filing status options and pricing for individual tax returns. The surcharge is added to the base price.</p>
+
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+			<?php wp_nonce_field( TQB_Admin::NONCE_ACTION_GENERAL, 'tqb_nonce' ); ?>
+			<input type="hidden" name="action" value="tqb_save_general_settings" />
+
+			<table class="wp-list-table widefat striped" style="margin-bottom:20px;">
+				<thead>
+					<tr>
+						<th>Filing Status</th>
+						<th>Label</th>
+						<th>Surcharge</th>
+						<th>Total Price</th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php
+					$filing_statuses = array( 'single', 'mfj', 'mfs', 'hoh' );
+					$filing_labels = array(
+						'single' => 'Single',
+						'mfj'    => 'Married Filing Jointly',
+						'mfs'    => 'Married Filing Separately',
+						'hoh'    => 'Head of Household'
+					);
+					$base_price = (float) get_option( 'tqb_individual_base_price', 500 );
+
+					foreach ( $filing_statuses as $status ) {
+						$label = get_option( 'tqb_filing_status_label_' . $status, $filing_labels[ $status ] );
+						$surcharge = (float) get_option( 'tqb_filing_status_price_' . $status, 0 );
+						if ( $status === 'mfj' ) $surcharge = 200;
+						if ( $status === 'mfs' ) $surcharge = 300;
+						if ( $status === 'hoh' ) $surcharge = 150;
+						$total = $base_price + $surcharge;
+						?>
+						<tr>
+							<td><strong><?php echo esc_html( ucfirst( str_replace( '_', ' ', $status ) ) ); ?></strong></td>
+							<td>
+								<input type="text" 
+									name="tqb_filing_status_label_<?php echo esc_attr( $status ); ?>" 
+									value="<?php echo esc_attr( $label ); ?>" 
+									class="regular-text" />
+							</td>
+							<td>
+								<div style="display:flex; align-items:center; gap:8px;">
+									$<input type="number" 
+										name="tqb_filing_status_price_<?php echo esc_attr( $status ); ?>" 
+										value="<?php echo esc_attr( $surcharge ); ?>" 
+										class="small-text" 
+										step="1" style="width:80px;" />
+								</div>
+							</td>
+							<td>
+								<strong>$<?php echo number_format( $total, 2 ); ?></strong>
+							</td>
+						</tr>
+						<?php
+					}
+					?>
+				</tbody>
+			</table>
+
+			<table class="tqb-form-table">
+				<tr>
+					<th scope="row"><label for="tqb_individual_base_price">Individual Return Base Price</label></th>
+					<td>
+						<div style="display:flex; align-items:center; gap:12px;">
+							$<input type="number" 
+								id="tqb_individual_base_price" 
+								name="tqb_individual_base_price" 
+								value="<?php echo esc_attr( $base_price ); ?>" 
+								step="0.01" 
+								min="0" 
+								style="width:120px;" />
+						</div>
+						<p class="tqb-description">This is the starting price for all individual returns, before any filing status surcharge. For example: Single = $500 + $0 = $500, MFJ = $500 + $200 = $700.</p>
+					</td>
+				</tr>
+			</table>
+
+			<div class="tqb-submit">
+				<button type="submit" class="tqb-btn tqb-btn-primary">
+					<span class="dashicons dashicons-saved" style="font-size:18px;"></span>
+					Save Filing Status Settings
+				</button>
+			</div>
+		</form>
+	</div>
+</div>
+<?php endif; ?>
 
 <style>
 	/* Table Wrapper - Horizontal Scrollbar */
@@ -1024,134 +1037,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 		}
 	}
 
-	/* Filing Status Overrides Styling */
-	.tqb-filing-status-overrides {
-		display: flex;
-		flex-direction: column;
-		gap: 16px;
-	}
-
-	.tqb-filing-status-item {
-		border: 1px solid #e5e7eb;
-		border-radius: 6px;
-		overflow: hidden;
-	}
-
-	.tqb-filing-status-header {
-		background: #f3f4f6;
-		padding: 14px 16px;
-		cursor: pointer;
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		transition: background-color 0.2s;
-		user-select: none;
-	}
-
-	.tqb-filing-status-header:hover {
-		background: #e5e7eb;
-	}
-
-	.tqb-toggle-icon {
-		display: inline-block;
-		width: 16px;
-		transition: transform 0.2s;
-		font-size: 12px;
-		color: #6b7280;
-	}
-
-	.tqb-filing-status-item.expanded .tqb-toggle-icon {
-		transform: rotate(90deg);
-	}
-
-	.tqb-filing-status-header strong {
-		flex: 1;
-		font-size: 14px;
-		color: #111827;
-	}
-
-	.tqb-filing-status-header .tqb-item-key {
-		font-size: 12px;
-		color: #9ca3af;
-	}
-
-	.tqb-filing-status-content {
-		padding: 16px;
-		background: #ffffff;
-		display: flex;
-		flex-direction: column;
-		gap: 24px;
-	}
-
-	.tqb-filing-status-row {
-		display: grid;
-		grid-template-columns: 180px 1fr;
-		gap: 20px;
-		padding-bottom: 20px;
-		border-bottom: 1px solid #e5e7eb;
-	}
-
-	.tqb-filing-status-row:last-child {
-		border-bottom: none;
-		padding-bottom: 0;
-	}
-
-	.tqb-status-label {
-		padding-top: 6px;
-	}
-
-	.tqb-status-label strong {
-		font-size: 13px;
-		color: #374151;
-	}
-
-	.tqb-status-fields {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-		gap: 12px;
-		align-items: flex-start;
-	}
-
-	.tqb-field-group {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-
-	.tqb-field-group label {
-		font-size: 12px;
-		font-weight: 500;
-		color: #6b7280;
-	}
-
-	.tqb-field-group input {
-		padding: 6px 8px;
-		border: 1px solid #d1d5db;
-		border-radius: 4px;
-		font-size: 13px;
-	}
-
-	.tqb-field-group input:focus {
-		outline: none;
-		border-color: #2271b1;
-		box-shadow: 0 0 0 2px rgba(34, 113, 177, 0.1);
-	}
-
-	.tqb-save-override {
-		grid-column: 1 / -1;
-		align-self: flex-end;
-	}
-
-	@media (max-width: 768px) {
-		.tqb-filing-status-row {
-			grid-template-columns: 1fr;
-		}
-
-		.tqb-status-fields {
-			grid-template-columns: 1fr;
-		}
-	}
-
 </style>
 
 <script>
@@ -1175,92 +1060,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 		});
 	});
 
-	/**
-	 * Toggle filing status overrides accordion
-	 */
-	function tqbToggleFilingStatusOverrides(event, itemId) {
-		event.preventDefault();
-		const item = document.querySelector(`.tqb-filing-status-item[data-item-id="${itemId}"]`);
-		const content = item.querySelector('.tqb-filing-status-content');
-		const isExpanded = item.classList.contains('expanded');
 
-		if (isExpanded) {
-			item.classList.remove('expanded');
-			content.style.display = 'none';
-		} else {
-			item.classList.add('expanded');
-			content.style.display = 'flex';
-		}
-	}
-
-	/**
-	 * Save filing status override via AJAX
-	 */
-	function tqbSaveFilingStatusOverride(event, itemId, status) {
-		event.preventDefault();
-
-		const item = document.querySelector(`.tqb-filing-status-item[data-item-id="${itemId}"]`);
-		const labelInput = item.querySelector(`.tqb-override-label[data-status="${status}"]`);
-		const feeInput = item.querySelector(`.tqb-override-fee[data-status="${status}"]`);
-		const hiddenCheckbox = item.querySelector(`.tqb-override-hidden[data-status="${status}"]`);
-		const button = event.target.closest('.tqb-save-override');
-
-		// Collect data
-		const data = {
-			action: 'tqb_save_filing_status_override',
-			item_id: itemId,
-			status: status,
-			override_label: labelInput.value === '(use base)' ? '' : labelInput.value,
-			override_fee: feeInput.value === '' ? null : parseFloat(feeInput.value),
-			is_hidden: hiddenCheckbox.checked ? 1 : 0,
-			nonce: document.querySelector('input[name="tqb_nonce"]').value,
-		};
-
-		// Show loading state
-		const originalText = button.innerHTML;
-		button.innerHTML = '<span class="dashicons dashicons-update" style="animation: spin 1s linear infinite;"></span> Saving...';
-		button.disabled = true;
-
-		// Send AJAX request
-		fetch(ajaxurl, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded',
-			},
-			body: new URLSearchParams(data).toString(),
-		})
-		.then(response => response.json())
-		.then(result => {
-			if (result.success) {
-				// Show success
-				button.innerHTML = '<span class="dashicons dashicons-saved" style="color: #22c55e;"></span> Saved!';
-				setTimeout(() => {
-					button.innerHTML = originalText;
-					button.disabled = false;
-				}, 1500);
-			} else {
-				// Show error
-				alert('Error saving override: ' + (result.data || 'Unknown error'));
-				button.innerHTML = originalText;
-				button.disabled = false;
-			}
-		})
-		.catch(error => {
-			console.error('Error:', error);
-			alert('Error saving override: ' + error.message);
-			button.innerHTML = originalText;
-			button.disabled = false;
-		});
-	}
-
-	/* Spin animation for loading */
-	const style = document.createElement('style');
-	style.textContent = `
-		@keyframes spin {
-			0% { transform: rotate(0deg); }
-			100% { transform: rotate(360deg); }
-		}
-	`;
-	document.head.appendChild(style);
 
 </script>

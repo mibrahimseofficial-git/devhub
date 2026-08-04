@@ -215,16 +215,7 @@ function tqbAddLineItem( quoteType ) {
 				<select name="items[${newId}][pricing_pattern]" class="tqb-input">
 					<option value="qty_times_fee" selected>Qty × Fee</option>
 					<option value="flat">Flat</option>
-					<option value="hardcoded">Hardcoded</option>
 				</select>
-			</td>
-
-			<!-- Hardcoded -->
-			<td>
-				<input type="number" step="0.01" min="0"
-					name="items[${newId}][hardcoded_value]"
-					value="0.00"
-					class="tqb-input" />
 			</td>
 
 			<!-- Threshold -->

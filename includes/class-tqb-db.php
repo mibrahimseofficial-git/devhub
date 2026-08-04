@@ -104,15 +104,17 @@ class TQB_DB {
 			$table,
 			array(
 				'quote_type'          => $data['quote_type'],
+				'filing_status'       => $data['filing_status'] ?? null,
 				'contact_name'        => $data['contact_name'],
 				'contact_email'       => $data['contact_email'],
 				'contact_phone'       => $data['contact_phone'],
+				'business_name'       => $data['business_name'] ?? null,
 				'answers'             => wp_json_encode( $data['answers'] ),
 				'calculated_total'    => $data['calculated_total'] ?? null,
 				'is_custom_quote'     => ! empty( $data['is_custom_quote'] ) ? 1 : 0,
 				'custom_quote_reason' => $data['custom_quote_reason'] ?? null,
 			),
-			array( '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%s' )
+			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%s' )
 		);
 
 		return $inserted ? $wpdb->insert_id : false;
@@ -210,7 +212,6 @@ class TQB_DB {
 			'label'                   => $data['label'] ?? '',
 			'fee'                     => $data['fee'] ?? 0,
 			'pricing_pattern'         => $data['pricing_pattern'] ?? 'qty_times_fee',
-			'hardcoded_value'         => $data['hardcoded_value'] ?? null,
 			'is_custom_quote_trigger' => $data['is_custom_quote_trigger'] ?? 0,
 			'threshold_qty'           => $data['threshold_qty'] ?? null,
 			'threshold_trigger'       => $data['threshold_trigger'] ?? null,
@@ -225,7 +226,7 @@ class TQB_DB {
 		$result = $wpdb->insert(
 			$table,
 			$insert_data,
-			array( '%s', '%s', '%s', '%f', '%s', '%f', '%d', '%f', '%s', '%s', '%d', '%d', '%d', '%s', '%s' )
+			array( '%s', '%s', '%s', '%f', '%s', '%d', '%f', '%s', '%s', '%d', '%d', '%d', '%s', '%s' )
 		);
 
 		return $result ? $wpdb->insert_id : false;
@@ -254,14 +255,13 @@ class TQB_DB {
 
 	/**
 	 * Update a single line item's editable fields (used by the admin dashboard).
-	 * Updates label, tooltip, fee, pricing_pattern, hardcoded_value, and is_active.
+	 * Updates label, tooltip, fee, pricing_pattern, and is_active.
 	 * Note: item_key and quote_type stay fixed to avoid orphaning data tied to the
 	 * item_key elsewhere (e.g. past submissions reference these keys).
 	 *
 	 * @param int   $id    Row ID in wp_tqb_line_items
 	 * @param array $data  [ 'label' => string, 'tooltip' => string|null,
-	 *                       'fee' => float, 'pricing_pattern' => string,
-	 *                       'hardcoded_value' => float|null, 'is_active' => 0|1,
+	 *                       'fee' => float, 'pricing_pattern' => string, 'is_active' => 0|1,
 	 *                       'threshold_qty' => float|null, 'threshold_trigger' => string|null,
 	 *                       'threshold_rules' => string|null, 'reveal_followup' => 0|1,
 	 *                       'sort_order' => int ]
@@ -276,11 +276,10 @@ class TQB_DB {
 			'tooltip'         => $data['tooltip'],
 			'fee'             => $data['fee'],
 			'pricing_pattern' => $data['pricing_pattern'],
-			'hardcoded_value' => $data['hardcoded_value'],
 			'is_active'       => $data['is_active'],
 		);
 
-		$formats = array( '%s', '%s', '%f', '%s', '%f', '%d' );
+		$formats = array( '%s', '%s', '%f', '%s', '%d' );
 
 		// Add threshold fields if present (legacy format)
 		if ( array_key_exists( 'threshold_qty', $data ) ) {
@@ -307,6 +306,11 @@ class TQB_DB {
 		if ( array_key_exists( 'sort_order', $data ) ) {
 			$set['sort_order'] = $data['sort_order'];
 			$formats[] = '%d';
+		}
+
+		if ( array_key_exists( 'filing_status', $data ) ) {
+			$set['filing_status'] = $data['filing_status'];
+			$formats[] = $data['filing_status'] === null ? '%s' : '%s';
 		}
 
 		$updated = $wpdb->update(
@@ -373,72 +377,5 @@ class TQB_DB {
 			),
 			ARRAY_A
 		);
-	}
-
-	/**
-	 * Get a question set by return_type and filing_status.
-	 * Used by admin to get filing status variant sets.
-	 */
-	public static function get_question_set_by_return_and_status( $return_type, $filing_status ) {
-		global $wpdb;
-		$table = $wpdb->prefix . TQB_TABLE_QUESTION_SETS;
-
-		return $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT * FROM {$table} WHERE return_type = %s AND filing_status = %s",
-				$return_type,
-				$filing_status
-			),
-			ARRAY_A
-		);
-	}
-
-	/**
-	 * Get a question set item (override) by set ID and line item ID.
-	 * Used by admin to get filing status overrides for a question.
-	 */
-	public static function get_question_set_item( $question_set_id, $line_item_id ) {
-		global $wpdb;
-		$table = $wpdb->prefix . TQB_TABLE_QUESTION_SET_ITEMS;
-
-		return $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT * FROM {$table} WHERE question_set_id = %d AND line_item_id = %d",
-				$question_set_id,
-				$line_item_id
-			),
-			ARRAY_A
-		);
-	}
-
-	/**
-	 * Update a question set item (filing status override).
-	 * Used by admin AJAX to save override changes.
-	 */
-	public static function update_question_set_item( $question_set_id, $line_item_id, $data ) {
-		global $wpdb;
-		$table = $wpdb->prefix . TQB_TABLE_QUESTION_SET_ITEMS;
-
-		// Check if item already exists
-		$existing = self::get_question_set_item( $question_set_id, $line_item_id );
-
-		if ( $existing ) {
-			// Update existing
-			return $wpdb->update(
-				$table,
-				$data,
-				array(
-					'question_set_id' => $question_set_id,
-					'line_item_id'    => $line_item_id,
-				),
-				array( '%s', '%s', '%s', '%s', '%d', '%d' ),
-				array( '%d', '%d' )
-			);
-		} else {
-			// Insert new
-			$data['question_set_id'] = $question_set_id;
-			$data['line_item_id']    = $line_item_id;
-			return $wpdb->insert( $table, $data );
-		}
 	}
 }

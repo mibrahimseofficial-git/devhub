@@ -979,20 +979,9 @@ function tqb_get_sort_indicator( $column ) {
 				Business
 			</a>
 		</div>
+		</div>
 
-<div class="tqb-bulk-actions" id="tqb-bulk-actions" style="display: none;">
-<span class="tqb-selected-count" id="tqb-selected-count">0 selected</span>
-<select name="bulk_action" id="tqb-bulk-action-select" class="tqb-bulk-select">
-<option value="">Bulk Actions</option>
-<option value="delete">Delete Selected</option>
-</select>
-<button type="button" class="tqb-bulk-apply-btn" id="tqb-bulk-apply-btn">
-Apply
-</button>
-</div>
-</div>
-
-<form method="get" action="" class="tqb-search-form">
+	<form method="get" action="" class="tqb-search-form">
 			<input type="hidden" name="page" value="tqb-settings" />
 			<input type="hidden" name="tab" value="submissions" />
 			<?php if ( $status_filter ) : ?>
@@ -1012,12 +1001,6 @@ Apply
 					Clear
 				</a>
 			<?php endif; ?>
-		</form>
-
-		<!-- Bulk Delete Form -->
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php?action=tqb_delete_submissions' ) ); ?>" id="tqb-bulk-delete-form" style="display: none;">
-			<?php wp_nonce_field( 'tqb_delete_submissions', 'tqb_delete_nonce' ); ?>
-			<div id="tqb-bulk-ids-container"></div>
 		</form>
 	</div>
 
@@ -1148,8 +1131,6 @@ Apply
 		<!-- Bulk Actions Bar -->
 		<div class="tqb-bulk-bar" id="tqb-bulk-bar">
 			<div class="tqb-bulk-bar-left">
-				<input type="checkbox" id="tqb-select-all" style="cursor: pointer;" />
-				<span class="tqb-bulk-select-label">Select All</span>
 				<span class="tqb-selected-count" id="tqb-selected-count" style="display: none;">(<span id="tqb-selected-number">0</span> selected)</span>
 			</div>
 			<div class="tqb-bulk-bar-right" id="tqb-bulk-bar-right" style="display: none;">
