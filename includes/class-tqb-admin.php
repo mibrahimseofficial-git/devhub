@@ -469,7 +469,9 @@ class TQB_Admin {
 		update_option( 'tqb_office_address', $office_address );
 		update_option( 'tqb_delete_data_on_uninstall', $delete_data_on_uninstall );
 
-		wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=general&tqb_saved=1' ) );
+		// Redirect back to the current tab (default to general if not set)
+		$current_tab = isset( $_POST['tqb_current_tab'] ) ? sanitize_key( $_POST['tqb_current_tab'] ) : 'general';
+		wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=' . $current_tab . '&tqb_saved=1' ) );
 		exit;
 	}
 

@@ -13,6 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 	<?php wp_nonce_field( TQB_Admin::NONCE_ACTION_GENERAL, 'tqb_nonce' ); ?>
 	<input type="hidden" name="action" value="tqb_save_general_settings" />
+	<input type="hidden" name="tqb_current_tab" value="general" />
 
 	<!-- Basic Settings -->
 	<div class="tqb-card">
