@@ -16,6 +16,54 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+/**
+ * Render a single condition row HTML for the multi-condition threshold builder.
+ *
+ * @param int   $item_id      The line item ID.
+ * @param int   $cond_index   The condition index (0-based).
+ * @param array $condition    The condition data array, or null for new row.
+ *
+ * @return string HTML string for the condition row.
+ */
+function tqb_render_threshold_condition_row( $item_id, $cond_index, $condition = null ) {
+$type     = isset( $condition['type'] ) ? $condition['type'] : 'qty';
+$operator = isset( $condition['operator'] ) ? $condition['operator'] : 'above';
+$value    = isset( $condition['value'] ) ? $condition['value'] : '';
+
+$base_name = 'items[' . $item_id . '][threshold_conditions][' . $cond_index . ']';
+$row_id    = 'tqb-cond-' . $item_id . '-' . $cond_index;
+
+ob_start();
+?>
+<div class="tqb-threshold-condition-row">
+<div class="tqb-condition-field">
+<label class="tqb-field-label" for="<?php echo esc_attr( $row_id ); ?>-type">Type</label>
+<select name="<?php echo esc_attr( $base_name ); ?>[type]" id="<?php echo esc_attr( $row_id ); ?>-type" class="tqb-input tqb-cond-type">
+<option value="qty" <?php selected( $type, 'qty' ); ?>>Quantity</option>
+<option value="dollar_value" <?php selected( $type, 'dollar_value' ); ?>>Total value ($)</option>
+</select>
+</div>
+<div class="tqb-condition-field">
+<label class="tqb-field-label" for="<?php echo esc_attr( $row_id ); ?>-operator">Operator</label>
+<select name="<?php echo esc_attr( $base_name ); ?>[operator]" id="<?php echo esc_attr( $row_id ); ?>-operator" class="tqb-input tqb-cond-operator">
+<option value="above" <?php selected( $operator, 'above' ); ?>>Above (&gt;)</option>
+<option value="below" <?php selected( $operator, 'below' ); ?>>Below (&lt;)</option>
+</select>
+</div>
+<div class="tqb-condition-field">
+<label class="tqb-field-label" for="<?php echo esc_attr( $row_id ); ?>-value">Value</label>
+<input type="number" step="1" min="0"
+name="<?php echo esc_attr( $base_name ); ?>[value]"
+id="<?php echo esc_attr( $row_id ); ?>-value"
+value="<?php echo esc_attr( $value ); ?>"
+placeholder="e.g., 100"
+class="tqb-input tqb-cond-value" />
+</div>
+</div>
+<?php
+return ob_get_clean();
+}
+
 ?>
 
 <div class="tqb-card">
@@ -125,100 +173,71 @@ if ( ! defined( 'ABSPATH' ) ) {
 									</select>
 								</td>
 
-									<!-- Threshold (Inline UI - Single Condition) -->
+									<!-- Threshold (Multi-Condition Builder) -->
+									<!-- Threshold (Multi-Condition Builder) -->
 									<td class="tqb-threshold-cell">
-										<?php
-											$threshold_rules = $item['threshold_rules'] ? json_decode( $item['threshold_rules'], true ) : null;
-											$has_threshold   = ! empty( $threshold_rules ) && ! empty( $threshold_rules['conditions'] );
-											$condition       = $has_threshold ? $threshold_rules['conditions'][0] : null;
-										?>
-										<div class="tqb-threshold-inline" data-item-id="<?php echo esc_attr( $item['id'] ); ?>">
-											<!-- Mode: None or Custom -->
-											<div style="margin-bottom: 8px;">
-												<label style="display: inline-block; margin-right: 12px; font-size: 12px;">
-													<input type="radio" name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_mode]" 
-														value="none" 
-														<?php echo ! $has_threshold ? 'checked' : ''; ?> />
-													None
-												</label>
-												<label style="display: inline-block; font-size: 12px;">
-													<input type="radio" name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_mode]" 
-														value="custom" 
-														<?php echo $has_threshold ? 'checked' : ''; ?> />
-													Custom
-												</label>
-											</div>
-
-											<!-- Inline Fields (visible when Custom is selected) -->
-											<div class="tqb-threshold-fields" style="<?php echo $has_threshold ? 'display: block;' : 'display: none;'; ?>">
-												<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-
-													<!-- Operator -->
-													<div>
-														<label style="display: block; font-size: 11px; font-weight: 500; margin-bottom: 2px;">Operator</label>
-														<select name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_operator]" class="tqb-input" style="font-size: 12px;">
-															<option value="above" <?php echo ( ! $condition || 'above' === ( $condition['operator'] ?? 'above' ) ) ? 'selected' : ''; ?>>Above (&gt;)</option>
-															<option value="below" <?php echo ( $condition && 'below' === ( $condition['operator'] ?? 'above' ) ) ? 'selected' : ''; ?>>Below (&lt;)</option>
-														</select>
-													</div>
-
-													<!-- Value -->
-													<div>
-														<label style="display: block; font-size: 11px; font-weight: 500; margin-bottom: 2px;">Threshold Value</label>
-														<input type="number" step="1" min="0" 
-															name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_value]"
-															value="<?php echo esc_attr( $condition ? $condition['value'] : '' ); ?>"
-															placeholder="e.g., 100"
-															class="tqb-input" 
-															style="font-size: 12px;" />
-													</div>
-												</div>
-
-												<!-- Hidden type field (always 'qty', no need to display) -->
-												<input type="hidden" name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_type]" value="qty" />
-											</div>
-
-											<!-- Hidden input to store JSON (regenerated on save by PHP) -->
-											<input type="hidden" name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_rules]" value="<?php echo esc_attr( $item['threshold_rules'] ?? '' ); ?>" />
-										</div>
-									</td>
-
-								<!-- Reveal Followup -->
-								<td style="text-align: center;">
-									<label title="Show quantity input only after user checks 'Yes'">
-										<input type="checkbox"
-											name="items[<?php echo esc_attr( $item['id'] ); ?>][reveal_followup]"
-											value="1"
-											<?php checked( (int) $item['reveal_followup'], 1 ); ?> />
+									<?php
+									$threshold_rules = $item['threshold_rules'] ? json_decode( $item['threshold_rules'], true ) : null;
+									$has_threshold   = ! empty( $threshold_rules ) && ! empty( $threshold_rules['conditions'] );
+									$conditions      = $has_threshold ? $threshold_rules['conditions'] : array();
+									$threshold_logic = isset( $threshold_rules['logic'] ) ? $threshold_rules['logic'] : 'AND';
+									$condition_count = count( $conditions );
+									?>
+									<div class="tqb-threshold-inline" data-item-id="<?php echo esc_attr( $item['id'] ); ?>">
+									<!-- Mode: None or Custom -->
+									<div class="tqb-threshold-mode-row">
+									<label class="tqb-threshold-mode-label">
+									<input type="radio" name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_mode]"
+									value="none"
+									<?php checked( $has_threshold, false ); ?> />
+									None
 									</label>
-								</td>
-
-								<!-- Active -->
-								<td style="text-align: center;">
-									<input type="checkbox"
-										name="items[<?php echo esc_attr( $item['id'] ); ?>][is_active]"
-										value="1"
-										<?php checked( (int) $item['is_active'], 1 ); ?> />
-								</td>
-
-								<!-- Action Column -->
-								<td style="text-align: center;">
-									<button type="button" class="tqb-btn tqb-btn-icon-delete"
-										onclick="tqbDeleteLineItem(event, <?php echo esc_attr( $item['id'] ); ?>)"
-										title="Delete this item">
-										<span class="dashicons dashicons-trash"></span>
+									<label class="tqb-threshold-mode-label">
+									<input type="radio" name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_mode]"
+									value="custom"
+									<?php checked( $has_threshold, true ); ?> />
+									Custom
+									</label>
+									</div>
+									
+									<!-- Custom Fields (visible when Custom is selected) -->
+									<div class="tqb-threshold-fields"<?php echo $has_threshold ? '' : ' style="display: none;"'; ?>>
+									<!-- Condition rows container -->
+									<div class="tqb-threshold-conditions" id="tqb-conditions-<?php echo esc_attr( $item['id'] ); ?>">
+									<?php if ( ! empty( $conditions ) ) : ?>
+									<?php foreach ( $conditions as $ci => $cond ) : ?>
+									<?php echo tqb_render_threshold_condition_row( $item['id'], $ci, $cond ); ?>
+									<?php endforeach; ?>
+									<?php else : ?>
+									<?php echo tqb_render_threshold_condition_row( $item['id'], 0, null ); ?>
+									<?php endif; ?>
+									</div>
+									
+									<!-- Logic toggle (shown only when 2+ conditions exist) -->
+									<div class="tqb-threshold-logic-row" id="tqb-logic-row-<?php echo esc_attr( $item['id'] ); ?>"<?php echo $condition_count >= 2 ? '' : ' style="display: none;"'; ?>>
+									<label class="tqb-threshold-mode-label">
+									<input type="radio" name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_logic]"
+									value="OR"
+									<?php checked( $threshold_logic, 'OR' ); ?> />
+									Match ANY (OR)
+									</label>
+									<label class="tqb-threshold-mode-label">
+									<input type="radio" name="items[<?php echo esc_attr( $item['id'] ); ?>][threshold_logic]"
+									value="AND"
+									<?php checked( $threshold_logic, 'AND' ); ?> />
+									Match ALL (AND)
+									</label>
+									</div>
+									
+									<!-- Add condition button -->
+									<button type="button" class="tqb-btn tqb-btn-secondary tqb-btn-add-condition"
+									data-item-id="<?php echo esc_attr( $item['id'] ); ?>">
+									<span class="dashicons dashicons-plus-alt"></span>
+									Add Condition
 									</button>
-								</td>
-
-								<!-- Internal Info -->
-								<td style="font-size:11px; color:#64748b;">
-									<?php if ( ! empty( $item['is_custom_quote_trigger'] ) ) : ?>
-										<span style="color:#dc2626; font-weight:600;">Custom quote trigger</span>
-									<?php endif; ?>
-									<?php if ( ! empty( $item['notes'] ) ) : ?>
-										<br /><small><em><?php echo esc_html( $item['notes'] ); ?></em></small>
-									<?php endif; ?>
-								</td>
+									</div>
+									</div>
+									</td>
 							</tr>
 						<?php endforeach; ?>
 					</tbody>
@@ -562,6 +581,110 @@ if ( ! defined( 'ABSPATH' ) ) {
 		display: block;
 		word-break: break-all;
 	}
+
+	/* ===== INLINE THRESHOLD BUILDER STYLES ===== */
+
+	/* Threshold cell - compact inline layout */
+	.tqb-threshold-cell {
+		font-size: 11px;
+		vertical-align: top;
+		padding: 8px !important;
+	}
+
+	.tqb-threshold-inline {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	/* Mode radio buttons - compact inline layout */
+	.tqb-threshold-mode-row {
+		display: flex;
+		gap: 12px;
+		margin-bottom: 4px;
+	}
+
+	.tqb-threshold-mode-label {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		font-size: 11px;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+
+	.tqb-threshold-mode-label input[type="radio"] {
+		margin: 0;
+		cursor: pointer;
+	}
+
+	/* Threshold fields container */
+	.tqb-threshold-fields {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	/* Condition rows container */
+	.tqb-threshold-conditions {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	/* Single condition row - compact 3-column layout */
+	.tqb-threshold-condition-row {
+		display: grid;
+		grid-template-columns: 1fr 1fr 1fr;
+		gap: 6px;
+		align-items: end;
+	}
+
+	/* Condition field */
+	.tqb-condition-field {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.tqb-condition-field .tqb-field-label {
+		font-size: 10px;
+		font-weight: 600;
+		color: #555;
+		text-transform: uppercase;
+		letter-spacing: 0.3px;
+		margin: 0;
+	}
+
+	.tqb-condition-field .tqb-input {
+		padding: 4px 6px;
+		font-size: 11px;
+		border-radius: 3px;
+		height: auto;
+	}
+
+	/* Logic toggle row */
+	.tqb-threshold-logic-row {
+		display: flex;
+		gap: 12px;
+		padding: 6px 0;
+		border-top: 1px dashed #ddd;
+		margin-top: 4px;
+	}
+
+	/* Add condition button */
+	.tqb-btn-add-condition {
+		padding: 6px 10px;
+		font-size: 11px;
+		margin-top: 4px;
+	}
+
+	.tqb-btn-add-condition .dashicons {
+		font-size: 14px;
+		width: 14px;
+		height: 14px;
+	}
+
 
 	.tqb-threshold-editor {
 		font-size: 12px;
@@ -1038,25 +1161,107 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 <script>
 	/* ===== INLINE THRESHOLD FIELD CONTROL ===== */
-	
+
 	document.addEventListener('DOMContentLoaded', function() {
 		// Initialize threshold field visibility based on mode selection
+		tqbInitThresholdControls();
+
+		// Delegate click for Add Condition buttons
+		document.addEventListener('click', function(e) {
+			if (e.target.closest('.tqb-btn-add-condition')) {
+				const btn = e.target.closest('.tqb-btn-add-condition');
+				const itemId = btn.getAttribute('data-item-id');
+				tqbAddThresholdCondition(itemId);
+			}
+		});
+	});
+
+	/**
+	 * Initialize threshold controls for all threshold rows on the page.
+	 */
+	function tqbInitThresholdControls() {
 		const thresholdRows = document.querySelectorAll('.tqb-threshold-inline');
 		thresholdRows.forEach(row => {
 			const itemId = row.getAttribute('data-item-id');
 			const modeRadios = row.querySelectorAll('input[type="radio"][name*="threshold_mode"]');
 			const fieldsDiv = row.querySelector('.tqb-threshold-fields');
-			
+
 			modeRadios.forEach(radio => {
 				radio.addEventListener('change', function() {
 					if (fieldsDiv) {
-						fieldsDiv.style.display = this.value === 'custom' ? 'block' : 'none';
+						fieldsDiv.style.display = this.value === 'custom' ? '' : 'none';
 					}
 				});
 			});
+
+			// Update logic toggle visibility based on condition count
+			tqbUpdateLogicToggleVisibility(itemId);
 		});
-	});
+	}
 
+	/**
+	 * Add a new condition row to the threshold builder.
+	 *
+	 * @param {string|number} itemId The item ID.
+	 */
+	function tqbAddThresholdCondition(itemId) {
+		const conditionsContainer = document.getElementById('tqb-conditions-' + itemId);
+		if (!conditionsContainer) return;
 
+		// Count current conditions
+		const currentConditions = conditionsContainer.querySelectorAll('.tqb-threshold-condition-row');
+		const newIndex = currentConditions.length;
+
+		// Create new condition row HTML
+		const newRow = document.createElement('div');
+		newRow.className = 'tqb-threshold-condition-row';
+		newRow.innerHTML = \
+			'<div class="tqb-condition-field">' +
+				'<label class="tqb-field-label" for="tqb-cond-' + itemId + '-' + newIndex + '-type">Type</label>' +
+				'<select name="items[' + itemId + '][threshold_conditions][' + newIndex + '][type]" id="tqb-cond-' + itemId + '-' + newIndex + '-type" class="tqb-input tqb-cond-type">' +
+					'<option value="qty" selected>Quantity</option>' +
+					'<option value="dollar_value">Total value ($)</option>' +
+				'</select>' +
+			'</div>' +
+			'<div class="tqb-condition-field">' +
+				'<label class="tqb-field-label" for="tqb-cond-' + itemId + '-' + newIndex + '-operator">Operator</label>' +
+				'<select name="items[' + itemId + '][threshold_conditions][' + newIndex + '][operator]" id="tqb-cond-' + itemId + '-' + newIndex + '-operator" class="tqb-input tqb-cond-operator">' +
+					'<option value="above" selected>Above (&gt;)</option>' +
+					'<option value="below">Below (&lt;)</option>' +
+				'</select>' +
+			'</div>' +
+			'<div class="tqb-condition-field">' +
+				'<label class="tqb-field-label" for="tqb-cond-' + itemId + '-' + newIndex + '-value">Value</label>' +
+				'<input type="number" step="1" min="0" ' +
+					'name="items[' + itemId + '][threshold_conditions][' + newIndex + '][value]" ' +
+					'id="tqb-cond-' + itemId + '-' + newIndex + '-value" ' +
+					'value="" placeholder="e.g., 100" class="tqb-input tqb-cond-value" />' +
+			'</div>';
+
+		conditionsContainer.appendChild(newRow);
+
+		// Update logic toggle visibility
+		tqbUpdateLogicToggleVisibility(itemId);
+	}
+
+	/**
+	 * Update the visibility of the AND/OR logic toggle based on condition count.
+	 *
+	 * @param {string|number} itemId The item ID.
+	 */
+	function tqbUpdateLogicToggleVisibility(itemId) {
+		const conditionsContainer = document.getElementById('tqb-conditions-' + itemId);
+		const logicRow = document.getElementById('tqb-logic-row-' + itemId);
+
+		if (!conditionsContainer || !logicRow) return;
+
+		const conditionCount = conditionsContainer.querySelectorAll('.tqb-threshold-condition-row').length;
+		logicRow.style.display = conditionCount >= 2 ? '' : 'none';
+	}
+
+	// Expose for use in admin JS (tqb-admin.js)
+	window.tqbInitThresholdControls = tqbInitThresholdControls;
+	window.tqbAddThresholdCondition = tqbAddThresholdCondition;
+	window.tqbUpdateLogicToggleVisibility = tqbUpdateLogicToggleVisibility;
 
 </script>

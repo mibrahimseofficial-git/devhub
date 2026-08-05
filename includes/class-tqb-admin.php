@@ -303,7 +303,7 @@ class TQB_Admin {
 	 * wp_tqb_line_items table structure — quote_type in the hidden field
 	 * tells us which set of items was submitted.
 	 */
-	public function handle_save_line_items() {
+			public function handle_save_line_items() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You do not have permission to do this.', 'tavola-quote-builder' ) );
 		}
@@ -329,26 +329,45 @@ class TQB_Admin {
 				$filing_status = null;
 			}
 
-			// Parse threshold rules (inline single-condition format)
+			// Parse threshold rules (multi-condition format)
 			$threshold_rules = null;
 			$threshold_mode  = isset( $fields['threshold_mode'] ) ? sanitize_key( $fields['threshold_mode'] ) : 'none';
 
 			if ( 'custom' === $threshold_mode ) {
-				$threshold_type     = isset( $fields['threshold_type'] ) ? sanitize_key( $fields['threshold_type'] ) : 'qty';
-				$threshold_operator = isset( $fields['threshold_operator'] ) ? sanitize_key( $fields['threshold_operator'] ) : 'above';
-				$threshold_value    = isset( $fields['threshold_value'] ) && '' !== $fields['threshold_value'] ? (float) $fields['threshold_value'] : null;
+				$threshold_conditions = isset( $fields['threshold_conditions'] ) ? (array) $fields['threshold_conditions'] : array();
 
-				// Only create threshold rule if value is provided
-				if ( null !== $threshold_value ) {
+				// Build the conditions array from submitted data
+				$parsed_conditions = array();
+				foreach ( $threshold_conditions as $condition ) {
+					if ( ! is_array( $condition ) ) {
+						continue;
+					}
+
+					$cond_type     = isset( $condition['type'] ) ? sanitize_key( $condition['type'] ) : 'qty';
+					$cond_operator = isset( $condition['operator'] ) ? sanitize_key( $condition['operator'] ) : 'above';
+					$cond_value   = isset( $condition['value'] ) && '' !== $condition['value'] ? (float) $condition['value'] : null;
+
+					// Only add condition if value is provided
+					if ( null !== $cond_value ) {
+						$parsed_conditions[] = array(
+							'type'     => $cond_type,
+							'operator' => $cond_operator,
+							'value'    => $cond_value,
+						);
+					}
+				}
+
+				// Only create threshold rule if at least one valid condition exists
+				if ( ! empty( $parsed_conditions ) ) {
+					$threshold_logic = isset( $fields['threshold_logic'] ) ? sanitize_key( $fields['threshold_logic'] ) : 'AND';
+					// Ensure logic is either AND or OR
+					if ( ! in_array( $threshold_logic, array( 'AND', 'OR' ), true ) ) {
+						$threshold_logic = 'AND';
+					}
+
 					$threshold_rules = wp_json_encode( array(
-						'logic'      => 'AND',
-						'conditions' => array(
-							array(
-								'type'     => $threshold_type,
-								'operator' => $threshold_operator,
-								'value'    => $threshold_value,
-							),
-						),
+						'logic'      => $threshold_logic,
+						'conditions' => $parsed_conditions,
 					) );
 				}
 			}
@@ -362,7 +381,7 @@ class TQB_Admin {
 				$threshold_trigger = null;
 			}
 
-			TQB_DB::update_line_item( $item_id, array(
+			$update_data = array(
 				'label'             => $label,
 				'tooltip'           => $tooltip,
 				'fee'               => $fee,
@@ -371,10 +390,12 @@ class TQB_Admin {
 				'reveal_followup'   => $reveal_followup,
 				'sort_order'        => $sort_order,
 				'filing_status'     => $filing_status,
-				'threshold_rules'   => $threshold_rules,
 				'threshold_qty'     => $threshold_qty,
 				'threshold_trigger' => $threshold_trigger,
-			) );
+				'threshold_rules'   => $threshold_rules,
+			);
+
+			TQB_DB::update_line_item( $item_id, $update_data );
 		}
 
 		$redirect_tab = ( 'business' === $quote_type ) ? 'business' : 'individual';
