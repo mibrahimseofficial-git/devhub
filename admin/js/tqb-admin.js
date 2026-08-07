@@ -203,6 +203,14 @@ function tqbAddLineItem( quoteType ) {
 						class="tqb-input" placeholder="Item label" />
 					<code class="tqb-item-key">new_item_${Math.abs(newId)}</code>
 				</div>
+
+				<label style="display: flex; align-items: center; gap: 4px; color:#dc2626; font-weight:600; cursor: pointer; font-size: 12px; margin: 4px 0;">
+					<input type="checkbox"
+						name="items[${newId}][is_custom_quote_trigger]"
+						value="1" />
+					Yes - Custom Quote
+				</label>
+
 				<div class="tqb-tooltip-section">
 					<label class="tqb-cell-label">Tooltip / Help Text</label>
 					<textarea
@@ -211,14 +219,88 @@ function tqbAddLineItem( quoteType ) {
 						placeholder="Optional help text for users..."
 						class="tqb-textarea"></textarea>
 				</div>
-			</td>
 
-			<!-- Fee -->
-			<td>
-				<input type="number" step="0.01" min="0"
-					name="items[${newId}][fee]"
-					value="0.00"
-					class="tqb-input" />
+				<div class="tqb-tooltip-section">
+					<label class="tqb-cell-label">Quantity Field Label</label>
+					<input type="text"
+						name="items[${newId}][qty_label]"
+						value=""
+						placeholder="e.g. How many rental properties? (blank = no label shown)"
+						class="tqb-input" />
+				</div>
+
+				<div class="tqb-tooltip-section">
+					<label class="tqb-cell-label">Follow-up Yes/No Question</label>
+					<input type="text"
+						name="items[${newId}][followup_yesno_label]"
+						value=""
+						placeholder="e.g. Are any of these in a different state? (blank = no follow-up)"
+						class="tqb-input tqb-followup-label-input" style="margin-bottom: 4px;"
+						data-item-id="${newId}" />
+					<label style="font-size: 12px; display: inline-flex; align-items: center; gap: 4px; color:#dc2626; font-weight:600; cursor: pointer;">
+						<input type="checkbox"
+							name="items[${newId}][followup_yesno_triggers_custom]"
+							value="1" />
+						Yes - Custom Quote
+					</label>
+
+					<div class="tqb-followup-config" data-item-id="${newId}" hidden>
+						<label class="tqb-cell-label" style="margin-top: 10px;">Follow-up Pricing</label>
+						<div class="tqb-followup-pricing-grid">
+							<div>
+								<label style="display: block; font-size: 11px; font-weight: 500; margin-bottom: 2px;">Pattern</label>
+								<select name="items[${newId}][followup_pricing_pattern]" class="tqb-input" style="font-size: 12px;">
+									<option value="qty_times_fee">Qty × Fee</option>
+									<option value="flat" selected>Flat</option>
+								</select>
+							</div>
+							<div>
+								<label style="display: block; font-size: 11px; font-weight: 500; margin-bottom: 2px;">Fee ($)</label>
+								<input type="number" step="0.01" min="0"
+									name="items[${newId}][followup_fee]"
+									value="0"
+									class="tqb-input" style="font-size: 12px;" />
+							</div>
+						</div>
+						<div class="tqb-threshold-inline" data-item-id="followup-${newId}" style="margin-top: 8px;">
+							<label style="display: block; font-size: 11px; font-weight: 500; margin-bottom: 2px;">Threshold</label>
+							<div style="margin-bottom: 8px;">
+								<label style="display: inline-block; margin-right: 12px; font-size: 12px;">
+									<input type="radio" name="items[${newId}][followup_threshold_mode]"
+										value="none" checked />
+									None
+								</label>
+								<label style="display: inline-block; font-size: 12px;">
+									<input type="radio" name="items[${newId}][followup_threshold_mode]"
+										value="custom" />
+									Custom
+								</label>
+							</div>
+							<div class="tqb-threshold-fields" style="display: none;">
+								<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+									<div>
+										<label style="display: block; font-size: 11px; font-weight: 500; margin-bottom: 2px;">Operator</label>
+										<select name="items[${newId}][followup_threshold_operator]" class="tqb-input" style="font-size: 12px;">
+											<option value="above" selected>Above (&gt;)</option>
+											<option value="below">Below (&lt;)</option>
+										</select>
+									</div>
+									<div>
+										<label style="display: block; font-size: 11px; font-weight: 500; margin-bottom: 2px;">Threshold Value</label>
+										<input type="number" step="1" min="0"
+											name="items[${newId}][followup_threshold_value]"
+											value=""
+											placeholder="e.g., 100"
+											class="tqb-input"
+											style="font-size: 12px;" />
+									</div>
+								</div>
+								<input type="hidden" name="items[${newId}][followup_threshold_type]" value="qty" />
+							</div>
+							<input type="hidden" name="items[${newId}][followup_threshold_rules]" value="" />
+						</div>
+					</div>
+				</div>
 			</td>
 
 			<!-- Pattern -->
@@ -229,75 +311,53 @@ function tqbAddLineItem( quoteType ) {
 				</select>
 			</td>
 
-			<!-- Threshold (Multi-Condition Builder) -->
+			<!-- Fee -->
+			<td>
+				<input type="number" step="0.01" min="0"
+					name="items[${newId}][fee]"
+					value="0.00"
+					class="tqb-input" />
+			</td>
+
+			<!-- Threshold -->
 			<td class="tqb-threshold-cell">
 				<div class="tqb-threshold-inline" data-item-id="${newId}">
-					<!-- Mode: None or Custom -->
-					<div class="tqb-threshold-mode-row">
-						<label class="tqb-threshold-mode-label">
-							<input type="radio" name="items[${newId}][threshold_mode]"
+					<div style="margin-bottom: 8px;">
+						<label style="display: inline-block; margin-right: 12px; font-size: 12px;">
+							<input type="radio" name="items[${newId}][threshold_mode]" 
 								value="none" checked />
 							None
 						</label>
-						<label class="tqb-threshold-mode-label">
-							<input type="radio" name="items[${newId}][threshold_mode]"
+						<label style="display: inline-block; font-size: 12px;">
+							<input type="radio" name="items[${newId}][threshold_mode]" 
 								value="custom" />
 							Custom
 						</label>
 					</div>
 
-					<!-- Custom Fields (visible when Custom is selected) -->
 					<div class="tqb-threshold-fields" style="display: none;">
-						<!-- Condition rows container -->
-						<div class="tqb-threshold-conditions" id="tqb-conditions-${newId}">
-							<!-- Single default condition row -->
-							<div class="tqb-threshold-condition-row">
-								<div class="tqb-condition-field">
-									<label class="tqb-field-label">Type</label>
-									<select name="items[${newId}][threshold_conditions][0][type]" class="tqb-input tqb-cond-type">
-										<option value="qty" selected>Quantity</option>
-										<option value="dollar_value">Total value ($)</option>
-									</select>
-								</div>
-								<div class="tqb-condition-field">
-									<label class="tqb-field-label">Operator</label>
-									<select name="items[${newId}][threshold_conditions][0][operator]" class="tqb-input tqb-cond-operator">
-										<option value="above" selected>Above (&gt;)</option>
-										<option value="below">Below (&lt;)</option>
-									</select>
-								</div>
-								<div class="tqb-condition-field">
-									<label class="tqb-field-label">Value</label>
-									<input type="number" step="1" min="0"
-										name="items[${newId}][threshold_conditions][0][value]"
-										value=""
-										placeholder="e.g., 100"
-										class="tqb-input tqb-cond-value" />
-								</div>
+						<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+							<div>
+								<label style="display: block; font-size: 11px; font-weight: 500; margin-bottom: 2px;">Operator</label>
+								<select name="items[${newId}][threshold_operator]" class="tqb-input" style="font-size: 12px;">
+									<option value="above" selected>Above (&gt;)</option>
+									<option value="below">Below (&lt;)</option>
+								</select>
+							</div>
+							<div>
+								<label style="display: block; font-size: 11px; font-weight: 500; margin-bottom: 2px;">Threshold Value</label>
+								<input type="number" step="1" min="0" 
+									name="items[${newId}][threshold_value]"
+									value=""
+									placeholder="e.g., 100"
+									class="tqb-input" 
+									style="font-size: 12px;" />
 							</div>
 						</div>
-
-						<!-- Logic toggle (shown only when 2+ conditions exist) -->
-						<div class="tqb-threshold-logic-row" id="tqb-logic-row-${newId}" style="display: none;">
-							<label class="tqb-threshold-mode-label">
-								<input type="radio" name="items[${newId}][threshold_logic]"
-									value="OR" checked />
-								Match ANY (OR)
-							</label>
-							<label class="tqb-threshold-mode-label">
-								<input type="radio" name="items[${newId}][threshold_logic]"
-									value="AND" />
-								Match ALL (AND)
-							</label>
-						</div>
-
-						<!-- Add condition button -->
-						<button type="button" class="tqb-btn tqb-btn-secondary tqb-btn-add-condition"
-							data-item-id="${newId}">
-							<span class="dashicons dashicons-plus-alt"></span>
-							Add Condition
-						</button>
+						<input type="hidden" name="items[${newId}][threshold_type]" value="qty" />
 					</div>
+
+					<input type="hidden" name="items[${newId}][threshold_rules]" value="" />
 				</div>
 			</td>
 
@@ -325,20 +385,14 @@ function tqbAddLineItem( quoteType ) {
 					<span class="dashicons dashicons-trash"></span>
 				</button>
 			</td>
-
-			<!-- Internal Info -->
-			<td style="font-size:11px; color:#64748b;">
-				<span style="color:#1e90ff;">New item</span>
-			</td>
 		</tr>
 	`;
 
 	table.insertAdjacentHTML( 'beforeend', html );
 
-	// Initialize threshold controls for the new row
-	if ( window.tqbInitThresholdControls ) {
-		window.tqbInitThresholdControls();
-	}
+	// Reattach event listeners for the new row
+	tqbInitThresholdListeners();
+	tqbInitFollowupLabelListeners();
 }
 
 // Delete line item row
@@ -380,12 +434,63 @@ function tqbUpdateSortOrder() {
 	} );
 }
 
+// Initialize threshold field visibility listeners
+function tqbInitThresholdListeners() {
+	const thresholdRows = document.querySelectorAll( '.tqb-threshold-inline' );
+	thresholdRows.forEach( row => {
+		const itemId = row.getAttribute( 'data-item-id' );
+		const modeRadios = row.querySelectorAll( 'input[type="radio"][name*="threshold_mode"]' );
+		const fieldsDiv = row.querySelector( '.tqb-threshold-fields' );
+		
+		modeRadios.forEach( radio => {
+			radio.removeEventListener( 'change', handleThresholdModeChange );
+			radio.addEventListener( 'change', handleThresholdModeChange );
+		} );
+	} );
+}
+
+function handleThresholdModeChange( e ) {
+	const row = e.target.closest( '.tqb-threshold-inline' );
+	const fieldsDiv = row.querySelector( '.tqb-threshold-fields' );
+	if ( fieldsDiv ) {
+		fieldsDiv.style.display = e.target.value === 'custom' ? 'block' : 'none';
+	}
+}
+
+// Reveals/hides the single consolidated "Follow-up Pricing" panel live as
+// the admin types into "Follow-up Yes/No Question" — one toggle per item
+// now instead of three (Pattern/Fee/Threshold used to each have their own
+// scattered copy), since the panel itself was consolidated into one place
+// right under the follow-up question. Without this, an item with no
+// follow-up configured yet would show the panel not at all until a
+// save-and-reload, which looked like a bug rather than "nothing to
+// configure here yet."
+function tqbInitFollowupLabelListeners() {
+	const followupLabelInputs = document.querySelectorAll( '.tqb-followup-label-input' );
+	followupLabelInputs.forEach( input => {
+		input.removeEventListener( 'input', handleFollowupLabelInput );
+		input.addEventListener( 'input', handleFollowupLabelInput );
+	} );
+}
+
+function handleFollowupLabelInput( e ) {
+	// Allow a leading minus sign — newly-added rows (via "Add Item") use
+	// negative temporary IDs until saved.
+	const itemId = e.target.getAttribute( 'data-item-id' );
+	if ( ! itemId ) {
+		return;
+	}
+	const hasFollowup = e.target.value.trim().length > 0;
+	const configBlock = document.querySelector( `.tqb-followup-config[data-item-id="${ itemId }"]` );
+	if ( configBlock ) {
+		configBlock.hidden = ! hasFollowup;
+	}
+}
+
 // Initialize on page load
 document.addEventListener( 'DOMContentLoaded', function() {
-	// Initialize threshold controls if the function is defined in the view
-	if ( window.tqbInitThresholdControls ) {
-		window.tqbInitThresholdControls();
-	}
+	tqbInitThresholdListeners();
+	tqbInitFollowupLabelListeners();
 	
 	// Add click handler to the Add Item button
 	const addBtn = document.querySelector( '.tqb-btn-add-item' );

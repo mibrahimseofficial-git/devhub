@@ -72,6 +72,38 @@ class TQB_Admin {
 			tqb_asset_version( 'admin/js/tqb-submissions.js' ),
 			true
 		);
+
+		// The View Detail modal previously had no access to real question
+		// labels at all — it faked one from the raw item_key ("rental_property"
+		// -> "Rental Property") and had no way to show follow-up answers,
+		// dollar values, or the follow-up's own charge, since it never had
+		// this data in the first place. Pull ALL items (not just active
+		// ones — a submission can reference an item that's since been
+		// deactivated) for both quote types, keyed by [quote_type][item_key]
+		// since the same item_key (e.g. "multi_state") exists under both
+		// individual and business.
+		global $wpdb;
+		$items_table = $wpdb->prefix . TQB_TABLE_LINE_ITEMS;
+		$all_items   = $wpdb->get_results( "SELECT * FROM {$items_table}", ARRAY_A );
+		$line_items_by_type = array( 'individual' => array(), 'business' => array() );
+		foreach ( (array) $all_items as $item ) {
+			$type = $item['quote_type'];
+			if ( ! isset( $line_items_by_type[ $type ] ) ) {
+				$line_items_by_type[ $type ] = array();
+			}
+			$line_items_by_type[ $type ][ $item['item_key'] ] = array(
+				'label'                    => $item['label'],
+				'qty_label'                => $item['qty_label'],
+				'pricing_pattern'          => $item['pricing_pattern'],
+				'fee'                      => (float) $item['fee'],
+				'followup_yesno_label'     => $item['followup_yesno_label'],
+				'followup_pricing_pattern' => $item['followup_pricing_pattern'],
+				'followup_fee'             => isset( $item['followup_fee'] ) ? (float) $item['followup_fee'] : 0,
+			);
+		}
+		wp_localize_script( 'tqb-submissions', 'tqbSubmissionsData', array(
+			'lineItems' => $line_items_by_type,
+		) );
 	}
 
 	public function register_menu() {
@@ -89,6 +121,18 @@ class TQB_Admin {
 	public function maybe_show_saved_notice() {
 		if ( isset( $_GET['tqb_saved'] ) && '1' === $_GET['tqb_saved'] ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			echo '<div class="notice notice-success is-dismissible"><p>Pricing settings saved.</p></div>';
+		}
+
+		// Previously a completely silent failure (see the fix in
+		// TQB_DB::update_line_item()) — the redirect always fired and
+		// claimed success regardless of whether the SQL update actually
+		// worked. Now surfaces the count here, with the real per-item SQL
+		// error logged via error_log() for whoever's debugging it.
+		if ( isset( $_GET['tqb_save_failed'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$failed_count = absint( $_GET['tqb_save_failed'] );
+			echo '<div class="notice notice-error is-dismissible"><p>'
+				. esc_html( sprintf( '%d item(s) failed to save. Check the PHP error log for the specific database error.', $failed_count ) )
+				. '</p></div>';
 		}
 	}
 
@@ -303,7 +347,7 @@ class TQB_Admin {
 	 * wp_tqb_line_items table structure — quote_type in the hidden field
 	 * tells us which set of items was submitted.
 	 */
-			public function handle_save_line_items() {
+	public function handle_save_line_items() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You do not have permission to do this.', 'tavola-quote-builder' ) );
 		}
@@ -312,6 +356,7 @@ class TQB_Admin {
 
 		$quote_type = isset( $_POST['quote_type'] ) ? sanitize_key( $_POST['quote_type'] ) : '';
 		$items      = isset( $_POST['items'] ) ? (array) $_POST['items'] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		$failed_item_ids = array();
 
 		foreach ( $items as $item_id => $fields ) {
 			$item_id         = absint( $item_id );
@@ -321,6 +366,11 @@ class TQB_Admin {
 			$pricing_pattern = isset( $fields['pricing_pattern'] ) ? sanitize_key( $fields['pricing_pattern'] ) : 'qty_times_fee';
 			$is_active = isset( $fields['is_active'] ) ? 1 : 0;
 
+			// Custom-quote-trigger checkbox (previously DB-only, no admin
+			// control — client feedback email, Aug 2026, raised the gap
+			// while confirming Issue #17 / audit_support).
+			$is_custom_quote_trigger = isset( $fields['is_custom_quote_trigger'] ) ? 1 : 0;
+
 			// New fields (Task 2)
 			$reveal_followup = isset( $fields['reveal_followup'] ) ? 1 : 0;
 			$sort_order      = isset( $fields['sort_order'] ) ? (int) $fields['sort_order'] : 0;
@@ -329,77 +379,131 @@ class TQB_Admin {
 				$filing_status = null;
 			}
 
-			// Parse threshold rules (multi-condition format)
-			$threshold_rules = null;
-			$threshold_mode  = isset( $fields['threshold_mode'] ) ? sanitize_key( $fields['threshold_mode'] ) : 'none';
+			// Custom quantity-field wording + optional follow-up yes/no question
+			// (client feedback email, Aug 2026 — Issues #3/#4/#5/#6/#9/#11).
+			$qty_label = isset( $fields['qty_label'] ) ? sanitize_text_field( wp_unslash( $fields['qty_label'] ) ) : '';
+			if ( '' === $qty_label ) {
+				$qty_label = null;
+			}
+			$followup_yesno_label = isset( $fields['followup_yesno_label'] ) ? sanitize_text_field( wp_unslash( $fields['followup_yesno_label'] ) ) : '';
+			if ( '' === $followup_yesno_label ) {
+				$followup_yesno_label = null;
+			}
+			$followup_yesno_triggers_custom = isset( $fields['followup_yesno_triggers_custom'] ) ? 1 : 0;
 
-			if ( 'custom' === $threshold_mode ) {
-				$threshold_conditions = isset( $fields['threshold_conditions'] ) ? (array) $fields['threshold_conditions'] : array();
+			// Follow-up's own pricing — independent of the parent item's Fee/
+			// Pattern/Threshold. Lets a follow-up (e.g. "different state?")
+			// add its own charge, require its own quantity, or trigger custom
+			// quote via its own threshold, separate from the parent question.
+			$followup_pricing_pattern = isset( $fields['followup_pricing_pattern'] ) ? sanitize_key( $fields['followup_pricing_pattern'] ) : 'flat';
+			$followup_fee             = isset( $fields['followup_fee'] ) ? (float) $fields['followup_fee'] : 0;
 
-				// Build the conditions array from submitted data
-				$parsed_conditions = array();
-				foreach ( $threshold_conditions as $condition ) {
-					if ( ! is_array( $condition ) ) {
-						continue;
-					}
+			$followup_threshold_rules = null;
+			$followup_threshold_mode  = isset( $fields['followup_threshold_mode'] ) ? sanitize_key( $fields['followup_threshold_mode'] ) : 'none';
+			if ( 'custom' === $followup_threshold_mode ) {
+				$followup_threshold_type     = isset( $fields['followup_threshold_type'] ) ? sanitize_key( $fields['followup_threshold_type'] ) : 'qty';
+				$followup_threshold_operator = isset( $fields['followup_threshold_operator'] ) ? sanitize_key( $fields['followup_threshold_operator'] ) : 'above';
+				$followup_threshold_value    = isset( $fields['followup_threshold_value'] ) && '' !== $fields['followup_threshold_value'] ? (float) $fields['followup_threshold_value'] : null;
 
-					$cond_type     = isset( $condition['type'] ) ? sanitize_key( $condition['type'] ) : 'qty';
-					$cond_operator = isset( $condition['operator'] ) ? sanitize_key( $condition['operator'] ) : 'above';
-					$cond_value   = isset( $condition['value'] ) && '' !== $condition['value'] ? (float) $condition['value'] : null;
-
-					// Only add condition if value is provided
-					if ( null !== $cond_value ) {
-						$parsed_conditions[] = array(
-							'type'     => $cond_type,
-							'operator' => $cond_operator,
-							'value'    => $cond_value,
-						);
-					}
-				}
-
-				// Only create threshold rule if at least one valid condition exists
-				if ( ! empty( $parsed_conditions ) ) {
-					$threshold_logic = isset( $fields['threshold_logic'] ) ? sanitize_key( $fields['threshold_logic'] ) : 'AND';
-					// Ensure logic is either AND or OR
-					if ( ! in_array( $threshold_logic, array( 'AND', 'OR' ), true ) ) {
-						$threshold_logic = 'AND';
-					}
-
-					$threshold_rules = wp_json_encode( array(
-						'logic'      => $threshold_logic,
-						'conditions' => $parsed_conditions,
+				if ( null !== $followup_threshold_value ) {
+					$followup_threshold_rules = wp_json_encode( array(
+						'logic'      => 'AND',
+						'conditions' => array(
+							array(
+								'type'     => $followup_threshold_type,
+								'operator' => $followup_threshold_operator,
+								'value'    => $followup_threshold_value,
+							),
+						),
 					) );
 				}
 			}
 
-			// Backward compat: legacy threshold fields (kept for rollback)
-			$threshold_qty = ( isset( $fields['threshold_qty'] ) && '' !== $fields['threshold_qty'] )
-				? (float) $fields['threshold_qty']
-				: null;
-			$threshold_trigger = isset( $fields['threshold_trigger'] ) ? sanitize_key( $fields['threshold_trigger'] ) : null;
-			if ( empty( $threshold_trigger ) ) {
-				$threshold_trigger = null;
+			// Parse threshold rules (inline single-condition format)
+			$threshold_rules = null;
+			$threshold_mode  = isset( $fields['threshold_mode'] ) ? sanitize_key( $fields['threshold_mode'] ) : 'none';
+
+			if ( 'custom' === $threshold_mode ) {
+				$threshold_type     = isset( $fields['threshold_type'] ) ? sanitize_key( $fields['threshold_type'] ) : 'qty';
+				$threshold_operator = isset( $fields['threshold_operator'] ) ? sanitize_key( $fields['threshold_operator'] ) : 'above';
+				$threshold_value    = isset( $fields['threshold_value'] ) && '' !== $fields['threshold_value'] ? (float) $fields['threshold_value'] : null;
+
+				// Only create threshold rule if value is provided
+				if ( null !== $threshold_value ) {
+					$threshold_rules = wp_json_encode( array(
+						'logic'      => 'AND',
+						'conditions' => array(
+							array(
+								'type'     => $threshold_type,
+								'operator' => $threshold_operator,
+								'value'    => $threshold_value,
+							),
+						),
+					) );
+				}
 			}
 
+			// threshold_qty/threshold_trigger were the old pre-JSON threshold
+			// format — replaced by threshold_rules and dropped from the schema
+			// entirely by cleanup_deprecated_schema(). This handler kept
+			// writing to them anyway (a stale leftover from before that
+			// cleanup), which silently broke every single save on any site
+			// where the drop migration had already run: $wpdb->update() fails
+			// its entire query if even one column in the SET clause doesn't
+			// exist, so this alone was enough to make every field on every
+			// item fail to save, not just these two.
+
 			$update_data = array(
-				'label'             => $label,
-				'tooltip'           => $tooltip,
-				'fee'               => $fee,
-				'pricing_pattern'   => $pricing_pattern,
-				'is_active'         => $is_active,
-				'reveal_followup'   => $reveal_followup,
-				'sort_order'        => $sort_order,
-				'filing_status'     => $filing_status,
-				'threshold_qty'     => $threshold_qty,
-				'threshold_trigger' => $threshold_trigger,
-				'threshold_rules'   => $threshold_rules,
+				'label'                          => $label,
+				'tooltip'                        => $tooltip,
+				'fee'                            => $fee,
+				'pricing_pattern'                => $pricing_pattern,
+				'is_active'                      => $is_active,
+				'is_custom_quote_trigger'        => $is_custom_quote_trigger,
+				'reveal_followup'                => $reveal_followup,
+				'sort_order'                     => $sort_order,
+				'filing_status'                  => $filing_status,
+				'qty_label'                      => $qty_label,
+				'followup_yesno_label'           => $followup_yesno_label,
+				'followup_yesno_triggers_custom' => $followup_yesno_triggers_custom,
+				'followup_pricing_pattern'       => $followup_pricing_pattern,
+				'followup_fee'                   => $followup_fee,
+				'followup_threshold_rules'       => $followup_threshold_rules,
 			);
 
-			TQB_DB::update_line_item( $item_id, $update_data );
+			// The crypto item's threshold is a compound OR rule (transaction
+			// count OR dollar value) that the single-condition inline editor
+			// above can't represent — it only ever posts one condition, always
+			// type "qty". Including threshold_rules here on every save would
+			// silently flatten crypto's rule back down to qty-only. Until the
+			// editor supports multiple/OR'd conditions, leave crypto's
+			// threshold_rules column untouched; it's managed directly via the
+			// seed data / DB instead.
+			$item_key = TQB_DB::get_item_key( $item_id );
+			if ( 'crypto' !== $item_key ) {
+				$update_data['threshold_rules'] = $threshold_rules;
+			}
+
+			$save_ok = TQB_DB::update_line_item( $item_id, $update_data );
+			if ( ! $save_ok ) {
+				$failed_item_ids[] = $item_id;
+			}
 		}
 
 		$redirect_tab = ( 'business' === $quote_type ) ? 'business' : 'individual';
-		wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=' . $redirect_tab . '&tqb_saved=1' ) );
+		$redirect_url = admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=' . $redirect_tab . '&tqb_saved=1' );
+
+		// Surface save failures in the UI instead of the previous silent
+		// failure, where the redirect always fired regardless of whether
+		// anything actually persisted — check the PHP error log for the
+		// specific SQL error per item (logged in TQB_DB::update_line_item()).
+		if ( ! empty( $failed_item_ids ) ) {
+			$redirect_url = add_query_arg( array(
+				'tqb_save_failed' => count( $failed_item_ids ),
+			), $redirect_url );
+		}
+
+		wp_safe_redirect( $redirect_url );
 		exit;
 	}
 
