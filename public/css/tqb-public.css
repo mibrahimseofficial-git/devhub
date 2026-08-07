@@ -819,6 +819,13 @@
 	gap: 4px;
 }
 
+/* Higher specificity than the flex rule above so the JS-toggled `hidden`
+   attribute (used to keep the quantity field out of view until "Yes" is
+   answered) actually hides it, instead of being overridden by display:flex. */
+.tqb-question-row__qty-wrap[hidden] {
+	display: none;
+}
+
 .tqb-question-row__qty-label {
 	font-size: 11px;
 	color: var(--tqb-text-muted);
@@ -849,6 +856,36 @@
 }
 
 .tqb-question-row__qty:disabled {
+	background: var(--tqb-bg) !important;
+	color: var(--tqb-text-muted);
+	border-color: var(--tqb-line);
+	opacity: 0.6;
+}
+
+/* Total-value field (e.g. crypto's "$100K" threshold input) — same look as
+   the quantity field, just wider to comfortably fit a dollar amount. */
+.tqb-question-row__dollar {
+	width: 100px !important;
+	min-width: 100px !important;
+	max-width: 100px !important;
+	padding: 8px 10px !important;
+	border: 1px solid var(--tqb-line) !important;
+	border-radius: 4px !important;
+	font-size: 15px !important;
+	font-weight: 500;
+	text-align: center !important;
+	flex-shrink: 0 !important;
+	background: #fff !important;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tqb-question-row__dollar:focus {
+	border-color: var(--tqb-focus) !important;
+	box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+	outline: none;
+}
+
+.tqb-question-row__dollar:disabled {
 	background: var(--tqb-bg) !important;
 	color: var(--tqb-text-muted);
 	border-color: var(--tqb-line);

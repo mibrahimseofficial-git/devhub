@@ -748,6 +748,27 @@
 		container.appendChild( section );
 	}
 
+	// =====================================================================
+	// Reads a question's threshold_rules JSON (if any) and returns the
+	// dollar_value condition within it, if one exists. Kept generic (keyed
+	// off the JSON shape, not the item_key) so any item configured with a
+	// dollar-value threshold gets the extra input automatically — not just
+	// crypto specifically.
+	// =====================================================================
+	function getDollarValueCondition( question ) {
+		if ( ! question.threshold_rules ) return null;
+		try {
+			var rules = JSON.parse( question.threshold_rules );
+			if ( ! rules || ! Array.isArray( rules.conditions ) ) return null;
+			for ( var i = 0; i < rules.conditions.length; i++ ) {
+				if ( rules.conditions[ i ].type === 'dollar_value' ) {
+					return rules.conditions[ i ];
+				}
+			}
+		} catch ( e ) { /* malformed JSON — treat as no dollar condition */ }
+		return null;
+	}
+
 	function createQuestionElement( questionContext, question, questionIndex ) {
 		var wrapper = document.createElement( 'div' );
 		wrapper.className = 'tqb-question-row';
@@ -756,6 +777,11 @@
 
 		// Quantity field only makes sense when price = qty × fee
 		var showQty = ( question.pricing_pattern === 'qty_times_fee' );
+
+		// reveal_followup: 1 (default) = hide the quantity field entirely until
+		// "Yes" is checked; 0 = legacy behavior, field stays visible (disabled
+		// until checked). Comes from the DB as a string/number, so compare loosely.
+		var revealFollowup = ! ( parseInt( question.reveal_followup, 10 ) === 0 );
 
 		// LEFT: checkbox + label + tooltip hint below label
 		var mainDiv = document.createElement( 'div' );
@@ -789,10 +815,29 @@
 		mainDiv.appendChild( textWrap );
 		wrapper.appendChild( mainDiv );
 
-		// RIGHT: quantity field — only for qty_times_fee pricing pattern, always visible, disabled until checked
+		// RIGHT: quantity field — only for qty_times_fee pricing pattern.
+		// When revealFollowup is on (the normal case), the field is hidden
+		// entirely until "Yes" is checked, per the client's request that a
+		// follow-up like "How many states?" only appear once relevant.
+		var dollarCondition = getDollarValueCondition( question );
+
 		if ( showQty ) {
 			var qtyWrap = document.createElement( 'div' );
 			qtyWrap.className = 'tqb-question-row__qty-wrap';
+			if ( revealFollowup ) {
+				qtyWrap.hidden = true;
+			}
+
+			// Only label the field when it's paired with a dollar-value field
+			// too (e.g. crypto), so it's clear which number is which. Solo
+			// quantity fields keep their existing unlabeled look.
+			if ( dollarCondition ) {
+				var qtyLabel = document.createElement( 'label' );
+				qtyLabel.className = 'tqb-question-row__qty-label';
+				qtyLabel.textContent = 'Transactions';
+				qtyLabel.htmlFor = 'tqb-quantity-' + questionContext + '_' + question.item_key;
+				qtyWrap.appendChild( qtyLabel );
+			}
 
 			var quantityInput = document.createElement( 'input' );
 			quantityInput.type = 'number';
@@ -800,13 +845,46 @@
 			quantityInput.className = 'tqb-question-row__qty';
 			quantityInput.min = '0';
 			quantityInput.placeholder = '1';
-			quantityInput.disabled = true;
+			quantityInput.disabled = revealFollowup ? false : true;
 			quantityInput.addEventListener( 'change', function () {
 				onQuantityChanged( questionContext, question, this.value );
 			} );
 
 			qtyWrap.appendChild( quantityInput );
 			wrapper.appendChild( qtyWrap );
+		}
+
+		// Total dollar-value field — only rendered for items configured with
+		// a dollar_value threshold condition (currently crypto: "over 100
+		// transactions OR $100K in value" routes to a custom quote). Follows
+		// the same reveal-on-yes behavior as the quantity field above.
+		if ( dollarCondition ) {
+			var dollarWrap = document.createElement( 'div' );
+			dollarWrap.className = 'tqb-question-row__qty-wrap';
+			if ( revealFollowup ) {
+				dollarWrap.hidden = true;
+			}
+
+			var dollarLabel = document.createElement( 'label' );
+			dollarLabel.className = 'tqb-question-row__qty-label';
+			dollarLabel.textContent = 'Total value ($)';
+			dollarLabel.htmlFor = 'tqb-dollar-' + questionContext + '_' + question.item_key;
+			dollarWrap.appendChild( dollarLabel );
+
+			var dollarInput = document.createElement( 'input' );
+			dollarInput.type = 'number';
+			dollarInput.id = 'tqb-dollar-' + questionContext + '_' + question.item_key;
+			dollarInput.className = 'tqb-question-row__dollar';
+			dollarInput.min = '0';
+			dollarInput.step = '1';
+			dollarInput.placeholder = '0.00';
+			dollarInput.disabled = revealFollowup ? false : true;
+			dollarInput.addEventListener( 'change', function () {
+				onDollarValueChanged( questionContext, question, this.value );
+			} );
+
+			dollarWrap.appendChild( dollarInput );
+			wrapper.appendChild( dollarWrap );
 		}
 
 		return wrapper;
@@ -935,22 +1013,54 @@
 			question_key: question.item_key,
 			context: questionContext,
 			answer: answer,
-			quantity: 0
+			quantity: 0,
+			dollar_value: 0
 		};
 
-		// Enable/disable quantity field (always visible, editable only when checked)
+		var revealFollowup = ! ( parseInt( question.reveal_followup, 10 ) === 0 );
+
+		// Show/hide (or enable/disable, for legacy reveal_followup=0 items)
+		// the quantity field based on the answer.
 		if ( question.pricing_pattern === 'qty_times_fee' ) {
 			var quantityInput = wizard.querySelector(
 				'[data-question-context="' + questionContext + '"][data-question-key="' + question.item_key + '"] .tqb-question-row__qty'
 			);
 			if ( quantityInput ) {
-				quantityInput.disabled = ( answer !== 'yes' );
+				var qtyWrap = quantityInput.closest( '.tqb-question-row__qty-wrap' );
+
+				if ( revealFollowup && qtyWrap ) {
+					qtyWrap.hidden = ( answer !== 'yes' );
+				} else {
+					quantityInput.disabled = ( answer !== 'yes' );
+				}
+
 				if ( answer === 'yes' && ! quantityInput.value ) {
 					quantityInput.value = 1;
 					state.answers[ key ].quantity = 1;
+					if ( revealFollowup ) {
+						quantityInput.focus();
+					}
 				} else if ( answer !== 'yes' ) {
 					quantityInput.value = '';
 				}
+			}
+		}
+
+		// Same reveal/hide behavior for the dollar-value field, when present.
+		var dollarInput = wizard.querySelector(
+			'[data-question-context="' + questionContext + '"][data-question-key="' + question.item_key + '"] .tqb-question-row__dollar'
+		);
+		if ( dollarInput ) {
+			var dollarWrap = dollarInput.closest( '.tqb-question-row__qty-wrap' );
+
+			if ( revealFollowup && dollarWrap ) {
+				dollarWrap.hidden = ( answer !== 'yes' );
+			} else {
+				dollarInput.disabled = ( answer !== 'yes' );
+			}
+
+			if ( answer !== 'yes' ) {
+				dollarInput.value = '';
 			}
 		}
 
@@ -962,6 +1072,16 @@
 		var key = questionContext + '_' + question.item_key;
 		if ( state.answers[ key ] ) {
 			state.answers[ key ].quantity = parseInt( quantity, 10 ) || 0;
+		}
+
+		state.summaryNeedsUpdate = true;
+		updateSummaryPanel();
+	}
+
+	function onDollarValueChanged( questionContext, question, dollarValue ) {
+		var key = questionContext + '_' + question.item_key;
+		if ( state.answers[ key ] ) {
+			state.answers[ key ].dollar_value = parseFloat( dollarValue ) || 0;
 		}
 
 		state.summaryNeedsUpdate = true;
@@ -1163,6 +1283,31 @@
 	// =====================================================================
 	// SUBMIT AND QUOTE RESULT
 	// =====================================================================
+	// =====================================================================
+	// Transforms the internal live-preview answer shape
+	// { context, question_key, answer, quantity, dollar_value } into the
+	// shape the server expects: a flat map keyed by 'type-index-item_key'
+	// (hyphens, matching TQB_Quote_Handler::filter_answers_with_prefix())
+	// with { selected, qty, dollar_value } values. Shared by both the final
+	// submit and the partial-progress save so they can't drift out of sync.
+	// =====================================================================
+	function buildAnswersForSubmit() {
+		var answersForSubmit = {};
+		Object.keys( state.answers ).forEach( function ( key ) {
+			var a = state.answers[ key ];
+			var contextParts = a.context.split( '_' ); // 'individual_0' -> ['individual','0'], 'business_1' -> ['business','1']
+			var type = contextParts[ 0 ];
+			var idx = contextParts[ 1 ] || '0';
+			var prefixedKey = type + '-' + idx + '-' + a.question_key;
+			answersForSubmit[ prefixedKey ] = {
+				selected: a.answer === 'yes',
+				qty: a.quantity || 1,
+				dollar_value: a.dollar_value || 0
+			};
+		} );
+		return answersForSubmit;
+	}
+
 	function submitQuote( submitBtn ) {
 		submitBtn.disabled = true;
 		var spinner = submitBtn.querySelector( '.tqb-btn__spinner' );
@@ -1196,27 +1341,12 @@
 			params.append( 'businesses[' + b + '][revenue_band]', state.businessRevenueBands[ b ] || '' );
 		}
 
-		// Answers — transform from the internal live-preview shape
-		// { context, question_key, answer, quantity } into the shape the
-		// server expects: a flat map keyed by 'type-index-item_key' (hyphens,
-		// matching TQB_Quote_Handler::filter_answers_with_prefix()) with
-		// { selected, qty } values. Sent as a JSON string and decoded
-		// server-side with json_decode() — NOT WordPress bracket-notation,
-		// and NOT cast with (array), which silently discards it (a bug that
-		// meant every submission's answers were empty until this was found
-		// and fixed on both ends).
-		var answersForSubmit = {};
-		Object.keys( state.answers ).forEach( function ( key ) {
-			var a = state.answers[ key ];
-			var contextParts = a.context.split( '_' ); // 'individual_0' -> ['individual','0'], 'business_1' -> ['business','1']
-			var type = contextParts[ 0 ];
-			var idx = contextParts[ 1 ] || '0';
-			var prefixedKey = type + '-' + idx + '-' + a.question_key;
-			answersForSubmit[ prefixedKey ] = {
-				selected: a.answer === 'yes',
-				qty: a.quantity || 1
-			};
-		} );
+		// Answers — sent as a JSON string and decoded server-side with
+		// json_decode() — NOT WordPress bracket-notation, and NOT cast with
+		// (array), which silently discards it (a bug that meant every
+		// submission's answers were empty until this was found and fixed on
+		// both ends).
+		var answersForSubmit = buildAnswersForSubmit();
 		params.append( 'answers', JSON.stringify( answersForSubmit ) );
 
 		fetch( tqbData.ajaxUrl, {
@@ -1597,18 +1727,7 @@
 		}
 
 		// Format answers in the same shape the submit handler uses
-		var answersForSubmit = {};
-		Object.keys( state.answers ).forEach( function ( key ) {
-			var a = state.answers[ key ];
-			var contextParts = a.context.split( '_' );
-			var type = contextParts[ 0 ];
-			var idx = contextParts[ 1 ] || '0';
-			var prefixedKey = type + '-' + idx + '-' + a.question_key;
-			answersForSubmit[ prefixedKey ] = {
-				selected: a.answer === 'yes',
-				qty: a.quantity || 1
-			};
-		} );
+		var answersForSubmit = buildAnswersForSubmit();
 
 		var params = new URLSearchParams();
 		params.append( 'action', 'tqb_save_partial' );
